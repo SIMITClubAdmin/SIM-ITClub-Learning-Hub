@@ -7,7 +7,7 @@
   --color-grid: #1a2150;
   --color-violet: #6d4aff;
   --color-dim: #b4bfdf;
-  --font-display: var(--font-pixelify), system-ui, sans-serif;
+  --font-display: var(--font-chakra), system-ui, sans-serif;
   --font-sans: var(--font-grotesk), system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, Menlo, monospace;
 }
@@ -125,74 +125,55 @@ html.cc-on .cc-frame {
 
 /* CtaButton */
 .cta {
-  --ox: 6px;
-  --oy: 6px;
   position: relative;
   display: inline-block;
   isolation: isolate;
-  text-decoration: none;
-}
-
-.cta__block {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
+  overflow: hidden;
   background: var(--color-accent);
-  transform: translate(var(--ox), var(--oy));
-  transition: transform 200ms ease-out;
-}
-
-.cta__face {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  background: var(--color-ink);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
   color: var(--color-bg);
-  font-weight: 600;
-  font-size: 1.05rem;
-  padding: 16px 30px;
-  transition: transform 200ms ease-out;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  padding: 12px 24px;
+  transition: color 200ms ease-out;
 }
 
-.cta--lg .cta__face {
-  font-size: 1.5rem;
-  padding: 18px 56px;
+.cta--lg {
+  font-size: 0.9375rem;
+  padding: 15px 36px;
 }
 
-.cta svg {
-  width: 18px;
-  height: 18px;
-  transition: transform 200ms ease-out;
+/* Dark fill that wipes in from the left on hover. */
+.cta::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  z-index: -1;
+  background: var(--color-bg);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 250ms ease-out;
 }
 
-.cta:hover {
-  --ox: 11px;
-  --oy: 2px;
+.cta:hover,
+.cta:focus-visible {
+  color: var(--color-accent);
 }
 
-.cta:hover svg {
-  transform: translateX(3px);
-}
-
-.cta:active {
-  --ox: 2px;
-  --oy: 2px;
-}
-
-.cta:active .cta__face {
-  transform: translate(2px, 2px);
+.cta:hover::before,
+.cta:focus-visible::before {
+  transform: scaleX(1);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .cc-dot,
   .cc-frame,
-  .cta__block,
-  .cta__face,
-  .cta svg {
+  .cta,
+  .cta::before {
     transition: none;
-  }
-
-  .cta:hover svg {
-    transform: none;
   }
 }
