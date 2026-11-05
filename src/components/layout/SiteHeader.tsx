@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { UserMenu } from "./UserMenu";
 
 const NAV = [
   { href: "/learn", label: "Learn" },
@@ -33,9 +34,7 @@ export function SiteHeader() {
             </Link>
           );
         })}
-        <Link href="/login" className="border border-ink px-5 py-2.5">
-          Log in
-        </Link>
+        <UserMenu />
       </nav>
     </header>
   );
