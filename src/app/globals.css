@@ -123,6 +123,47 @@ html.cc-on .cc-frame {
   border-bottom-width: 2px;
 }
 
+/* NavDropdown */
+.nav-panel {
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition:
+    opacity 150ms ease-out,
+    transform 150ms ease-out,
+    visibility 150ms;
+}
+
+.nav-panel[data-open="true"] {
+  visibility: visible;
+  opacity: 1;
+  transform: none;
+}
+
+.nav-chevron {
+  transition: transform 150ms ease-out;
+}
+
+.nav-tooltip {
+  display: none;
+}
+
+.group:hover > .nav-tooltip,
+.group:focus-within > .nav-tooltip {
+  display: block;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-panel,
+  .nav-chevron {
+    transition: none;
+  }
+
+  .nav-panel {
+    transform: none;
+  }
+}
+
 /* CtaButton */
 .cta {
   position: relative;
