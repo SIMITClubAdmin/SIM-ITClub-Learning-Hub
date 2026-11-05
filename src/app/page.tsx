@@ -1,7 +1,5 @@
 import { CtaButton } from "@/components/effects/CtaButton";
 
-const TAGS = ["HTML", "CSS", "JavaScript"];
-
 export default function Home() {
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-8 px-4 py-16 text-center">
@@ -20,13 +18,6 @@ export default function Home() {
           Try exercises
         </CtaButton>
       </div>
-      <ul className="flex flex-wrap justify-center gap-3">
-        {TAGS.map((tag) => (
-          <li key={tag} className="border border-violet bg-bg/85 px-3 py-1 font-mono text-sm">
-            {tag}
-          </li>
-        ))}
-      </ul>
     </main>
   );
 }
