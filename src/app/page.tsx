@@ -1,23 +1,32 @@
-import Link from "next/link";
 import { CtaButton } from "@/components/effects/CtaButton";
+
+const TAGS = ["HTML", "CSS", "JavaScript"];
 
 export default function Home() {
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-12 px-4 py-16 text-center">
+    <main className="flex flex-1 flex-col items-center justify-center gap-8 px-4 py-16 text-center">
+      <p className="font-mono text-sm tracking-widest text-accent uppercase">ITCAMP: HTML, CSS, JS</p>
       <h1 className="max-w-[16ch] text-5xl font-semibold tracking-tight text-balance sm:text-7xl lg:text-8xl">
-        What would you like to do today?
+        Learn to build websites.
       </h1>
+      <p className="max-w-xl text-lg text-pretty text-dim">
+        Learn HTML, CSS, and JavaScript. Do exercises. Earn points and climb the leaderboard.
+      </p>
       <div className="flex flex-wrap justify-center gap-5">
         <CtaButton href="/learn" size="lg">
-          Learn
+          Start learning
         </CtaButton>
         <CtaButton href="/practice" size="lg">
-          Practice
+          Try exercises
         </CtaButton>
       </div>
-      <Link href="/leaderboard" className="text-dim underline underline-offset-4">
-        View the leaderboard
-      </Link>
+      <ul className="flex flex-wrap justify-center gap-3">
+        {TAGS.map((tag) => (
+          <li key={tag} className="border border-violet bg-bg/85 px-3 py-1 font-mono text-sm">
+            {tag}
+          </li>
+        ))}
+      </ul>
     </main>
   );
 }
