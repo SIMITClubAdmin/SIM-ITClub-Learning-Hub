@@ -1,0 +1,191 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #2c0735;
+  --color-ink: #97dffc;
+  --color-accent: #858ae3;
+  --color-grid: #4e148c;
+  --color-violet: #613dc1;
+  --color-dim: #c3b3dc;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, Menlo, monospace;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 4px;
+}
+
+/* The bracket frame replaces the outline only while the custom cursor runs. */
+html.has-cursor :focus-visible {
+  outline: none;
+}
+
+/* PixelGridBackground */
+.pixel-grid {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* CustomCursor */
+html.has-cursor,
+html.has-cursor * {
+  cursor: none !important;
+}
+
+.cc-dot,
+.cc-frame {
+  --cur: var(--color-ink);
+  position: fixed;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0;
+  transition: opacity 150ms ease-out;
+}
+
+html.cc-light .cc-dot,
+html.cc-light .cc-frame {
+  --cur: var(--color-bg);
+}
+
+html.cc-on .cc-dot,
+html.cc-on .cc-frame {
+  opacity: 1;
+}
+
+.cc-dot {
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  background: var(--cur);
+}
+
+.cc-frame {
+  width: 32px;
+  height: 32px;
+}
+
+.cc-frame i {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border: 0 solid var(--cur);
+}
+
+.cc-frame i:nth-child(1) {
+  left: 0;
+  top: 0;
+  border-left-width: 2px;
+  border-top-width: 2px;
+}
+
+.cc-frame i:nth-child(2) {
+  right: 0;
+  top: 0;
+  border-right-width: 2px;
+  border-top-width: 2px;
+}
+
+.cc-frame i:nth-child(3) {
+  left: 0;
+  bottom: 0;
+  border-left-width: 2px;
+  border-bottom-width: 2px;
+}
+
+.cc-frame i:nth-child(4) {
+  right: 0;
+  bottom: 0;
+  border-right-width: 2px;
+  border-bottom-width: 2px;
+}
+
+/* CtaButton */
+.cta {
+  --ox: 6px;
+  --oy: 6px;
+  position: relative;
+  display: inline-block;
+  isolation: isolate;
+  text-decoration: none;
+}
+
+.cta__block {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--color-accent);
+  transform: translate(var(--ox), var(--oy));
+  transition: transform 200ms ease-out;
+}
+
+.cta__face {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--color-ink);
+  color: var(--color-bg);
+  font-weight: 600;
+  font-size: 1.05rem;
+  padding: 16px 30px;
+  transition: transform 200ms ease-out;
+}
+
+.cta--lg .cta__face {
+  font-size: 1.5rem;
+  padding: 18px 56px;
+}
+
+.cta svg {
+  width: 18px;
+  height: 18px;
+  transition: transform 200ms ease-out;
+}
+
+.cta:hover {
+  --ox: 11px;
+  --oy: 2px;
+}
+
+.cta:hover svg {
+  transform: translateX(3px);
+}
+
+.cta:active {
+  --ox: 2px;
+  --oy: 2px;
+}
+
+.cta:active .cta__face {
+  transform: translate(2px, 2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cc-dot,
+  .cc-frame,
+  .cta__block,
+  .cta__face,
+  .cta svg {
+    transition: none;
+  }
+
+  .cta:hover svg {
+    transform: none;
+  }
+}
