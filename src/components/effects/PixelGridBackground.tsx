@@ -2,25 +2,82 @@
 
 import { useEffect, useRef } from "react";
 
-const TILE = 12;
-const AMPLITUDE = 3;
-const RADIUS = 150;
-const TONES = { bg: "#2c0735", lift: "#3a0f48", deep: "#26062e" };
+const TILE = 28;
+const FPS = 14;
+const FIELD_SPEED = 0.14;
+const POINTER_RADIUS = 220;
+const POINTER_GLOW = 0.16;
+const CLOUD_START = 0.5;
+const LEVELS = 5;
+const HUE_STEPS = 16;
 
-type Rect = { x: number; y: number; w: number; h: number };
+const SPACE: [number, number, number] = [7, 11, 31];
+const NEBULA: [number, number, number][] = [
+  [38, 76, 214], // blue
+  [109, 74, 255], // violet
+  [190, 60, 170], // magenta
+  [24, 150, 180], // teal
+];
+const STAR = "rgba(230, 241, 255, 0.75)";
+const GRID_LINE = "rgba(148, 170, 255, 0.07)";
 
-function hash(i: number, j: number) {
-  let n = (i * 374761393 + j * 668265263) | 0;
+function rgb(a: [number, number, number], b: [number, number, number], t: number) {
+  const m = (i: number) => Math.round(a[i] + (b[i] - a[i]) * t);
+  return `rgb(${m(0)}, ${m(1)}, ${m(2)})`;
+}
+
+/** Precomputed colors, indexed by hue step then brightness level. Kept dark so text stays readable. */
+function buildPalette() {
+  const table: string[][] = [];
+  for (let h = 0; h < HUE_STEPS; h++) {
+    const pos = (h / HUE_STEPS) * NEBULA.length;
+    const a = NEBULA[Math.floor(pos)];
+    const b = NEBULA[(Math.floor(pos) + 1) % NEBULA.length];
+    const f = pos - Math.floor(pos);
+    const hue: [number, number, number] = [
+      a[0] + (b[0] - a[0]) * f,
+      a[1] + (b[1] - a[1]) * f,
+      a[2] + (b[2] - a[2]) * f,
+    ];
+    const row: string[] = [];
+    for (let l = 0; l < LEVELS; l++) row.push(rgb(SPACE, hue, 0.12 + (l / (LEVELS - 1)) * 0.5));
+    table.push(row);
+  }
+  return table;
+}
+
+function hash3(x: number, y: number, z: number) {
+  let n = (x * 374761393 + y * 668265263 + z * 2147483647) | 0;
   n = ((n ^ (n >>> 13)) * 1274126177) | 0;
   return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
 }
 
-function tone(i: number, j: number) {
-  const h = hash(i, j);
-  return h < 0.34 ? TONES.deep : h > 0.72 ? TONES.lift : TONES.bg;
+function smooth(t: number) {
+  return t * t * (3 - 2 * t);
 }
 
-/** Fixed canvas of tiles. Tiles near the pointer ripple; static on touch and reduced motion. */
+function noise(x: number, y: number, z: number) {
+  const xi = Math.floor(x);
+  const yi = Math.floor(y);
+  const zi = Math.floor(z);
+  const u = smooth(x - xi);
+  const v = smooth(y - yi);
+  const w = smooth(z - zi);
+  const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+  const plane = (k: number) =>
+    lerp(
+      lerp(hash3(xi, yi, k), hash3(xi + 1, yi, k), u),
+      lerp(hash3(xi, yi + 1, k), hash3(xi + 1, yi + 1, k), u),
+      v,
+    );
+  return lerp(plane(zi), plane(zi + 1), w);
+}
+
+function fbm(x: number, y: number, z: number) {
+  return noise(x, y, z) * 0.7 + noise(x * 2.1 + 9, y * 2.1 + 4, z * 1.4) * 0.3;
+}
+
+/** Fixed canvas of pixelated nebula clouds that drift and morph behind a thin grid. */
 export function PixelGridBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -31,178 +88,127 @@ export function PixelGridBackground() {
 
     const reduce = matchMedia("(prefers-reduced-motion: reduce)");
     const touch = matchMedia("(hover: none), (pointer: coarse)");
-    const cache = document.createElement("canvas");
+    const palette = buildPalette();
 
-    let dpr = 1;
     let W = 0;
     let H = 0;
     let cols = 0;
     let rows = 0;
-    let animated = false;
+    let raf = 0;
+    let last = 0;
+    let time = 40;
     let mx = -9999;
     let my = -9999;
-    let tx = -9999;
-    let ty = -9999;
-    let strength = 0;
-    let strengthTarget = 0;
-    let raf = 0;
-    let lastMove = 0;
-    let dirty: Rect | null = null;
-    let resizeTimer: ReturnType<typeof setTimeout> | undefined;
-    const t0 = performance.now();
+    let glow = 0;
+    let glowTarget = 0;
+    let animated = false;
 
+    function draw() {
+      const c = ctx!;
+      c.fillStyle = `rgb(${SPACE.join(", ")})`;
+      c.fillRect(0, 0, W, H);
+      const twinkle = Math.floor(time * 12);
+      for (let j = 0; j < rows; j++) {
+        for (let i = 0; i < cols; i++) {
+          const x = i * TILE;
+          const y = j * TILE;
+          let density = fbm(i * 0.12, j * 0.12, time);
+          if (glow > 0.01) {
+            const d = Math.hypot(x + TILE / 2 - mx, y + TILE / 2 - my);
+            if (d < POINTER_RADIUS) {
+              density += smooth(1 - d / POINTER_RADIUS) * POINTER_GLOW * glow;
+            }
+          }
+          if (density > CLOUD_START) {
+            const hueField = (noise(i * 0.035 + 50, j * 0.035 + 50, time * 0.6) * 1.8) % 1;
+            const hue = Math.min(HUE_STEPS - 1, Math.floor(hueField * HUE_STEPS));
+            const level = Math.min(LEVELS - 1, Math.floor(((density - CLOUD_START) / 0.28) * LEVELS));
+            c.fillStyle = palette[hue][level];
+            c.fillRect(x, y, TILE, TILE);
+          }
+          // A few cells hold a star that fades in and out on its own slow cycle.
+          const seed = hash3(i, j, 7);
+          if (seed > 0.988) {
+            const on = hash3(i, j, Math.floor(twinkle / 24 + seed * 100)) > 0.35;
+            if (on) {
+              const size = seed > 0.996 ? 4 : 2;
+              c.fillStyle = STAR;
+              c.fillRect(x + TILE / 2 - size / 2, y + TILE / 2 - size / 2, size, size);
+            }
+          }
+        }
+      }
+      c.fillStyle = GRID_LINE;
+      for (let i = 1; i <= cols; i++) c.fillRect(i * TILE - 1, 0, 1, H);
+      for (let j = 1; j <= rows; j++) c.fillRect(0, j * TILE - 1, W, 1);
+    }
+
+    function frame(now: number) {
+      raf = requestAnimationFrame(frame);
+      const elapsed = now - last;
+      if (elapsed < 1000 / FPS) return;
+      last = now;
+      // Clamp so returning from a hidden tab does not jump the clouds.
+      time += (Math.min(elapsed, 100) / 1000) * FIELD_SPEED;
+      glow += (glowTarget - glow) * 0.15;
+      draw();
+    }
+
+    function start() {
+      if (animated && !raf && !document.hidden) raf = requestAnimationFrame(frame);
+    }
+    function stop() {
+      cancelAnimationFrame(raf);
+      raf = 0;
+    }
     function resize() {
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
       W = window.innerWidth;
       H = window.innerHeight;
       canvas!.width = Math.round(W * dpr);
       canvas!.height = Math.round(H * dpr);
+      ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
       cols = Math.ceil(W / TILE);
       rows = Math.ceil(H / TILE);
-      cache.width = canvas!.width;
-      cache.height = canvas!.height;
-      const g = cache.getContext("2d")!;
-      g.setTransform(dpr, 0, 0, dpr, 0, 0);
-      g.fillStyle = TONES.bg;
-      g.fillRect(0, 0, W, H);
-      for (let j = 0; j < rows; j++) {
-        for (let i = 0; i < cols; i++) {
-          const c = tone(i, j);
-          if (c === TONES.bg) continue;
-          g.fillStyle = c;
-          g.fillRect(i * TILE + 1, j * TILE + 1, TILE - 1, TILE - 1);
-        }
-      }
-      ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx!.drawImage(cache, 0, 0, W, H);
-      dirty = null;
+      draw();
     }
-
-    function restore(r: Rect) {
-      const x = Math.max(0, r.x);
-      const y = Math.max(0, r.y);
-      const w = Math.min(W - x, r.w);
-      const h = Math.min(H - y, r.h);
-      if (w > 0 && h > 0) {
-        ctx!.drawImage(cache, x * dpr, y * dpr, w * dpr, h * dpr, x, y, w, h);
-      }
-    }
-
-    function frame(now: number) {
-      raf = 0;
-      if (!animated || document.hidden) return;
-      mx += (tx - mx) * 0.12;
-      my += (ty - my) * 0.12;
-      strength += (strengthTarget - strength) * 0.08;
-      if (Date.now() - lastMove > 1800) strengthTarget = 0;
-      if (dirty) restore(dirty);
-
-      if (strength > 0.01) {
-        const time = (now - t0) / 1000;
-        const m = AMPLITUDE + 2;
-        const rect: Rect = {
-          x: Math.floor(mx - RADIUS) - m,
-          y: Math.floor(my - RADIUS) - m,
-          w: RADIUS * 2 + m * 2,
-          h: RADIUS * 2 + m * 2,
-        };
-        restore(rect);
-        const i0 = Math.max(0, Math.floor(rect.x / TILE));
-        const i1 = Math.min(cols - 1, Math.ceil((rect.x + rect.w) / TILE));
-        const j0 = Math.max(0, Math.floor(rect.y / TILE));
-        const j1 = Math.min(rows - 1, Math.ceil((rect.y + rect.h) / TILE));
-        const wave: [number, number, number, number][] = [];
-        for (let j = j0; j <= j1; j++) {
-          for (let i = i0; i <= i1; i++) {
-            const dx = i * TILE + TILE / 2 - mx;
-            const dy = j * TILE + TILE / 2 - my;
-            const d = Math.sqrt(dx * dx + dy * dy);
-            if (d > RADIUS) continue;
-            let f = 1 - d / RADIUS;
-            f = f * f * (3 - 2 * f);
-            const disp = Math.sin(d * 0.045 - time * 1.6) * f * AMPLITUDE * strength;
-            ctx!.fillStyle = TONES.bg;
-            ctx!.fillRect(i * TILE, j * TILE, TILE, TILE);
-            wave.push([i, j, d ? (dx / d) * disp : 0, d ? (dy / d) * disp : 0]);
-          }
-        }
-        for (const [i, j, ox, oy] of wave) {
-          ctx!.fillStyle = tone(i, j);
-          ctx!.fillRect(i * TILE + 1 + ox, j * TILE + 1 + oy, TILE - 1, TILE - 1);
-        }
-        dirty = rect;
-      } else {
-        dirty = null;
-        if (strengthTarget === 0) {
-          ctx!.drawImage(cache, 0, 0, W, H);
-          return;
-        }
-      }
-      raf = requestAnimationFrame(frame);
-    }
-
-    function kick() {
-      if (animated && !raf && !document.hidden) raf = requestAnimationFrame(frame);
-    }
-
     function applyMode() {
       animated = !reduce.matches && !touch.matches;
-      if (!animated) {
-        strength = 0;
-        strengthTarget = 0;
-        cancelAnimationFrame(raf);
-        raf = 0;
-        ctx!.drawImage(cache, 0, 0, W, H);
-        dirty = null;
+      if (animated) {
+        start();
+      } else {
+        stop();
+        glow = 0;
+        draw();
       }
     }
-
     function onMove(e: PointerEvent) {
-      if (e.pointerType === "touch" || !animated) return;
-      if (mx < -1000) {
-        mx = e.clientX;
-        my = e.clientY;
-      }
-      tx = e.clientX;
-      ty = e.clientY;
-      strengthTarget = 1;
-      lastMove = Date.now();
-      kick();
+      if (e.pointerType === "touch") return;
+      mx = e.clientX;
+      my = e.clientY;
+      glowTarget = 1;
     }
     function onLeave() {
-      strengthTarget = 0;
-      kick();
+      glowTarget = 0;
     }
     function onVisibility() {
-      if (document.hidden) {
-        cancelAnimationFrame(raf);
-        raf = 0;
-      } else {
-        kick();
-      }
-    }
-    function onResize() {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(() => {
-        resize();
-        applyMode();
-      }, 120);
+      if (document.hidden) stop();
+      else start();
     }
 
     resize();
     applyMode();
     window.addEventListener("pointermove", onMove, { passive: true });
-    window.addEventListener("resize", onResize);
+    window.addEventListener("resize", resize);
     document.addEventListener("mouseleave", onLeave);
     document.addEventListener("visibilitychange", onVisibility);
     reduce.addEventListener("change", applyMode);
     touch.addEventListener("change", applyMode);
 
     return () => {
-      cancelAnimationFrame(raf);
-      clearTimeout(resizeTimer);
+      stop();
       window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("resize", onResize);
+      window.removeEventListener("resize", resize);
       document.removeEventListener("mouseleave", onLeave);
       document.removeEventListener("visibilitychange", onVisibility);
       reduce.removeEventListener("change", applyMode);

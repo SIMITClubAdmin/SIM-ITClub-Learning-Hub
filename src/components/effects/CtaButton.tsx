@@ -6,7 +6,7 @@ type Props = {
   size?: "md" | "lg";
 };
 
-/** Ink block with plum text and an accent offset block that slides on hover. */
+/** Ink block with dark text and an accent offset block that slides on hover. */
 export function CtaButton({ href, children, size = "md" }: Props) {
   return (
     <Link href={href} className={size === "lg" ? "cta cta--lg" : "cta"}>
