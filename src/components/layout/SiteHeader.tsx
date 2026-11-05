@@ -7,6 +7,7 @@ import { UserMenu } from "./UserMenu";
 const NAV = [
   { href: "/learn", label: "Learn" },
   { href: "/practice", label: "Practice" },
+  { href: "/leaderboard", label: "Leaderboard" },
 ];
 
 export function SiteHeader() {
@@ -15,7 +16,7 @@ export function SiteHeader() {
   return (
     <header className="flex flex-wrap items-center justify-between gap-4 px-4 py-5 sm:px-8">
       <Link href="/" className="border border-ink px-3 py-2 font-display text-lg">
-        ITCAMP
+        ITCLUB
       </Link>
       <nav aria-label="Main" className="flex flex-wrap items-center gap-6 sm:gap-8">
         {NAV.map(({ href, label }) => {

@@ -11,6 +11,7 @@ type Props = {
 };
 
 const FIELD = "w-full border border-violet bg-bg/85 px-3.5 py-3 text-ink";
+const NAME_TAKEN = "That display name is taken. Try a different one.";
 
 function friendlyError(message: string) {
   if (message.includes("Invalid login credentials")) return "That email or password is incorrect.";
@@ -18,7 +19,7 @@ function friendlyError(message: string) {
     return "Please confirm your email first. Check your inbox for the link.";
   }
   if (message.includes("Database error saving new user")) {
-    return "That display name could not be saved. Try a different one.";
+    return NAME_TAKEN;
   }
   if (message.toLowerCase().includes("rate limit")) {
     return "Too many emails were sent recently. Please try again in a while.";
@@ -45,17 +46,22 @@ export function AuthForm({ mode, initialError }: Props) {
     const supabase = createClient();
 
     if (isRegister) {
-      const { data: taken } = await supabase
+      const { data: matches, error: lookupError } = await supabase
         .from("profiles")
         .select("id")
         .ilike("display_name", displayName.replace(/[\\%_]/g, "\\$&"))
-        .maybeSingle();
-      if (taken) {
-        setError("That display name is taken. Try a different one.");
+        .limit(1);
+      if (lookupError) {
+        setError("We could not check that display name. Please try again.");
         setBusy(false);
         return;
       }
-      const { error: signUpError } = await supabase.auth.signUp({
+      if (matches.length > 0) {
+        setError(NAME_TAKEN);
+        setBusy(false);
+        return;
+      }
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -65,7 +71,10 @@ export function AuthForm({ mode, initialError }: Props) {
       });
       setBusy(false);
       if (signUpError) setError(friendlyError(signUpError.message));
-      else setSentTo(email);
+      // Supabase reports success with no identities when the email is already confirmed.
+      else if (signUpData.user?.identities?.length === 0) {
+        setError("This email is already registered. Log in instead.");
+      } else setSentTo(email);
       return;
     }
 

@@ -38,7 +38,9 @@ export function UserMenu() {
 
   return (
     <div className="flex items-center gap-4">
-      <span className="text-dim">{name}</span>
+      <Link href="/account" className="underline underline-offset-4">
+        {name || "Account"}
+      </Link>
       <button type="button" onClick={logOut} className={BUTTON}>
         Log out
       </button>
