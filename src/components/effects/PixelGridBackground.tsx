@@ -10,6 +10,7 @@ const POINTER_GLOW = 0.16;
 const CLOUD_START = 0.5;
 const LEVELS = 5;
 const HUE_STEPS = 16;
+const HEADER_CLEARANCE = 112;
 
 const SPACE: [number, number, number] = [7, 11, 31];
 const NEBULA: [number, number, number][] = [
@@ -128,7 +129,8 @@ export function PixelGridBackground() {
           }
           // A few cells hold a star that fades in and out on its own slow cycle.
           const seed = hash3(i, j, 7);
-          if (seed > 0.988) {
+          // Stars stay out of the header band, where they read as stray marks beside the nav.
+          if (seed > 0.988 && y >= HEADER_CLEARANCE) {
             const on = hash3(i, j, Math.floor(twinkle / 24 + seed * 100)) > 0.35;
             if (on) {
               const size = seed > 0.996 ? 4 : 2;

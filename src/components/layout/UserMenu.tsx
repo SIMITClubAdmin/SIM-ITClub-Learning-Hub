@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-const BUTTON = "border border-ink px-5 py-2.5";
+const BUTTON =
+  "border border-ink px-3 py-1.5 text-sm transition-colors duration-200 hover:border-accent hover:bg-accent hover:text-bg";
 
 /** Shows Log in for guests, or the display name and Log out for members. */
 export function UserMenu() {
@@ -37,7 +38,7 @@ export function UserMenu() {
   }
 
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex items-center gap-6 sm:gap-8">
       <Link href="/account" className="underline underline-offset-4">
         {name || "Account"}
       </Link>
