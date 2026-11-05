@@ -144,7 +144,9 @@ html.cc-on .cc-frame {
 
 .cta--lg {
   font-size: 0.9375rem;
-  padding: 15px 36px;
+  padding: 15px 24px;
+  min-width: 11rem;
+  text-align: center;
 }
 
 /* Dark fill that wipes in from the left on hover. */
