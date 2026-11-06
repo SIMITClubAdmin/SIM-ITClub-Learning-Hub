@@ -271,7 +271,7 @@ export function PracticeOrbit({ topics }: { topics: Topic[] }) {
             bottom: `calc(${pct(H - nodeTop, H)} + 18px)`,
           }}
         >
-          <p className="flex items-center gap-2 font-mono text-2xl font-semibold">
+          <p className="flex items-center gap-2 font-display text-3xl font-semibold">
             {topic.name}
             {topic.lockedReason && <LockIcon className="size-5 text-dim" />}
           </p>
