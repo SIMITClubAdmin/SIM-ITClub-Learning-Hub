@@ -107,12 +107,12 @@ function Planet() {
   const { x, y, r } = PLANET;
   // Bands and storms are drawn twice side by side so the slow drift can loop without a seam.
   const bands = [
-    { dy: -150, h: 34, color: "#3a2d8c" },
-    { dy: -95, h: 22, color: "#5a3fb8" },
-    { dy: -45, h: 40, color: "#2b2577" },
-    { dy: 18, h: 26, color: "#6247c4" },
-    { dy: 70, h: 44, color: "#33297f" },
-    { dy: 135, h: 24, color: "#4c37a6" },
+    { dy: -150, h: 34, color: "#6a58d6" },
+    { dy: -95, h: 22, color: "#a493f5" },
+    { dy: -45, h: 40, color: "#5646c2" },
+    { dy: 18, h: 26, color: "#b8a9ff" },
+    { dy: 70, h: 44, color: "#6150cc" },
+    { dy: 135, h: 24, color: "#9584ec" },
   ];
   const storms = [
     { dx: -90, dy: 30, rx: 34, ry: 12 },
@@ -124,7 +124,7 @@ function Planet() {
     <g>
       <circle cx={x} cy={y} r={r + 26} fill="url(#planet-glow)" />
       <g clipPath="url(#planet-clip)">
-        <circle cx={x} cy={y} r={r} fill="#241f6b" />
+        <circle cx={x} cy={y} r={r} fill="#4a3db0" />
         <g transform={`rotate(${TILT_DEG} ${x} ${y})`}>
           <g className="planet-spin">
             {[0, span].map((offset) => (
@@ -157,7 +157,8 @@ function Planet() {
         </g>
         <circle cx={x} cy={y} r={r} fill="url(#planet-shade)" />
       </g>
-      <circle cx={x} cy={y} r={r} fill="none" stroke="#94aaff" strokeOpacity="0.35" strokeWidth="1.5" />
+      {/* A thin cyan rim keeps the outline sharp over any nebula cloud. */}
+      <circle cx={x} cy={y} r={r} fill="none" stroke="#4fd8eb" strokeOpacity="0.7" strokeWidth="2.5" />
     </g>
   );
 }
@@ -171,8 +172,8 @@ function Rings({ half }: { half: "back" | "front" }) {
           key={ring.scale}
           d={arc(from, to, ring.scale)}
           fill="none"
-          stroke="#b9a8ff"
-          strokeOpacity={half === "back" ? ring.opacity * 0.6 : ring.opacity}
+          stroke="#d4caff"
+          strokeOpacity={half === "back" ? ring.opacity * 0.6 : Math.min(1, ring.opacity * 1.5)}
           strokeWidth={ring.width}
         />
       ))}
@@ -212,7 +213,13 @@ export function PracticeOrbit({ topics }: { topics: Topic[] }) {
             <stop offset="80%" stopColor="#6d4aff" stopOpacity="0.35" />
             <stop offset="100%" stopColor="#6d4aff" stopOpacity="0" />
           </radialGradient>
+          <radialGradient id="planet-halo">
+            <stop offset="45%" stopColor="#070b1f" stopOpacity="0.9" />
+            <stop offset="100%" stopColor="#070b1f" stopOpacity="0" />
+          </radialGradient>
         </defs>
+        {/* Dark halo fades the background clouds near the planet, like a spotlight. */}
+        <ellipse cx={PLANET.x} cy={PLANET.y + 10} rx={PLANET.r + 200} ry={PLANET.r + 60} fill="url(#planet-halo)" />
         <Rings half="back" />
         <path d={arc(180, 360)} fill="none" stroke="#94aaff" strokeOpacity="0.4" strokeWidth="1.5" strokeDasharray="4 6" />
         <Planet />
