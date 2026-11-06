@@ -20,7 +20,7 @@ const RINGS = [
 // Angle along the orbit and diameter for each topic, left to right.
 const STOPS = [
   { angle: 121, size: 84 },
-  { angle: 90, size: 98 },
+  { angle: 72, size: 98 },
   { angle: 35, size: 104 },
 ];
 // How far behind a moon the rocket waits, in degrees along the orbit.
