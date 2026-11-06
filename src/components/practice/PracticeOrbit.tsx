@@ -1,37 +1,55 @@
 "use client";
 
 import Link from "next/link";
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { Topic } from "@/lib/topics";
 
 // Scene coordinates, in the SVG viewBox.
 const W = 800;
 const H = 520;
-const PLANET = { x: 400, y: 255, r: 240 };
-const ORBIT = { x: 400, y: 270, rx: 385, ry: 62, tilt: (-15 * Math.PI) / 180 };
+const PLANET = { x: 400, y: 255, r: 220 };
+const TILT_DEG = -15;
+const TILT = (TILT_DEG * Math.PI) / 180;
+const ORBIT = { x: 400, y: 270, rx: 385, ry: 62 };
+// The planet's own rings, as fractions of the moon orbit.
+const RINGS = [
+  { scale: 0.66, width: 10, opacity: 0.35 },
+  { scale: 0.73, width: 16, opacity: 0.55 },
+  { scale: 0.81, width: 7, opacity: 0.3 },
+];
 // Angle along the orbit and diameter for each topic, left to right.
 const STOPS = [
   { angle: 121, size: 84 },
   { angle: 90, size: 98 },
   { angle: 35, size: 104 },
 ];
-const ROCKET_ANGLE = 150;
+// How far behind a moon the rocket waits, in degrees along the orbit.
+const ROCKET_TRAIL = 24;
+const ROCKET_TRAVEL_MS = 1400;
 const NODE_COLORS = ["#be3caa", "#4f6cf0", "#1ea3c0"];
 const CALLOUT_WIDTH = 280;
 
-function orbitPoint(degrees: number) {
+function orbitPoint(degrees: number, scale = 1) {
   const t = (degrees * Math.PI) / 180;
-  const ex = ORBIT.rx * Math.cos(t);
-  const ey = ORBIT.ry * Math.sin(t);
-  const c = Math.cos(ORBIT.tilt);
-  const s = Math.sin(ORBIT.tilt);
-  return { x: ORBIT.x + ex * c - ey * s, y: ORBIT.y + ex * s + ey * c };
+  const ex = ORBIT.rx * scale * Math.cos(t);
+  const ey = ORBIT.ry * scale * Math.sin(t);
+  return {
+    x: ORBIT.x + ex * Math.cos(TILT) - ey * Math.sin(TILT),
+    y: ORBIT.y + ex * Math.sin(TILT) + ey * Math.cos(TILT),
+  };
 }
 
-function arc(from: number, to: number) {
+/** Rotation that points the rocket's nose along the orbit, towards the next moon. */
+function headingAt(degrees: number) {
+  const a = orbitPoint(degrees);
+  const b = orbitPoint(degrees - 1);
+  return (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI + 90;
+}
+
+function arc(from: number, to: number, scale = 1) {
   const parts: string[] = [];
   for (let d = from; d <= to; d += 3) {
-    const p = orbitPoint(d);
+    const p = orbitPoint(d, scale);
     parts.push(`${parts.length ? "L" : "M"}${p.x.toFixed(1)} ${p.y.toFixed(1)}`);
   }
   return parts.join(" ");
@@ -47,10 +65,33 @@ function LockIcon({ className }: { className?: string }) {
   );
 }
 
-function Rocket() {
-  const p = orbitPoint(ROCKET_ANGLE);
+/** Rocket parked just behind the latest open moon; it flies along the orbit when that changes. */
+function Rocket({ checkpoint }: { checkpoint: number }) {
+  const target = STOPS[checkpoint].angle + ROCKET_TRAIL;
+  const [angle, setAngle] = useState(target);
+  const angleRef = useRef(target);
+
+  useEffect(() => {
+    const from = angleRef.current;
+    if (from === target) return;
+    // With reduced motion the rocket jumps straight to the new checkpoint.
+    const duration = matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : ROCKET_TRAVEL_MS;
+    const start = performance.now();
+    let raf = 0;
+    const step = (now: number) => {
+      const k = duration ? Math.min(1, (now - start) / duration) : 1;
+      const eased = k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2;
+      angleRef.current = from + (target - from) * eased;
+      setAngle(angleRef.current);
+      if (k < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target]);
+
+  const p = orbitPoint(angle);
   return (
-    <g transform={`translate(${p.x} ${p.y}) rotate(-112)`}>
+    <g transform={`translate(${p.x} ${p.y}) rotate(${headingAt(angle)})`}>
       <g className="orbit-rocket">
         <path d="M0 -22 C9 -12 9 6 6 14 H-6 C-9 6 -9 -12 0 -22Z" fill="#e6f1ff" />
         <circle cy="-6" r="4" fill="#070b1f" />
@@ -61,41 +102,122 @@ function Rocket() {
   );
 }
 
-/** Planet with an orbit; each moon on the front of the orbit is a practice topic. */
+function Planet() {
+  const { x, y, r } = PLANET;
+  // Bands and storms are drawn twice side by side so the slow drift can loop without a seam.
+  const bands = [
+    { dy: -150, h: 34, color: "#3a2d8c" },
+    { dy: -95, h: 22, color: "#5a3fb8" },
+    { dy: -45, h: 40, color: "#2b2577" },
+    { dy: 18, h: 26, color: "#6247c4" },
+    { dy: 70, h: 44, color: "#33297f" },
+    { dy: 135, h: 24, color: "#4c37a6" },
+  ];
+  const storms = [
+    { dx: -90, dy: 30, rx: 34, ry: 12 },
+    { dx: 120, dy: -70, rx: 22, ry: 8 },
+    { dx: 20, dy: 110, rx: 18, ry: 6 },
+  ];
+  const span = r * 2;
+  return (
+    <g>
+      <circle cx={x} cy={y} r={r + 26} fill="url(#planet-glow)" />
+      <g clipPath="url(#planet-clip)">
+        <circle cx={x} cy={y} r={r} fill="#241f6b" />
+        <g transform={`rotate(${TILT_DEG} ${x} ${y})`}>
+          <g className="planet-spin">
+            {[0, span].map((offset) => (
+              <g key={offset} transform={`translate(${offset - r} 0)`}>
+                {bands.map((b) => (
+                  <rect
+                    key={b.dy}
+                    x={x - r}
+                    y={y + b.dy}
+                    width={span + 2}
+                    height={b.h}
+                    fill={b.color}
+                    opacity="0.85"
+                  />
+                ))}
+                {storms.map((s) => (
+                  <ellipse
+                    key={s.dx}
+                    cx={x + s.dx}
+                    cy={y + s.dy}
+                    rx={s.rx}
+                    ry={s.ry}
+                    fill="#be3caa"
+                    opacity="0.45"
+                  />
+                ))}
+              </g>
+            ))}
+          </g>
+        </g>
+        <circle cx={x} cy={y} r={r} fill="url(#planet-shade)" />
+      </g>
+      <circle cx={x} cy={y} r={r} fill="none" stroke="#94aaff" strokeOpacity="0.35" strokeWidth="1.5" />
+    </g>
+  );
+}
+
+function Rings({ half }: { half: "back" | "front" }) {
+  const [from, to] = half === "back" ? [180, 360] : [0, 180];
+  return (
+    <g className="planet-rings">
+      {RINGS.map((ring) => (
+        <path
+          key={ring.scale}
+          d={arc(from, to, ring.scale)}
+          fill="none"
+          stroke="#b9a8ff"
+          strokeOpacity={half === "back" ? ring.opacity * 0.6 : ring.opacity}
+          strokeWidth={ring.width}
+        />
+      ))}
+    </g>
+  );
+}
+
+/** Ringed planet with a moon orbit; each moon is a practice topic. */
 export function PracticeOrbit({ topics }: { topics: Topic[] }) {
   const calloutId = useId();
-  const firstOpen = Math.max(0, topics.findIndex((t) => !t.lockedReason));
-  const [selected, setSelected] = useState(firstOpen);
-  const topic = topics[selected];
-  const node = orbitPoint(STOPS[selected].angle);
-  const nodeTop = node.y - STOPS[selected].size / 2;
+  const [selected, setSelected] = useState<number | null>(null);
+  const openCount = topics.filter((t) => !t.lockedReason).length;
+  const checkpoint = Math.max(0, openCount - 1);
 
+  const topic = selected === null ? null : topics[selected];
+  const node = selected === null ? null : orbitPoint(STOPS[selected].angle);
+  const nodeTop = node && selected !== null ? node.y - STOPS[selected].size / 2 : 0;
   // Keep the callout inside the scene while its pointer stays above the moon.
-  const calloutLeft = `clamp(0px, calc(${pct(node.x, W)} - ${CALLOUT_WIDTH / 2}px), calc(100% - ${CALLOUT_WIDTH}px))`;
+  const calloutLeft = node
+    ? `clamp(0px, calc(${pct(node.x, W)} - ${CALLOUT_WIDTH / 2}px), calc(100% - ${CALLOUT_WIDTH}px))`
+    : "0px";
 
   return (
-    <div className="relative mx-auto w-full max-w-3xl" style={{ aspectRatio: `${W} / ${H}` }}>
+    <div className="relative w-full" style={{ aspectRatio: `${W} / ${H}` }}>
       <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 size-full overflow-visible" aria-hidden="true">
         <defs>
-          <radialGradient id="planet-fill" cx="35%" cy="30%" r="75%">
-            <stop offset="0%" stopColor="#3b2f8f" />
-            <stop offset="55%" stopColor="#1f1e5c" />
-            <stop offset="100%" stopColor="#0d1233" />
+          <clipPath id="planet-clip">
+            <circle cx={PLANET.x} cy={PLANET.y} r={PLANET.r} />
+          </clipPath>
+          <radialGradient id="planet-shade" cx="32%" cy="28%" r="80%">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.22" />
+            <stop offset="45%" stopColor="#ffffff" stopOpacity="0" />
+            <stop offset="80%" stopColor="#070b1f" stopOpacity="0.55" />
+            <stop offset="100%" stopColor="#070b1f" stopOpacity="0.85" />
+          </radialGradient>
+          <radialGradient id="planet-glow">
+            <stop offset="80%" stopColor="#6d4aff" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="#6d4aff" stopOpacity="0" />
           </radialGradient>
         </defs>
-        <path d={arc(180, 360)} fill="none" stroke="#94aaff" strokeOpacity="0.55" strokeWidth="2" />
-        <circle cx={PLANET.x} cy={PLANET.y} r={PLANET.r} fill="url(#planet-fill)" />
-        <circle
-          cx={PLANET.x}
-          cy={PLANET.y}
-          r={PLANET.r}
-          fill="none"
-          stroke="#6d4aff"
-          strokeOpacity="0.5"
-          strokeWidth="2"
-        />
-        <path d={arc(0, 180)} fill="none" stroke="#94aaff" strokeOpacity="0.9" strokeWidth="2" />
-        <Rocket />
+        <Rings half="back" />
+        <path d={arc(180, 360)} fill="none" stroke="#94aaff" strokeOpacity="0.4" strokeWidth="1.5" strokeDasharray="4 6" />
+        <Planet />
+        <Rings half="front" />
+        <path d={arc(0, 180)} fill="none" stroke="#94aaff" strokeOpacity="0.8" strokeWidth="1.5" strokeDasharray="4 6" />
+        <Rocket checkpoint={checkpoint} />
       </svg>
 
       {topics.map((t, i) => {
@@ -108,8 +230,8 @@ export function PracticeOrbit({ topics }: { topics: Topic[] }) {
           width: pct(stop.size, W),
           background: locked ? "#232a52" : NODE_COLORS[i],
         };
-        const className = `orbit-node absolute flex aspect-square -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full font-mono text-sm font-medium ${
-          locked ? "text-dim" : "text-ink"
+        const className = `orbit-node absolute flex aspect-square -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full font-mono text-sm font-medium text-ink ${
+          locked ? "is-locked" : ""
         } ${selected === i ? "is-selected" : ""}`;
         const content = (
           <>
@@ -119,60 +241,49 @@ export function PracticeOrbit({ topics }: { topics: Topic[] }) {
         );
         const handlers = {
           onPointerEnter: () => setSelected(i),
+          onPointerLeave: () => setSelected((s) => (s === i ? null : s)),
           onFocus: () => setSelected(i),
+          onBlur: () => setSelected((s) => (s === i ? null : s)),
+          "aria-describedby": selected === i ? calloutId : undefined,
+          className,
+          style,
         };
         return locked ? (
-          <span
-            key={t.slug}
-            tabIndex={0}
-            role="link"
-            aria-disabled="true"
-            aria-label={`${t.name}, locked`}
-            aria-describedby={selected === i ? calloutId : undefined}
-            className={className}
-            style={style}
-            {...handlers}
-          >
+          <span key={t.slug} tabIndex={0} role="link" aria-disabled="true" aria-label={`${t.name}, locked`} {...handlers}>
             {content}
           </span>
         ) : (
-          <Link
-            key={t.slug}
-            href={`/practice/${t.slug}`}
-            aria-label={`Practice ${t.name}`}
-            aria-describedby={selected === i ? calloutId : undefined}
-            className={className}
-            style={style}
-            {...handlers}
-          >
+          <Link key={t.slug} href={`/practice/${t.slug}`} aria-label={`Practice ${t.name}`} {...handlers}>
             {content}
           </Link>
         );
       })}
 
-      <div
-        id={calloutId}
-        role="status"
-        className="pointer-events-none absolute border border-violet bg-bg/95 p-5 text-left"
-        style={{
-          width: CALLOUT_WIDTH,
-          left: calloutLeft,
-          bottom: `calc(${pct(H - nodeTop, H)} + 18px)`,
-        }}
-      >
-        <h2 className="flex items-center gap-2 text-3xl font-semibold">
-          {topic.name}
-          {topic.lockedReason && <LockIcon className="size-5 text-dim" />}
-        </h2>
-        <p className="mt-2 text-sm text-dim">{topic.summary}</p>
-        <p className="mt-3 font-mono text-xs tracking-wider text-accent uppercase">
-          {topic.lockedReason ?? "Open: click the moon to start"}
-        </p>
-        <span
-          className="absolute top-full size-0 -translate-x-1/2 border-x-[10px] border-t-[12px] border-x-transparent border-t-violet"
-          style={{ left: `calc(${pct(node.x, W)} - ${calloutLeft})` }}
-        />
-      </div>
+      {topic && node && (
+        <div
+          id={calloutId}
+          role="tooltip"
+          className="orbit-callout pointer-events-none absolute border border-violet bg-bg/95 p-5 text-left"
+          style={{
+            width: CALLOUT_WIDTH,
+            left: calloutLeft,
+            bottom: `calc(${pct(H - nodeTop, H)} + 18px)`,
+          }}
+        >
+          <p className="flex items-center gap-2 font-display text-3xl font-semibold">
+            {topic.name}
+            {topic.lockedReason && <LockIcon className="size-5 text-dim" />}
+          </p>
+          <p className="mt-2 text-sm text-dim">{topic.summary}</p>
+          <p className="mt-3 font-mono text-xs tracking-wider text-accent uppercase">
+            {topic.lockedReason ?? "Open: click to start"}
+          </p>
+          <span
+            className="absolute top-full size-0 -translate-x-1/2 border-x-[10px] border-t-[12px] border-x-transparent border-t-violet"
+            style={{ left: `calc(${pct(node.x, W)} - ${calloutLeft})` }}
+          />
+        </div>
+      )}
     </div>
   );
 }

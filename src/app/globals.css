@@ -168,15 +168,42 @@ html.cc-on .cc-frame {
 .orbit-node {
   box-shadow: 0 0 0 2px rgb(7 11 31 / 0.9);
   transition:
-    transform 200ms ease-out,
+    scale 200ms ease-out,
     box-shadow 200ms ease-out;
 }
 
 .orbit-node.is-selected {
-  transform: translate(-50%, -50%) scale(1.08);
+  /* Tailwind centres the moon with the translate property, so only scale here. */
+  scale: 1.08;
   box-shadow:
     0 0 0 2px var(--color-bg),
     0 0 0 4px var(--color-accent);
+}
+
+.orbit-node.is-locked {
+  color: var(--color-dim);
+}
+
+.orbit-callout {
+  animation: callout-in 150ms ease-out;
+}
+
+@keyframes callout-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+/* Bands drift one planet-width per cycle, which reads as a slow spin. */
+.planet-spin {
+  animation: planet-spin 90s linear infinite;
+}
+
+@keyframes planet-spin {
+  to {
+    transform: translateX(440px);
+  }
 }
 
 .orbit-rocket {
@@ -206,7 +233,9 @@ html.cc-on .cc-frame {
   }
 
   .orbit-rocket,
-  .orbit-flame {
+  .orbit-flame,
+  .orbit-callout,
+  .planet-spin {
     animation: none;
   }
 }
