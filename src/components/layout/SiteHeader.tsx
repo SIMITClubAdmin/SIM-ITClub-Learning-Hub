@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { TOPICS } from "@/lib/topics";
 import { NavDropdown, type NavDropdownItem } from "./NavDropdown";
 import { UserMenu } from "./UserMenu";
 
@@ -12,13 +13,11 @@ const LEARN_ITEMS: NavDropdownItem[] = [
   { label: "JavaScript", href: "/learn/javascript" },
 ];
 
-// TODO(Practice step): replace these fixed locks with the member's real scores.
-const UNLOCK_REASON = "Score 70% on HTML Easy to unlock";
-const PRACTICE_ITEMS: NavDropdownItem[] = [
-  { label: "HTML", href: "/practice/html" },
-  { label: "CSS", lockedReason: UNLOCK_REASON },
-  { label: "JavaScript", lockedReason: UNLOCK_REASON },
-];
+const PRACTICE_ITEMS: NavDropdownItem[] = TOPICS.map((topic) =>
+  topic.lockedReason
+    ? { label: topic.name, lockedReason: topic.lockedReason }
+    : { label: topic.name, href: `/practice/${topic.slug}` },
+);
 
 export function SiteHeader() {
   const pathname = usePathname();
