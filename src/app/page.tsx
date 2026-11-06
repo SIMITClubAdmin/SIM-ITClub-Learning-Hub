@@ -8,7 +8,7 @@ export default function Home() {
         Learn to build websites.
       </h1>
       <p className="max-w-xl text-lg text-pretty text-dim">
-        Learn HTML, CSS, and JavaScript. Do exercises. Earn points and climb the leaderboard.
+          Learn HTML, CSS, and JavaScript. Practice with exercises and climb the leaderboard
       </p>
       <div className="flex flex-wrap justify-center gap-5">
         <CtaButton href="/learn" size="lg">
