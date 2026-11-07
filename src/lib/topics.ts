@@ -134,4 +134,28 @@ export const MODULES: CourseModule[] = [
     },
     topics: GIT_TOPICS,
   },
+  {
+    slug: "lesson-3",
+    number: 3,
+    title: "Coming soon",
+    lockedReason: "Finish Lesson 2 to unlock",
+    palette: {
+      base: "#14605e",
+      bands: ["#1e8a85", "#7fd8c8", "#177570", "#a6ead9", "#1b7f79", "#58c2b4"],
+      storm: "#e6f1ff",
+      rim: "#7fe6d4",
+      ring: "#c8f5ec",
+      glow: "#1ea3c0",
+      moons: ["#1ea3c0", "#3fbf8f", "#4f6cf0"],
+    },
+    // Placeholder moons until the Lesson 3 topics are decided.
+    topics: [1, 2, 3].map((n) => ({
+      slug: `lesson-3-topic-${n}`,
+      name: `Topic ${n}`,
+      short: "?",
+      summary: "This topic is still being planned.",
+      lockedReason: "Finish Lesson 2 to unlock",
+      lessons: [],
+    })),
+  },
 ];

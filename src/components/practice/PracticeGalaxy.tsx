@@ -1,8 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CourseModule } from "@/lib/topics";
 import { PracticeOrbit } from "./PracticeOrbit";
+
+const SPIN_MS = 1200;
+// How far the planets behind the current one sit from the centre, as a % of the stage.
+const SPREAD_X = 60;
+const SPREAD_Y = 60;
+
+/**
+ * Where a planet sits on the wheel. a = 0 is the front, in the middle of the screen.
+ * The rest recede along a diagonal: the next lesson peeks in at the top left,
+ * the one after at the bottom right.
+ */
+function placement(a: number) {
+  const s = Math.sin(a);
+  const depth = (Math.cos(a) + 1) / 2; // 1 at the front, 0 at the very back
+  return {
+    x: 50 - s * SPREAD_X,
+    y: 50 - s * SPREAD_Y,
+    scale: 0.5 + depth * 0.5,
+    z: Math.round(depth * 10),
+    front: depth > 0.98,
+  };
+}
+
+function wrap(value: number, n: number) {
+  return ((value % n) + n) % n;
+}
 
 function Arrow({ flip }: { flip?: boolean }) {
   return (
@@ -13,80 +39,96 @@ function Arrow({ flip }: { flip?: boolean }) {
 }
 
 const NAV_BUTTON =
-  "flex size-11 items-center justify-center border border-ink transition-colors hover:border-accent hover:bg-accent hover:text-bg disabled:pointer-events-none disabled:opacity-30";
+  "flex size-11 items-center justify-center border border-ink bg-bg/80 transition-colors hover:border-accent hover:bg-accent hover:text-bg";
 
-/** One planet per lesson. The view pans sideways between planets like a camera. */
+/** One planet per lesson, on a wheel that rotates the chosen planet to the front. */
 export function PracticeGalaxy({ modules }: { modules: CourseModule[] }) {
+  const n = modules.length;
   // The rocket lives on the newest open lesson.
   const checkpoint = Math.max(0, modules.findLastIndex((m) => !m.lockedReason));
-  const [index, setIndex] = useState(checkpoint);
-  const current = modules[index];
+  const [target, setTarget] = useState(checkpoint);
+  // A continuous position on the wheel, so planets glide along the curve between stops.
+  const [spin, setSpin] = useState(checkpoint);
+  const spinRef = useRef(checkpoint);
+
+  useEffect(() => {
+    const from = spinRef.current;
+    // Go the short way round the wheel.
+    let delta = wrap(target - from, n);
+    if (delta > n / 2) delta -= n;
+    if (Math.abs(delta) < 0.001) return;
+    const duration = matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : SPIN_MS;
+    const start = performance.now();
+    let raf = 0;
+    const step = (now: number) => {
+      const k = duration ? Math.min(1, (now - start) / duration) : 1;
+      const eased = k < 0.5 ? 4 * k * k * k : 1 - (-2 * k + 2) ** 3 / 2;
+      spinRef.current = from + delta * eased;
+      setSpin(spinRef.current);
+      if (k < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target, n]);
+
+  const current = modules[wrap(target, n)];
+  const go = (index: number) => setTarget(wrap(index, n));
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-center gap-4">
-        <button
-          type="button"
-          onClick={() => setIndex((i) => i - 1)}
-          disabled={index === 0}
-          aria-label="Previous lesson planet"
-          className={NAV_BUTTON}
-        >
+    <div className="relative flex flex-1 flex-col">
+      <div className="relative z-20 flex flex-wrap items-center justify-center gap-4">
+        <button type="button" onClick={() => go(target - 1)} aria-label="Previous lesson" className={NAV_BUTTON}>
           <Arrow />
         </button>
         <div className="min-w-56 text-center" aria-live="polite">
           <p className="font-mono text-xs tracking-wider text-accent uppercase">
-            Lesson {current.number} of {modules.length}
+            Lesson {current.number} of {n}
           </p>
           <p className="font-display text-xl font-semibold">{current.title}</p>
           {current.lockedReason && <p className="text-sm text-dim">{current.lockedReason}</p>}
         </div>
-        <button
-          type="button"
-          onClick={() => setIndex((i) => i + 1)}
-          disabled={index === modules.length - 1}
-          aria-label="Next lesson planet"
-          className={NAV_BUTTON}
-        >
+        <button type="button" onClick={() => go(target + 1)} aria-label="Next lesson" className={NAV_BUTTON}>
           <Arrow flip />
         </button>
       </div>
 
-      <div className="overflow-hidden">
-        <div
-          className="galaxy-track flex"
-          style={{ transform: `translateX(-${index * 100}%)` }}
-        >
-          {modules.map((module, i) => (
+      <div className="relative flex-1">
+        {modules.map((module, i) => {
+          const a = ((i - spin) / n) * 2 * Math.PI;
+          const p = placement(a);
+          const isTarget = wrap(target, n) === i;
+          const interactive = isTarget && p.front;
+          return (
             <div
               key={module.slug}
-              inert={i !== index}
-              aria-hidden={i !== index}
-              className={`galaxy-slide w-full shrink-0 px-[8%] ${i === index ? "" : "is-away"} ${
-                module.lockedReason ? "is-locked" : ""
-              }`}
+              className={`galaxy-planet absolute ${module.lockedReason ? "is-locked" : ""}`}
+              style={{
+                left: `${p.x}%`,
+                top: `${p.y}%`,
+                zIndex: p.z,
+                transform: `translate(-50%, -50%) scale(${p.scale})`,
+                opacity: 0.35 + p.scale * 0.65,
+              }}
             >
-              <PracticeOrbit
-                topics={module.topics}
-                palette={module.palette}
-                showRocket={i === checkpoint}
-              />
+              <div inert={!interactive} aria-hidden={!interactive}>
+                <PracticeOrbit
+                  topics={module.topics}
+                  palette={module.palette}
+                  showRocket={i === checkpoint}
+                />
+              </div>
+              {/* A planet waiting at the edge can be clicked to rotate it in. */}
+              {!isTarget && (
+                <button
+                  type="button"
+                  onClick={() => go(i)}
+                  aria-label={`Go to lesson ${module.number}: ${module.title}`}
+                  className="absolute inset-[18%] rounded-full"
+                />
+              )}
             </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex justify-center gap-3">
-        {modules.map((module, i) => (
-          <button
-            key={module.slug}
-            type="button"
-            onClick={() => setIndex(i)}
-            aria-label={`Lesson ${module.number}: ${module.title}`}
-            aria-current={i === index ? "true" : undefined}
-            className={`size-2.5 transition-colors ${i === index ? "bg-accent" : "bg-violet hover:bg-dim"}`}
-          />
-        ))}
+          );
+        })}
       </div>
     </div>
   );

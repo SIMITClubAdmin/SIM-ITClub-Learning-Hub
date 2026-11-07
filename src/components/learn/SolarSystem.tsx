@@ -6,13 +6,13 @@ import type { Topic } from "@/lib/topics";
 
 // Scene size; the orbits are tilted ellipses around the sun.
 const W = 800;
-const H = 480;
-const SUN = { x: 400, y: 240, r: 58 };
-const TILT = 0.36;
+const H = 440;
+const SUN = { x: 400, y: 220, r: 70 };
+const TILT = 0.38;
 const PLANETS = [
-  { rx: 150, size: 54, speed: 0.11, start: 200, color: "#be3caa" },
-  { rx: 245, size: 66, speed: 0.07, start: 330, color: "#4f6cf0" },
-  { rx: 345, size: 76, speed: 0.045, start: 80, color: "#1ea3c0" },
+  { rx: 165, size: 66, speed: 0.11, start: 200, color: "#be3caa" },
+  { rx: 268, size: 80, speed: 0.07, start: 330, color: "#4f6cf0" },
+  { rx: 365, size: 92, speed: 0.045, start: 80, color: "#1ea3c0" },
 ];
 
 function position(i: number, degrees: number) {
@@ -58,10 +58,28 @@ export function SolarSystem({ topics }: { topics: Topic[] }) {
     return () => cancelAnimationFrame(raf);
   }, [paused]);
 
+  // Clicking anywhere outside the planets and the panel, or pressing Escape, closes it.
+  useEffect(() => {
+    if (open === null) return;
+    function onPointerDown(event: PointerEvent) {
+      const target = event.target as Element;
+      if (!target.closest(".solar-planet, #topic-panel")) setOpen(null);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(null);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
   const topic = open === null ? null : topics[open];
 
   return (
-    <div className="grid items-center gap-8 lg:grid-cols-[1fr_20rem]">
+    <div className="grid items-center gap-8 lg:grid-cols-[1fr_18rem]">
       <div className="relative w-full" style={{ aspectRatio: `${W} / ${H}` }}>
         <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 size-full" aria-hidden="true">
           {PLANETS.map((p) => (
@@ -80,7 +98,7 @@ export function SolarSystem({ topics }: { topics: Topic[] }) {
           ))}
         </svg>
         <div
-          className="sun absolute z-2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full font-mono text-xs font-medium text-bg"
+          className="sun absolute z-2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full font-mono text-sm font-semibold text-bg"
           style={{
             left: pct(SUN.x, W),
             top: pct(SUN.y, H),
@@ -108,7 +126,7 @@ export function SolarSystem({ topics }: { topics: Topic[] }) {
             onPointerLeave={() => setHovered(null)}
             onFocus={() => setHovered(i)}
             onBlur={() => setHovered(null)}
-            className={`solar-planet absolute flex aspect-square -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full font-mono text-sm font-medium text-ink ${
+            className={`solar-planet absolute flex aspect-square -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full font-mono text-base font-medium text-ink ${
               open === i ? "is-open" : ""
             }`}
             style={{
@@ -159,7 +177,7 @@ export function SolarSystem({ topics }: { topics: Topic[] }) {
           <div className="flex h-full flex-col justify-center gap-2 text-dim">
             <p className="font-display text-xl font-semibold text-ink">Pick a planet</p>
             <p className="text-sm">
-              Every topic is open. Click a planet to see its lessons. The orbits pause while you look.
+              Every topic is open. Click a planet to see its lessons. The orbits pause while you look, and start again when you click anywhere else.
             </p>
           </div>
         )}
