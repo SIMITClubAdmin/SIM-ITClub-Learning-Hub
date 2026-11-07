@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
-import type { Topic } from "@/lib/topics";
+import type { PlanetPalette, Topic } from "@/lib/topics";
 
 // Scene coordinates, in the SVG viewBox.
 const W = 800;
@@ -27,7 +27,6 @@ const STOPS = [
 // How far behind a moon the rocket waits, in degrees along the orbit.
 const ROCKET_TRAIL = 24;
 const ROCKET_TRAVEL_MS = 1400;
-const NODE_COLORS = ["#be3caa", "#4f6cf0", "#1ea3c0"];
 const CALLOUT_WIDTH = 280;
 
 function orbitPoint(degrees: number, scale = 1) {
@@ -103,16 +102,16 @@ function Rocket({ checkpoint }: { checkpoint: number }) {
   );
 }
 
-function Planet() {
+function Planet({ palette, ids }: { palette: PlanetPalette; ids: Ids }) {
   const { x, y, r } = PLANET;
   // Bands and storms are drawn twice side by side so the slow drift can loop without a seam.
   const bands = [
-    { dy: -150, h: 34, color: "#6a58d6" },
-    { dy: -95, h: 22, color: "#a493f5" },
-    { dy: -45, h: 40, color: "#5646c2" },
-    { dy: 18, h: 26, color: "#b8a9ff" },
-    { dy: 70, h: 44, color: "#6150cc" },
-    { dy: 135, h: 24, color: "#9584ec" },
+    { dy: -150, h: 34, color: palette.bands[0] },
+    { dy: -95, h: 22, color: palette.bands[1] },
+    { dy: -45, h: 40, color: palette.bands[2] },
+    { dy: 18, h: 26, color: palette.bands[3] },
+    { dy: 70, h: 44, color: palette.bands[4] },
+    { dy: 135, h: 24, color: palette.bands[5] },
   ];
   const storms = [
     { dx: -90, dy: 30, rx: 34, ry: 12 },
@@ -122,9 +121,9 @@ function Planet() {
   const span = r * 2;
   return (
     <g>
-      <circle cx={x} cy={y} r={r + 26} fill="url(#planet-glow)" />
-      <g clipPath="url(#planet-clip)">
-        <circle cx={x} cy={y} r={r} fill="#4a3db0" />
+      <circle cx={x} cy={y} r={r + 26} fill={`url(#${ids.glow})`} />
+      <g clipPath={`url(#${ids.clip})`}>
+        <circle cx={x} cy={y} r={r} fill={palette.base} />
         <g transform={`rotate(${TILT_DEG} ${x} ${y})`}>
           <g className="planet-spin">
             {[0, span].map((offset) => (
@@ -147,7 +146,7 @@ function Planet() {
                     cy={y + s.dy}
                     rx={s.rx}
                     ry={s.ry}
-                    fill="#be3caa"
+                    fill={palette.storm}
                     opacity="0.45"
                   />
                 ))}
@@ -155,15 +154,15 @@ function Planet() {
             ))}
           </g>
         </g>
-        <circle cx={x} cy={y} r={r} fill="url(#planet-shade)" />
+        <circle cx={x} cy={y} r={r} fill={`url(#${ids.shade})`} />
       </g>
       {/* A thin cyan rim keeps the outline sharp over any nebula cloud. */}
-      <circle cx={x} cy={y} r={r} fill="none" stroke="#4fd8eb" strokeOpacity="0.7" strokeWidth="2.5" />
+      <circle cx={x} cy={y} r={r} fill="none" stroke={palette.rim} strokeOpacity="0.7" strokeWidth="2.5" />
     </g>
   );
 }
 
-function Rings({ half }: { half: "back" | "front" }) {
+function Rings({ half, color }: { half: "back" | "front"; color: string }) {
   const [from, to] = half === "back" ? [180, 360] : [0, 180];
   return (
     <g className="planet-rings">
@@ -172,7 +171,7 @@ function Rings({ half }: { half: "back" | "front" }) {
           key={ring.scale}
           d={arc(from, to, ring.scale)}
           fill="none"
-          stroke="#d4caff"
+          stroke={color}
           strokeOpacity={half === "back" ? ring.opacity * 0.6 : Math.min(1, ring.opacity * 1.5)}
           strokeWidth={ring.width}
         />
@@ -181,9 +180,20 @@ function Rings({ half }: { half: "back" | "front" }) {
   );
 }
 
+type Ids = { clip: string; shade: string; glow: string; halo: string };
+
+type Props = {
+  topics: Topic[];
+  palette: PlanetPalette;
+  /** Only the planet holding the student's checkpoint shows the rocket. */
+  showRocket?: boolean;
+};
+
 /** Ringed planet with a moon orbit; each moon is a practice topic. */
-export function PracticeOrbit({ topics }: { topics: Topic[] }) {
+export function PracticeOrbit({ topics, palette, showRocket = true }: Props) {
   const calloutId = useId();
+  const uid = useId();
+  const ids: Ids = { clip: `${uid}clip`, shade: `${uid}shade`, glow: `${uid}glow`, halo: `${uid}halo` };
   const [selected, setSelected] = useState<number | null>(null);
   const openCount = topics.filter((t) => !t.lockedReason).length;
   const checkpoint = Math.max(0, openCount - 1);
@@ -200,32 +210,32 @@ export function PracticeOrbit({ topics }: { topics: Topic[] }) {
     <div className="relative w-full" style={{ aspectRatio: `${W} / ${H}` }}>
       <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 size-full overflow-visible" aria-hidden="true">
         <defs>
-          <clipPath id="planet-clip">
+          <clipPath id={ids.clip}>
             <circle cx={PLANET.x} cy={PLANET.y} r={PLANET.r} />
           </clipPath>
-          <radialGradient id="planet-shade" cx="32%" cy="28%" r="80%">
+          <radialGradient id={ids.shade} cx="32%" cy="28%" r="80%">
             <stop offset="0%" stopColor="#ffffff" stopOpacity="0.22" />
             <stop offset="45%" stopColor="#ffffff" stopOpacity="0" />
             <stop offset="80%" stopColor="#070b1f" stopOpacity="0.55" />
             <stop offset="100%" stopColor="#070b1f" stopOpacity="0.85" />
           </radialGradient>
-          <radialGradient id="planet-glow">
-            <stop offset="80%" stopColor="#6d4aff" stopOpacity="0.35" />
-            <stop offset="100%" stopColor="#6d4aff" stopOpacity="0" />
+          <radialGradient id={ids.glow}>
+            <stop offset="80%" stopColor={palette.glow} stopOpacity="0.35" />
+            <stop offset="100%" stopColor={palette.glow} stopOpacity="0" />
           </radialGradient>
-          <radialGradient id="planet-halo">
+          <radialGradient id={ids.halo}>
             <stop offset="45%" stopColor="#070b1f" stopOpacity="0.9" />
             <stop offset="100%" stopColor="#070b1f" stopOpacity="0" />
           </radialGradient>
         </defs>
         {/* Dark halo fades the background clouds near the planet, like a spotlight. */}
-        <ellipse cx={PLANET.x} cy={PLANET.y + 10} rx={PLANET.r + 200} ry={PLANET.r + 60} fill="url(#planet-halo)" />
-        <Rings half="back" />
+        <ellipse cx={PLANET.x} cy={PLANET.y + 10} rx={PLANET.r + 200} ry={PLANET.r + 60} fill={`url(#${ids.halo})`} />
+        <Rings half="back" color={palette.ring} />
         <path d={arc(180, 360)} fill="none" stroke="#94aaff" strokeOpacity="0.4" strokeWidth="1.5" strokeDasharray="4 6" />
-        <Planet />
-        <Rings half="front" />
+        <Planet palette={palette} ids={ids} />
+        <Rings half="front" color={palette.ring} />
         <path d={arc(0, 180)} fill="none" stroke="#94aaff" strokeOpacity="0.8" strokeWidth="1.5" strokeDasharray="4 6" />
-        <Rocket checkpoint={checkpoint} />
+        {showRocket && <Rocket checkpoint={checkpoint} />}
       </svg>
 
       {topics.map((t, i) => {
@@ -236,7 +246,7 @@ export function PracticeOrbit({ topics }: { topics: Topic[] }) {
           left: pct(p.x, W),
           top: pct(p.y, H),
           width: pct(stop.size, W),
-          background: locked ? "#232a52" : NODE_COLORS[i],
+          background: locked ? "#232a52" : palette.moons[i],
         };
         const className = `orbit-node absolute flex aspect-square -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full font-mono text-sm font-medium text-ink ${
           locked ? "is-locked" : ""
