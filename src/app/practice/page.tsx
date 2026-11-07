@@ -7,22 +7,15 @@ export const metadata: Metadata = { title: "Practice · ITCamp Learning Hub" };
 
 export default function PracticePage() {
   return (
-    // overflow-clip lets the next lessons' planets peek in from the corners. Unlike
-    // overflow-hidden it cannot be scrolled, so moving focus never shifts the page.
-    <main className="relative flex w-full flex-1 flex-col overflow-clip px-4 py-6 sm:px-8">
-      {/* A small corner label, so the planet is the first thing students look at. */}
-      <div className="relative z-20 flex max-w-xs flex-col gap-2 lg:absolute lg:top-6 lg:left-8">
-        <h1 className="text-3xl font-semibold sm:text-4xl">Practice</h1>
-        <p className="text-sm text-dim">
-          Each lesson is a planet. Score 70% on a moon to unlock the next one, and the rocket flies
-          to your newest checkpoint.
-        </p>
-      </div>
+    <main className="flex w-full flex-1 flex-col px-4 py-6 sm:px-8">
+      <h1 className="sr-only">Practice</h1>
 
-      {/* The stage fills the screen; each planet is sized to fit its height. */}
+      {/* The stage covers the whole window behind the header, so planets drift under the
+          logo with no hard edge. overflow-clip lets corner planets peek in without ever
+          scrolling the page. */}
       <div
-        className="hidden min-h-[34rem] flex-1 flex-col sm:flex"
-        style={{ "--planet-width": "min(60rem, calc((100svh - 230px) * 800 / 520))" } as React.CSSProperties}
+        className="fixed inset-0 z-0 hidden flex-col overflow-clip pt-24 pb-4 sm:flex"
+        style={{ "--planet-width": "min(64rem, calc((100svh - 170px) * 800 / 520))" } as React.CSSProperties}
       >
         <PracticeGalaxy modules={MODULES} />
       </div>
