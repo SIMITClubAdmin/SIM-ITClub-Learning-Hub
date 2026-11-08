@@ -35,12 +35,24 @@ function Lock({ className = "" }: { className?: string }) {
   );
 }
 
-// Craters as [x, y, r] on a 100x100 planet; fixed so server and client match.
-const CRATERS = [
-  [30, 62, 7], [62, 28, 5], [70, 66, 9], [44, 40, 3.5], [22, 36, 4], [55, 82, 4.5], [82, 46, 3],
-];
+/** Half of a tilted ring: the back half sits behind the planet, the front half over it. */
+function Ring({ half, color }: { half: "back" | "front"; color: string }) {
+  const sweep = half === "back" ? 1 : 0;
+  return (
+    <svg
+      viewBox="0 0 200 100"
+      className="pointer-events-none absolute top-0 -left-1/2 h-full w-[200%] overflow-visible"
+      aria-hidden="true"
+    >
+      <g transform="rotate(-10 100 50)" fill="none" stroke={color}>
+        <path d={`M8 50 A92 15 0 0 ${sweep} 192 50`} strokeWidth="3" strokeOpacity={half === "back" ? 0.5 : 0.9} />
+        <path d={`M18 50 A82 12 0 0 ${sweep} 182 50`} strokeWidth="1.2" strokeOpacity="0.45" />
+      </g>
+    </svg>
+  );
+}
 
-/** A banded, cratered planet surface that drifts slowly, so the zoom has detail to land on. */
+/** A softly banded planet surface that drifts slowly, so the zoom has detail to land on. */
 function PlanetSurface({ palette }: { palette: PlanetPalette }) {
   const uid = useId();
   const clip = `${uid}c`;
@@ -52,7 +64,7 @@ function PlanetSurface({ palette }: { palette: PlanetPalette }) {
     const wave = (dx: number) =>
       `M${dx} ${y} q12.5 -3 25 0 t25 0 t25 0 t25 0 v${h} q-12.5 3 -25 0 t-25 0 t-25 0 t-25 0 z`;
     return (
-      <g key={b} fill={color} opacity={0.75}>
+      <g key={b} fill={color} opacity={0.35}>
         <path d={wave(0)} />
         <path d={wave(100)} />
       </g>
@@ -74,13 +86,6 @@ function PlanetSurface({ palette }: { palette: PlanetPalette }) {
       <g clipPath={`url(#${clip})`}>
         <rect width="100" height="100" fill={palette.base} />
         <g className="surface-drift">{bands}</g>
-        <ellipse cx="66" cy="54" rx="9" ry="4.5" fill={palette.storm} opacity="0.55" />
-        {CRATERS.map(([x, y, r]) => (
-          <g key={`${x}-${y}`}>
-            <circle cx={x} cy={y} r={r} fill="#070b1f" opacity="0.22" />
-            <circle cx={x - r * 0.15} cy={y - r * 0.15} r={r * 0.8} fill={palette.bands[1]} opacity="0.25" />
-          </g>
-        ))}
         <rect width="100" height="100" fill={`url(#${shade})`} />
       </g>
     </svg>
@@ -234,8 +239,14 @@ export function PracticeSolarSystem({ modules }: { modules: CourseModule[] }) {
               filter: m.lockedReason ? "saturate(0.55) brightness(0.8)" : undefined,
             }}
           >
+            <Ring half="back" color={m.palette.ring} />
             <PlanetSurface palette={m.palette} />
-            <span className="relative drop-shadow-[0_1px_2px_rgb(7_11_31)]">L{m.number}</span>
+            <Ring half="front" color={m.palette.ring} />
+            <span
+              className={`relative drop-shadow-[0_1px_2px_rgb(7_11_31)] ${open === i ? "font-display text-[0.6rem] font-semibold" : ""}`}
+            >
+              {open === i ? `Lesson ${m.number}` : `L${m.number}`}
+            </span>
             {m.lockedReason && <Lock className="relative mt-0.5 size-3 text-dim" />}
           </button>
         ))}
