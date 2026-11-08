@@ -302,8 +302,9 @@ export function PracticeSolarSystem({ modules }: { modules: CourseModule[] }) {
                   <div className="mt-3 flex items-center justify-between gap-3">
                     <span className="font-mono text-xs text-dim">{locked ? "" : "Best: not attempted"}</span>
                     {locked ? (
-                      <span className="text-dim" role="img" aria-label="Locked">
-                        <Lock className="size-4" />
+                      <span className="flex items-center gap-1.5 font-mono text-xs text-dim">
+                        <Lock className="size-3.5" />
+                        {locked}
                       </span>
                     ) : (
                       <Link href={`/practice/${topic.slug}`} className="cta">

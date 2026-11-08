@@ -33,7 +33,7 @@ export type CourseModule = {
 };
 
 // TODO(Practice step): work out locks from the member's real scores.
-const UNLOCK_REASON = "Score 70% on HTML Easy to unlock";
+const UNLOCK_REASON = "Finish the HTML questions to unlock";
 
 export const TOPICS: Topic[] = [
   {
