@@ -347,3 +347,19 @@ html.cc-on .cc-frame {
     animation: none;
   }
 }
+
+.surface-drift {
+  animation: surface-drift 60s linear infinite;
+}
+
+@keyframes surface-drift {
+  to {
+    transform: translateX(-100px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .surface-drift {
+    animation: none;
+  }
+}

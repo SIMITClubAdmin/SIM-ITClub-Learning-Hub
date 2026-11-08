@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import type { CourseModule } from "@/lib/topics";
+import { useEffect, useId, useRef, useState } from "react";
+import type { CourseModule, PlanetPalette } from "@/lib/topics";
 
 // Same scene as the Learn solar system: tilted orbits around a sun.
 const W = 800;
@@ -17,7 +17,6 @@ const ORBITS = [
 const ZOOM = 3.2;
 // Where the zoomed planet lands, as a % of the scene, leaving room for the panel.
 const FOCUS = { x: 28, y: 50 };
-const LEVELS = ["Easy", "Medium", "Hard"];
 
 function position(i: number, degrees: number) {
   const t = (degrees * Math.PI) / 180;
@@ -33,6 +32,70 @@ function Lock({ className = "" }: { className?: string }) {
       <rect x="5" y="11" width="14" height="10" fill="currentColor" />
       <path d="M8 11V7a4 4 0 0 1 8 0v4" fill="none" stroke="currentColor" strokeWidth="2" />
     </svg>
+  );
+}
+
+// Craters as [x, y, r] on a 100x100 planet; fixed so server and client match.
+const CRATERS = [
+  [30, 62, 7], [62, 28, 5], [70, 66, 9], [44, 40, 3.5], [22, 36, 4], [55, 82, 4.5], [82, 46, 3],
+];
+
+/** A banded, cratered planet surface that drifts slowly, so the zoom has detail to land on. */
+function PlanetSurface({ palette }: { palette: PlanetPalette }) {
+  const uid = useId();
+  const clip = `${uid}c`;
+  const shade = `${uid}s`;
+  // Wavy band edges; drawn twice side by side so the drift loops seamlessly.
+  const bands = palette.bands.map((color, b) => {
+    const y = 6 + b * 16;
+    const h = 9 + (b % 3) * 3;
+    const wave = (dx: number) =>
+      `M${dx} ${y} q12.5 -3 25 0 t25 0 t25 0 t25 0 v${h} q-12.5 3 -25 0 t-25 0 t-25 0 t-25 0 z`;
+    return (
+      <g key={b} fill={color} opacity={0.75}>
+        <path d={wave(0)} />
+        <path d={wave(100)} />
+      </g>
+    );
+  });
+  return (
+    <svg viewBox="0 0 100 100" className="absolute inset-0 size-full" aria-hidden="true">
+      <defs>
+        <clipPath id={clip}>
+          <circle cx="50" cy="50" r="50" />
+        </clipPath>
+        <radialGradient id={shade} cx="32%" cy="28%" r="80%">
+          <stop offset="0%" stopColor="#fff" stopOpacity="0.3" />
+          <stop offset="45%" stopColor="#fff" stopOpacity="0" />
+          <stop offset="80%" stopColor="#070b1f" stopOpacity="0.5" />
+          <stop offset="100%" stopColor="#070b1f" stopOpacity="0.85" />
+        </radialGradient>
+      </defs>
+      <g clipPath={`url(#${clip})`}>
+        <rect width="100" height="100" fill={palette.base} />
+        <g className="surface-drift">{bands}</g>
+        <ellipse cx="66" cy="54" rx="9" ry="4.5" fill={palette.storm} opacity="0.55" />
+        {CRATERS.map(([x, y, r]) => (
+          <g key={`${x}-${y}`}>
+            <circle cx={x} cy={y} r={r} fill="#070b1f" opacity="0.22" />
+            <circle cx={x - r * 0.15} cy={y - r * 0.15} r={r * 0.8} fill={palette.bands[1]} opacity="0.25" />
+          </g>
+        ))}
+        <rect width="100" height="100" fill={`url(#${shade})`} />
+      </g>
+    </svg>
+  );
+}
+
+function Stars({ count }: { count: number }) {
+  return (
+    <span className="flex gap-0.5" aria-label={`${count} of 3 stars`}>
+      {[0, 1, 2].map((s) => (
+        <svg key={s} viewBox="0 0 24 24" className={`size-4 ${s < count ? "text-accent" : "text-grid"}`} aria-hidden="true">
+          <path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.3 5.8 21l1.6-7L2 9.2l7.1-.6z" fill="currentColor" />
+        </svg>
+      ))}
+    </span>
   );
 }
 
@@ -168,12 +231,12 @@ export function PracticeSolarSystem({ modules }: { modules: CourseModule[] }) {
             } ${zoomed && open !== i ? "opacity-0" : ""}`}
             style={{
               width: pct(ORBITS[i % ORBITS.length].size, W),
-              backgroundImage: `radial-gradient(circle at 35% 30%, rgb(255 255 255 / 0.4), ${m.palette.bands[0]} 40%, ${m.palette.base} 70%, rgb(7 11 31 / 0.9))`,
               filter: m.lockedReason ? "saturate(0.55) brightness(0.8)" : undefined,
             }}
           >
-            L{m.number}
-            {m.lockedReason && <Lock className="mt-0.5 size-3 text-dim" />}
+            <PlanetSurface palette={m.palette} />
+            <span className="relative drop-shadow-[0_1px_2px_rgb(7_11_31)]">L{m.number}</span>
+            {m.lockedReason && <Lock className="relative mt-0.5 size-3 text-dim" />}
           </button>
         ))}
       </div>
@@ -199,37 +262,49 @@ export function PracticeSolarSystem({ modules }: { modules: CourseModule[] }) {
               {lesson.lockedReason}
             </p>
           )}
-          <ul className="mt-4 flex flex-col gap-4">
-            {lesson.topics.map((topic) => {
+          {/* TODO(Practice step): read stars and best scores from the member's real attempts. */}
+          <div className="mt-4">
+            <div className="flex justify-between font-mono text-[11px] tracking-wider text-dim uppercase">
+              <span>Missions cleared</span>
+              <span>0 / {lesson.topics.length}</span>
+            </div>
+            <div className="mt-1.5 h-1.5 bg-grid">
+              <div className="h-full bg-accent" style={{ width: "0%" }} />
+            </div>
+          </div>
+          <ol className="mt-5 flex flex-col gap-3">
+            {lesson.topics.map((topic, ti) => {
               const locked = lesson.lockedReason ?? topic.lockedReason;
               return (
-                <li key={topic.slug}>
-                  <p className="font-display text-lg font-semibold">{topic.name}</p>
-                  <div className="mt-1.5 flex gap-2">
-                    {LEVELS.map((level, li) => {
-                      // TODO(Practice step): unlock levels from the member's real scores.
-                      const open = !locked && li === 0;
-                      const cls = "flex-1 border px-2 py-1.5 text-center font-mono text-xs tracking-wider uppercase";
-                      return open ? (
-                        <Link
-                          key={level}
-                          href={`/practice/${topic.slug}?level=${level.toLowerCase()}`}
-                          className={`${cls} border-accent text-accent hover:bg-accent hover:text-bg`}
-                        >
-                          {level}
-                        </Link>
-                      ) : (
-                        <span key={level} aria-disabled="true" className={`${cls} flex items-center justify-center gap-1 border-grid text-dim/70`}>
-                          <Lock className="size-3" />
-                          {level}
-                        </span>
-                      );
-                    })}
+                <li
+                  key={topic.slug}
+                  className={`border p-4 ${locked ? "border-grid bg-bg/60" : "border-violet bg-violet/10"}`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-mono text-[11px] tracking-wider text-accent uppercase">
+                      Mission {String(ti + 1).padStart(2, "0")}
+                    </p>
+                    <Stars count={0} />
+                  </div>
+                  <p className={`mt-1 font-display text-xl font-semibold ${locked ? "text-dim" : ""}`}>{topic.name}</p>
+                  <p className="mt-1 text-sm text-dim">{topic.summary}</p>
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <span className="font-mono text-xs text-dim">{locked ? "" : "Best: not attempted"}</span>
+                    {locked ? (
+                      <span className="flex items-center gap-1.5 font-mono text-xs text-dim">
+                        <Lock className="size-3.5" />
+                        {locked}
+                      </span>
+                    ) : (
+                      <Link href={`/practice/${topic.slug}`} className="cta">
+                        Launch
+                      </Link>
+                    )}
                   </div>
                 </li>
               );
             })}
-          </ul>
+          </ol>
         </aside>
       )}
     </div>
