@@ -17,30 +17,38 @@ const MARIA = [
   [35, 10, 10, 4], [70, 13, 12, 5], [15, 18, 8, 3.5], [52, 22, 14, 5], [80, 30, 10, 5], [30, 38, 12, 5],
 ];
 
+type MoonColors = { light: string; mid: string; dark: string; rim: string; glow: string; maria: string; pit: string; lip: string };
+
+// A sandy gold "winner's planet", so the white astronauts and flags stand out.
+const GOLD: MoonColors = {
+  light: "#ffe3a3", mid: "#e0a948", dark: "#7a5418", rim: "rgb(255 225 160 / 0.8)",
+  glow: "rgb(255 190 80 / 0.3)", maria: "#b07f2c", pit: "#6a4512", lip: "#f5cd7c",
+};
+
 /** Height of the moon's surface below its top edge, in cqw, at d cqw from its centre. */
 const surface = (d: number) => R - Math.sqrt(R * R - d * d);
 
-function Moon() {
+function Moon({ c }: { c: MoonColors }) {
   return (
     <div
       className="absolute left-1/2 aspect-square -translate-x-1/2 overflow-hidden rounded-full"
       style={{
         width: `${R * 2}cqw`,
         top: "var(--moon-top)",
-        background: "radial-gradient(circle at 50% 0%, #f0a070, #c96a3e 25%, #7a3320 60%)",
-        boxShadow: "0 0 0 2px rgb(255 190 150 / 0.8), 0 0 60px 10px rgb(240 120 70 / 0.3)",
+        background: `radial-gradient(circle at 50% 0%, ${c.light}, ${c.mid} 25%, ${c.dark} 60%)`,
+        boxShadow: `0 0 0 2px ${c.rim}, 0 0 60px 10px ${c.glow}`,
       }}
       aria-hidden="true"
     >
       {/* Only the top half shows on screen, so the detail lives there. */}
       <svg viewBox="0 0 100 50" className="absolute top-0 left-0 w-full">
         {MARIA.map(([x, y, rx, ry]) => (
-          <ellipse key={`${x}-${y}`} cx={x} cy={y} rx={rx} ry={ry} fill="#8a3a22" opacity="0.5" />
+          <ellipse key={`${x}-${y}`} cx={x} cy={y} rx={rx} ry={ry} fill={c.maria} opacity="0.5" />
         ))}
         {CRATERS.map(([x, y, r]) => (
           <g key={`${x}-${y}`}>
-            <circle cx={x} cy={y} r={r * 0.55} fill="#5e2414" opacity="0.6" />
-            <circle cx={x - r * 0.1} cy={y - r * 0.12} r={r * 0.43} fill="#e08a58" opacity="0.6" />
+            <circle cx={x} cy={y} r={r * 0.55} fill={c.pit} opacity="0.6" />
+            <circle cx={x - r * 0.1} cy={y - r * 0.12} r={r * 0.43} fill={c.lip} opacity="0.6" />
           </g>
         ))}
       </svg>
@@ -146,7 +154,7 @@ export function LeaderboardPlanet({ entries }: { entries: LeaderboardEntry[] }) 
       style={{ containerType: "inline-size", "--moon-top": moonTop } as React.CSSProperties}
     >
       <Rocket />
-      <Moon />
+      <Moon c={GOLD} />
 
       {ranked.length === 0 ? (
         // The sky between the header and the moon, with the message centred in it.
