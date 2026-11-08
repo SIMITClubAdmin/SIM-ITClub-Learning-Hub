@@ -41,7 +41,7 @@ function Ring({ half, color }: { half: "back" | "front"; color: string }) {
   return (
     <svg
       viewBox="0 0 200 100"
-      className="pointer-events-none absolute top-0 -left-1/2 h-full w-[200%] overflow-visible"
+      className="practice-ring pointer-events-none absolute top-0 -left-1/2 h-full w-[200%] overflow-visible"
       aria-hidden="true"
     >
       <g transform="rotate(-10 100 50)" fill="none" stroke={color}>
@@ -239,9 +239,9 @@ export function PracticeSolarSystem({ modules }: { modules: CourseModule[] }) {
               filter: m.lockedReason ? "saturate(0.55) brightness(0.8)" : undefined,
             }}
           >
-            <Ring half="back" color={m.palette.ring} />
+            {open === i && <Ring half="back" color={m.palette.ring} />}
             <PlanetSurface palette={m.palette} />
-            <Ring half="front" color={m.palette.ring} />
+            {open === i && <Ring half="front" color={m.palette.ring} />}
             <span
               className={`relative drop-shadow-[0_1px_2px_rgb(7_11_31)] ${open === i ? "font-display text-[0.8rem] font-semibold" : ""}`}
             >

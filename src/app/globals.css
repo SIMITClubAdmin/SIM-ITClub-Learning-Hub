@@ -363,3 +363,21 @@ html.cc-on .cc-frame {
     animation: none;
   }
 }
+
+/* The ring fades in as the camera arrives at a planet. */
+.practice-ring {
+  animation: ring-in 500ms ease-out 350ms both;
+}
+
+@keyframes ring-in {
+  from {
+    opacity: 0;
+    scale: 0.85;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .practice-ring {
+    animation: none;
+  }
+}
