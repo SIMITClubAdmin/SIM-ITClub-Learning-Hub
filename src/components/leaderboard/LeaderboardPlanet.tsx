@@ -82,6 +82,26 @@ function Astronaut({ entry, rank }: { entry: LeaderboardEntry; rank: number }) {
   );
 }
 
+/** A small rocket drifting through the sky behind everything, heading for the moon. */
+function Rocket() {
+  return (
+    <div className="lb-rocket pointer-events-none absolute top-[12%] left-[8%] w-20 sm:w-28" aria-hidden="true">
+      <svg viewBox="0 0 120 60" className="w-full rotate-[18deg]">
+        <g className="lb-flame">
+          <path d="M22 30 L2 22 L8 30 L2 38 Z" fill="#ffb347" />
+          <path d="M22 30 L10 26 L13 30 L10 34 Z" fill="#fff6d8" />
+        </g>
+        <path d="M30 18 L18 8 L22 22 Z M30 42 L18 52 L22 38 Z" fill="#6d4aff" />
+        <path d="M20 22 H80 Q108 22 116 30 Q108 38 80 38 H20 Z" fill="#e6f1ff" />
+        <path d="M100 24 Q112 27 116 30 Q112 33 100 36 Z" fill="#be3caa" />
+        <circle cx="72" cy="30" r="5.5" fill="#070b1f" />
+        <circle cx="72" cy="30" r="3.5" fill="#4fd8eb" />
+        <rect x="36" y="27" width="20" height="6" rx="1" fill="#94a3c8" />
+      </svg>
+    </div>
+  );
+}
+
 /** Fades each row in as it scrolls into view. */
 function useReveal() {
   const ref = useRef<HTMLOListElement>(null);
@@ -125,18 +145,20 @@ export function LeaderboardPlanet({ entries }: { entries: LeaderboardEntry[] }) 
       className="relative flex-1 overflow-clip"
       style={{ containerType: "inline-size", "--moon-top": moonTop } as React.CSSProperties}
     >
+      <Rocket />
       <Moon />
 
       {ranked.length === 0 ? (
-        <>
-          <h1 className="relative px-4 pt-14 text-center text-4xl font-semibold sm:text-5xl">Who will set foot first?</h1>
-          <p
-            className="relative mx-auto max-w-md px-6 text-center text-ink drop-shadow-[0_1px_2px_rgb(7_11_31)]"
-            style={{ marginTop: "calc(var(--moon-top) - 8.5rem + 10cqw)", paddingBottom: "30svh" }}
-          >
+        // The sky between the header and the moon, with the message centred in it.
+        <div
+          className="relative flex flex-col items-center justify-center gap-4 px-6 text-center"
+          style={{ height: "var(--moon-top)" }}
+        >
+          <h1 className="text-4xl font-semibold sm:text-6xl">Who will set foot first?</h1>
+          <p className="max-w-md text-lg text-dim">
             No one has landed yet. Finish a practice mission to plant the first flag.
           </p>
-        </>
+        </div>
       ) : (
         <>
           <h1 className="sr-only">Leaderboard</h1>

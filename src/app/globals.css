@@ -404,3 +404,32 @@ html.cc-on .cc-frame {
     transition: none;
   }
 }
+
+/* The rocket drifts slowly in the sky with a flickering flame. */
+.lb-rocket {
+  animation: lb-rocket-drift 14s ease-in-out infinite alternate;
+}
+
+.lb-flame {
+  transform-origin: 22px 30px;
+  animation: lb-flame 0.4s ease-in-out infinite alternate;
+}
+
+@keyframes lb-rocket-drift {
+  to {
+    translate: 6vw 3vh;
+  }
+}
+
+@keyframes lb-flame {
+  to {
+    transform: scaleX(0.6);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lb-rocket,
+  .lb-flame {
+    animation: none;
+  }
+}
