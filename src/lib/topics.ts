@@ -33,8 +33,6 @@ export type CourseModule = {
 };
 
 // TODO(Practice step): work out locks from the member's real scores.
-const UNLOCK_REASON = "Finish the HTML questions to unlock";
-
 export const TOPICS: Topic[] = [
   {
     slug: "html",
@@ -56,7 +54,7 @@ export const TOPICS: Topic[] = [
     name: "CSS",
     short: "CSS",
     summary: "Style pages with colours, spacing, layout and fonts.",
-    lockedReason: UNLOCK_REASON,
+    lockedReason: "Finish HTML to unlock",
     lessons: [
       { title: "What is CSS?" },
       { title: "Inline, internal and external CSS" },
@@ -68,7 +66,7 @@ export const TOPICS: Topic[] = [
     name: "JavaScript",
     short: "JS",
     summary: "Make pages interactive with variables, functions and events.",
-    lockedReason: UNLOCK_REASON,
+    lockedReason: "Finish CSS to unlock",
     lessons: [{ title: "What is JavaScript?" }],
   },
 ];
