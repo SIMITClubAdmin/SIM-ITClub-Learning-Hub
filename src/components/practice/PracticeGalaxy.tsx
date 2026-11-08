@@ -42,7 +42,7 @@ const NAV_BUTTON =
   "flex size-11 items-center justify-center border border-ink bg-bg/80 transition-colors hover:border-accent hover:bg-accent hover:text-bg";
 
 /** One planet per lesson, on a wheel that rotates the chosen planet to the front. */
-export function PracticeGalaxy({ modules }: { modules: CourseModule[] }) {
+export function PracticeGalaxy({ modules, mode = "practice" }: { modules: CourseModule[]; mode?: "learn" | "practice" }) {
   const n = modules.length;
   // The rocket lives on the newest open lesson.
   const checkpoint = Math.max(0, modules.findLastIndex((m) => !m.lockedReason));
@@ -115,6 +115,7 @@ export function PracticeGalaxy({ modules }: { modules: CourseModule[] }) {
                   topics={module.topics}
                   palette={module.palette}
                   showRocket={i === checkpoint}
+                  mode={mode}
                 />
               </div>
               {/* A planet waiting at the edge can be clicked to rotate it in. */}

@@ -187,10 +187,12 @@ type Props = {
   palette: PlanetPalette;
   /** Only the planet holding the student's checkpoint shows the rocket. */
   showRocket?: boolean;
+  /** "learn" moons open the topic's first lesson; "practice" moons open its practice set. */
+  mode?: "learn" | "practice";
 };
 
 /** Ringed planet with a moon orbit; each moon is a practice topic. */
-export function PracticeOrbit({ topics, palette, showRocket = true }: Props) {
+export function PracticeOrbit({ topics, palette, showRocket = true, mode = "practice" }: Props) {
   const calloutId = useId();
   const uid = useId();
   const ids: Ids = { clip: `${uid}clip`, shade: `${uid}shade`, glow: `${uid}glow`, halo: `${uid}halo` };
@@ -241,7 +243,8 @@ export function PracticeOrbit({ topics, palette, showRocket = true }: Props) {
       {topics.map((t, i) => {
         const stop = STOPS[i];
         const p = orbitPoint(stop.angle);
-        const locked = !!t.lockedReason;
+        const href = mode === "learn" ? t.lessons.find((l) => l.href)?.href : `/practice/${t.slug}`;
+        const locked = !!t.lockedReason || !href;
         const style = {
           left: pct(p.x, W),
           top: pct(p.y, H),
@@ -271,7 +274,7 @@ export function PracticeOrbit({ topics, palette, showRocket = true }: Props) {
             {content}
           </span>
         ) : (
-          <Link key={t.slug} href={`/practice/${t.slug}`} aria-label={`Practice ${t.name}`} {...handlers}>
+          <Link key={t.slug} href={href} aria-label={`${mode === "learn" ? "Learn" : "Practice"} ${t.name}`} {...handlers}>
             {content}
           </Link>
         );
@@ -290,11 +293,18 @@ export function PracticeOrbit({ topics, palette, showRocket = true }: Props) {
         >
           <p className="flex items-center gap-2 font-display text-3xl font-semibold">
             {topic.name}
-            {topic.lockedReason && <LockIcon className="size-5 text-dim" />}
+            {(topic.lockedReason || (mode === "learn" && !topic.lessons.some((l) => l.href))) && (
+              <LockIcon className="size-5 text-dim" />
+            )}
           </p>
           <p className="mt-2 text-sm text-dim">{topic.summary}</p>
           <p className="mt-3 font-mono text-xs tracking-wider text-accent uppercase">
-            {topic.lockedReason ?? "Open: click to start"}
+            {topic.lockedReason ??
+              (mode === "learn"
+                ? topic.lessons.some((l) => l.href)
+                  ? `${topic.lessons.length} lessons: click to start`
+                  : "Lessons coming soon"
+                : "Open: click to start")}
           </p>
           <span
             className="absolute top-full size-0 -translate-x-1/2 border-x-[10px] border-t-[12px] border-x-transparent border-t-violet"

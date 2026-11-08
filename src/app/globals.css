@@ -328,3 +328,22 @@ html.cc-on .cc-frame {
     transition: none;
   }
 }
+
+/* PracticeSolarSystem: the camera glides in on the chosen planet. */
+.practice-camera {
+  transition: transform 800ms cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.practice-panel {
+  animation: callout-in 300ms ease-out 400ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .practice-camera {
+    transition: none;
+  }
+
+  .practice-panel {
+    animation: none;
+  }
+}

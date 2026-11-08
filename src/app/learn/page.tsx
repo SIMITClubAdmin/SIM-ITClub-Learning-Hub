@@ -1,18 +1,54 @@
 import type { Metadata } from "next";
-import { SolarSystem } from "@/components/learn/SolarSystem";
-import { TOPICS } from "@/lib/topics";
+import Link from "next/link";
+import { PracticeGalaxy } from "@/components/practice/PracticeGalaxy";
+import { MODULES } from "@/lib/topics";
 
 export const metadata: Metadata = { title: "Learn · ITCamp Learning Hub" };
 
 export default function LearnPage() {
   return (
-    <main className="mx-auto flex w-full max-w-[90rem] flex-1 flex-col px-4 py-2 sm:px-8">
+    <main className="flex w-full flex-1 flex-col px-4 py-6 sm:px-8">
       <h1 className="sr-only">Learn</h1>
-      <div className="flex flex-1 items-center">
-        {/* Grows with the screen, but never so tall that the orbits need scrolling. */}
-        <div className="mx-auto w-full" style={{ maxWidth: "calc((100svh - 130px) * 800 / 440 + 20rem)" }}>
-          <SolarSystem topics={TOPICS} />
-        </div>
+
+      {/* The stage covers the whole window behind the header, so planets drift under the
+          logo with no hard edge. overflow-clip lets corner planets peek in without ever
+          scrolling the page. */}
+      <div
+        className="fixed inset-0 z-0 hidden flex-col overflow-clip pt-24 pb-4 sm:flex"
+        style={{ "--planet-width": "min(64rem, calc((100svh - 170px) * 800 / 520))" } as React.CSSProperties}
+      >
+        <PracticeGalaxy modules={MODULES} mode="learn" />
+      </div>
+
+      {/* The orbit needs room for its callout, so small screens get a list instead. */}
+      <div className="mt-6 flex flex-col gap-6 sm:hidden">
+        {MODULES.map((module) => (
+          <section key={module.slug} className="flex flex-col gap-3">
+            <h2 className="font-mono text-xs tracking-wider text-accent uppercase">
+              Lesson {module.number}: {module.title}
+            </h2>
+            <ul className="flex flex-col gap-3">
+              {module.topics.map((topic) => {
+                const href = topic.lessons.find((l) => l.href)?.href;
+                return (
+                  <li key={topic.slug} className="border border-violet bg-bg/85 p-4">
+                    {href && !topic.lockedReason ? (
+                      <Link href={href} className="block">
+                        <p className="font-display text-xl font-semibold">{topic.name}</p>
+                        <p className="mt-1 text-sm text-dim">{topic.summary}</p>
+                      </Link>
+                    ) : (
+                      <div aria-disabled="true">
+                        <p className="font-display text-xl font-semibold text-dim">{topic.name} (locked)</p>
+                        <p className="mt-1 text-sm text-dim">{topic.lockedReason ?? "Lessons coming soon"}</p>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ))}
       </div>
     </main>
   );
