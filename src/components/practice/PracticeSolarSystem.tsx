@@ -14,7 +14,7 @@ const ORBITS = [
   { rx: 268, size: 80, speed: 0.07, start: 330 },
   { rx: 365, size: 80, speed: 0.045, start: 80 },
 ];
-const ZOOM = 3.2;
+const ZOOM = 2.3;
 // Where the zoomed planet lands, as a % of the scene, leaving room for the panel.
 const FOCUS = { x: 28, y: 50 };
 
@@ -243,7 +243,7 @@ export function PracticeSolarSystem({ modules }: { modules: CourseModule[] }) {
             <PlanetSurface palette={m.palette} />
             <Ring half="front" color={m.palette.ring} />
             <span
-              className={`relative drop-shadow-[0_1px_2px_rgb(7_11_31)] ${open === i ? "font-display text-[0.6rem] font-semibold" : ""}`}
+              className={`relative drop-shadow-[0_1px_2px_rgb(7_11_31)] ${open === i ? "font-display text-[0.8rem] font-semibold" : ""}`}
             >
               {open === i ? `Lesson ${m.number}` : `L${m.number}`}
             </span>
