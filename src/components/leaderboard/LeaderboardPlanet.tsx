@@ -53,11 +53,11 @@ function Astronaut({ entry, rank }: { entry: LeaderboardEntry; rank: number }) {
   const flag = rank === 1 ? "#4fd8eb" : rank === 2 ? "#d4caff" : "#ffb38a";
   return (
     <div className="flex flex-col items-center">
-      <p className="border border-violet bg-bg/90 px-3 py-1 font-mono text-sm text-accent">
+      <p className="border border-violet bg-bg/90 px-3 py-1 font-mono text-base text-accent">
         {entry.score.toLocaleString()} pts
       </p>
-      <p className="mt-2 max-w-36 truncate font-display text-lg font-semibold">{entry.name}</p>
-      <svg viewBox="0 0 90 100" className="mt-1 w-24 sm:w-28" aria-hidden="true">
+      <p className="mt-2 max-w-48 truncate font-display text-xl font-semibold sm:text-2xl">{entry.name}</p>
+      <svg viewBox="0 0 90 100" className="mt-1 w-32 sm:w-44" aria-hidden="true">
         {/* Flag */}
         <line x1="14" y1="8" x2="14" y2="100" stroke="#e6f1ff" strokeWidth="2.5" />
         <path d="M15 9 L42 19 L15 29 Z" fill={flag} />
@@ -113,11 +113,12 @@ export function LeaderboardPlanet({ entries }: { entries: LeaderboardEntry[] }) 
   const listRef = useReveal();
   // Second on the left, first in the middle, third on the right; d is cqw from the centre.
   const podium = [
-    { entry: ranked[1], rank: 2, d: -16 },
+    { entry: ranked[1], rank: 2, d: -20 },
     { entry: ranked[0], rank: 1, d: 0 },
-    { entry: ranked[2], rank: 3, d: 16 },
+    { entry: ranked[2], rank: 3, d: 20 },
   ];
-  const moonTop = ranked.length > 0 ? "max(17rem, 40svh)" : "max(13rem, 34svh)";
+  // Near the bottom of the first screen, leaving a strip of moon in view.
+  const moonTop = ranked.length > 0 ? "max(22rem, calc(100svh - 15rem))" : "max(16rem, calc(100svh - 17rem))";
 
   return (
     <div
