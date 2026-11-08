@@ -27,20 +27,20 @@ function Moon() {
       style={{
         width: `${R * 2}cqw`,
         top: "var(--moon-top)",
-        background: "radial-gradient(circle at 50% 0%, #2a7a7c, #1d5f63 25%, #123f45 55%)",
-        boxShadow: "0 0 0 2px rgb(127 230 212 / 0.8), 0 0 60px 10px rgb(79 216 235 / 0.25)",
+        background: "radial-gradient(circle at 50% 0%, #f0a070, #c96a3e 25%, #7a3320 60%)",
+        boxShadow: "0 0 0 2px rgb(255 190 150 / 0.8), 0 0 60px 10px rgb(240 120 70 / 0.3)",
       }}
       aria-hidden="true"
     >
       {/* Only the top half shows on screen, so the detail lives there. */}
       <svg viewBox="0 0 100 50" className="absolute top-0 left-0 w-full">
         {MARIA.map(([x, y, rx, ry]) => (
-          <ellipse key={`${x}-${y}`} cx={x} cy={y} rx={rx} ry={ry} fill="#0f3b40" opacity="0.45" />
+          <ellipse key={`${x}-${y}`} cx={x} cy={y} rx={rx} ry={ry} fill="#8a3a22" opacity="0.5" />
         ))}
         {CRATERS.map(([x, y, r]) => (
           <g key={`${x}-${y}`}>
-            <circle cx={x} cy={y} r={r * 0.55} fill="#0b2f34" opacity="0.6" />
-            <circle cx={x - r * 0.1} cy={y - r * 0.12} r={r * 0.43} fill="#2a7a7c" opacity="0.55" />
+            <circle cx={x} cy={y} r={r * 0.55} fill="#5e2414" opacity="0.6" />
+            <circle cx={x - r * 0.1} cy={y - r * 0.12} r={r * 0.43} fill="#e08a58" opacity="0.6" />
           </g>
         ))}
       </svg>
@@ -191,16 +191,16 @@ export function LeaderboardPlanet({ entries }: { entries: LeaderboardEntry[] }) 
             style={{ paddingTop: "calc(var(--moon-top) + 8cqw)", paddingBottom: "20svh" }}
           >
             {rest.length === 0 && (
-              <li className="text-center text-ink">Only the top 3 have landed so far.</li>
+              <li className="bg-bg/85 px-4 py-2.5 text-center text-ink">Only the top 3 have landed so far.</li>
             )}
             {rest.map((entry, i) => (
               <li
                 key={`${entry.name}-${i}`}
-                className="lb-row grid grid-cols-[2rem_8rem_1fr] items-center gap-3 sm:grid-cols-[2.5rem_10rem_1fr]"
+                className="lb-row grid grid-cols-[2rem_8rem_1fr] items-center gap-3 border border-violet/50 bg-bg/85 px-4 py-2.5 sm:grid-cols-[2.5rem_10rem_1fr]"
               >
                 <span className="font-mono text-sm text-dim">{i + 4}.</span>
                 <span className="truncate font-medium">{entry.name}</span>
-                <span className="relative h-8 bg-bg/70">
+                <span className="relative h-7 bg-grid">
                   <span
                     className="absolute inset-y-0 left-0 bg-accent/80"
                     style={{ width: `${Math.max(8, (entry.score / best) * 100)}%` }}
