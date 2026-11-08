@@ -382,3 +382,25 @@ html.cc-on .cc-frame {
   }
 }
 
+
+/* LeaderboardPlanet: rows rise into place as they scroll into view. */
+.lb-row {
+  opacity: 0;
+  translate: 0 24px;
+  transition:
+    opacity 500ms ease-out,
+    translate 500ms ease-out;
+}
+
+.lb-row.is-in {
+  opacity: 1;
+  translate: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lb-row {
+    opacity: 1;
+    translate: none;
+    transition: none;
+  }
+}

@@ -11,6 +11,11 @@ const DEMO: LeaderboardEntry[] = [
   { name: "Comet Cass", score: 980 },
   { name: "Dev Dana", score: 760 },
   { name: "Echo Eli", score: 540 },
+  { name: "Flux Fay", score: 495 },
+  { name: "Glitch Gus", score: 430 },
+  { name: "Hex Hana", score: 380 },
+  { name: "Ion Ivy", score: 290 },
+  { name: "Jet Jo", score: 210 },
 ];
 
 export default async function LeaderboardPage({ searchParams }: PageProps<"/leaderboard">) {
@@ -18,7 +23,7 @@ export default async function LeaderboardPage({ searchParams }: PageProps<"/lead
   // TODO(Practice step): load real scores from Supabase.
   const entries: LeaderboardEntry[] = demo !== undefined ? DEMO : [];
   return (
-    <main className="flex w-full flex-1 flex-col overflow-clip">
+    <main className="flex w-full flex-1 flex-col">
       <LeaderboardPlanet entries={entries} />
     </main>
   );

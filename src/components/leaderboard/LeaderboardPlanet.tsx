@@ -1,53 +1,50 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+
 export type LeaderboardEntry = { name: string; score: number };
 
-// A cool teal moon: craters and soft maria, fixed so server and client match.
+// The moon is a circle R wide-units across, in cqw (1% of the page width), so it keeps
+// its shape at any width and the astronauts can be placed exactly on its curve.
+const R = 90;
+// Craters and maria in a 0-100 box over the moon's top part; fixed so server and client match.
 const CRATERS = [
-  [38, 30, 5], [62, 22, 2.5], [150, 28, 4], [118, 44, 6], [24, 58, 3.5], [84, 62, 3],
-  [170, 60, 5], [56, 82, 6], [138, 80, 3], [100, 18, 2], [12, 82, 4], [190, 88, 3.5],
+  [20, 6, 2.2], [31, 4, 1.1], [75, 5, 1.8], [59, 9, 2.6], [12, 14, 1.6], [42, 13, 1.3],
+  [85, 13, 2.2], [28, 20, 2.6], [69, 18, 1.4], [50, 3, 0.9], [8, 22, 1.8], [94, 21, 1.6],
+  [38, 28, 2], [62, 30, 2.8], [18, 34, 1.4], [82, 33, 2.4], [48, 40, 1.6], [26, 46, 2.2],
 ];
 const MARIA = [
-  [70, 40, 22, 9], [140, 62, 26, 11], [30, 75, 18, 8], [105, 88, 30, 10],
+  [35, 10, 10, 4], [70, 13, 12, 5], [15, 18, 8, 3.5], [52, 22, 14, 5], [80, 30, 10, 5], [30, 38, 12, 5],
 ];
 
-/** A huge moon whose top curve fills the bottom of the page; it stays round at any width. */
-function PlanetCap() {
+/** Height of the moon's surface below its top edge, in cqw, at d cqw from its centre. */
+const surface = (d: number) => R - Math.sqrt(R * R - d * d);
+
+function Moon() {
   return (
-    <svg
-      viewBox="0 0 200 100"
-      preserveAspectRatio="xMidYMin slice"
-      className="absolute inset-0 size-full"
+    <div
+      className="absolute left-1/2 aspect-square -translate-x-1/2 overflow-hidden rounded-full"
+      style={{
+        width: `${R * 2}cqw`,
+        top: "var(--moon-top)",
+        background: "radial-gradient(circle at 50% 0%, #2a7a7c, #1d5f63 25%, #123f45 55%)",
+        boxShadow: "0 0 0 2px rgb(127 230 212 / 0.8), 0 0 60px 10px rgb(79 216 235 / 0.25)",
+      }}
       aria-hidden="true"
     >
-      <defs>
-        <clipPath id="lb-cap">
-          <circle cx="100" cy="190" r="180" />
-        </clipPath>
-        <radialGradient id="lb-shade" cx="50%" cy="0%" r="70%">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.14" />
-          <stop offset="60%" stopColor="#ffffff" stopOpacity="0" />
-          <stop offset="100%" stopColor="#070b1f" stopOpacity="0.6" />
-        </radialGradient>
-        <radialGradient id="lb-glow" cx="50%" cy="100%" r="60%">
-          <stop offset="85%" stopColor="#4fd8eb" stopOpacity="0.25" />
-          <stop offset="100%" stopColor="#4fd8eb" stopOpacity="0" />
-        </radialGradient>
-      </defs>
-      <circle cx="100" cy="190" r="186" fill="url(#lb-glow)" />
-      <circle cx="100" cy="190" r="180.6" fill="none" stroke="#7fe6d4" strokeOpacity="0.8" strokeWidth="0.4" />
-      <g clipPath="url(#lb-cap)">
-        <rect width="200" height="100" fill="#1d5f63" />
+      {/* Only the top half shows on screen, so the detail lives there. */}
+      <svg viewBox="0 0 100 50" className="absolute top-0 left-0 w-full">
         {MARIA.map(([x, y, rx, ry]) => (
-          <ellipse key={`${x}-${y}`} cx={x} cy={y} rx={rx} ry={ry} fill="#154a50" opacity="0.7" />
+          <ellipse key={`${x}-${y}`} cx={x} cy={y} rx={rx} ry={ry} fill="#0f3b40" opacity="0.45" />
         ))}
         {CRATERS.map(([x, y, r]) => (
           <g key={`${x}-${y}`}>
-            <circle cx={x} cy={y} r={r} fill="#0f3b40" opacity="0.6" />
-            <circle cx={x - r * 0.18} cy={y - r * 0.22} r={r * 0.78} fill="#2a7a7c" opacity="0.6" />
+            <circle cx={x} cy={y} r={r * 0.55} fill="#0b2f34" opacity="0.6" />
+            <circle cx={x - r * 0.1} cy={y - r * 0.12} r={r * 0.43} fill="#2a7a7c" opacity="0.55" />
           </g>
         ))}
-        <rect width="200" height="100" fill="url(#lb-shade)" />
-      </g>
-    </svg>
+      </svg>
+    </div>
   );
 }
 
@@ -85,55 +82,102 @@ function Astronaut({ entry, rank }: { entry: LeaderboardEntry; rank: number }) {
   );
 }
 
-/** Top three astronauts stand on the planet's curve; everyone else is listed on its surface. */
+/** Fades each row in as it scrolls into view. */
+function useReveal() {
+  const ref = useRef<HTMLOListElement>(null);
+  useEffect(() => {
+    const rows = ref.current?.querySelectorAll(".lb-row");
+    if (!rows) return;
+    const observer = new IntersectionObserver(
+      (items) => {
+        for (const item of items) {
+          if (item.isIntersecting) {
+            item.target.classList.add("is-in");
+            observer.unobserve(item.target);
+          }
+        }
+      },
+      { rootMargin: "0px 0px -12% 0px" },
+    );
+    rows.forEach((row) => observer.observe(row));
+    return () => observer.disconnect();
+  });
+  return ref;
+}
+
+/** The top three astronauts land on the moon; scrolling down reveals 4th place onwards. */
 export function LeaderboardPlanet({ entries }: { entries: LeaderboardEntry[] }) {
   const ranked = [...entries].sort((a, b) => b.score - a.score);
-  const top = ranked.slice(0, 3);
+  const rest = ranked.slice(3);
   const best = ranked[0]?.score || 1;
-  // Second on the left, first in the middle and highest, third on the right.
+  const listRef = useReveal();
+  // Second on the left, first in the middle, third on the right; d is cqw from the centre.
   const podium = [
-    { entry: top[1], rank: 2, lift: "sm:translate-y-6" },
-    { entry: top[0], rank: 1, lift: "sm:-translate-y-4" },
-    { entry: top[2], rank: 3, lift: "sm:translate-y-10" },
+    { entry: ranked[1], rank: 2, d: -16 },
+    { entry: ranked[0], rank: 1, d: 0 },
+    { entry: ranked[2], rank: 3, d: 16 },
   ];
+  const moonTop = ranked.length > 0 ? "max(17rem, 40svh)" : "max(13rem, 34svh)";
 
   return (
-    <div className="relative flex flex-1 flex-col">
-      <div className="relative z-10 px-4 pt-6 text-center sm:px-8">
-        {ranked.length === 0 ? (
-          <h1 className="mt-6 text-4xl font-semibold sm:text-5xl">Who will set foot first?</h1>
-        ) : (
-          <>
-            <h1 className="sr-only">Leaderboard</h1>
-            <p className="text-right font-display text-2xl font-semibold sm:absolute sm:top-4 sm:right-8">Top 3</p>
-            <ol className="mx-auto mt-4 flex max-w-3xl items-end justify-center gap-4 sm:gap-12">
-              {podium.map(({ entry, rank, lift }) =>
-                entry ? (
-                  <li key={rank} className={`${lift} ${rank === 1 ? "order-2" : rank === 2 ? "order-1" : "order-3"}`}>
-                    <span className="sr-only">Rank {rank}: </span>
-                    <Astronaut entry={entry} rank={rank} />
-                  </li>
-                ) : null,
-              )}
-            </ol>
-          </>
-        )}
-      </div>
+    <div
+      className="relative flex-1 overflow-clip"
+      style={{ containerType: "inline-size", "--moon-top": moonTop } as React.CSSProperties}
+    >
+      <Moon />
 
-      {/* The planet: the astronauts' feet rest on its top edge. */}
-      <div
-        className="relative min-h-[60svh] flex-1"
-        // The moon's top sits 5% of the width down its box; pull it up so feet touch the surface.
-        style={{ marginTop: ranked.length > 0 ? "calc(-5vw + 6px)" : "1rem" }}
-      >
-        <PlanetCap />
-        {ranked.length > 0 && (
-          <ol className="relative mx-auto flex max-w-2xl flex-col gap-3 px-6 pt-[14vw] pb-16 sm:pt-[10vw]">
-            {ranked.map((entry, i) => (
-              <li key={`${entry.name}-${i}`} className="grid grid-cols-[2rem_8rem_1fr] items-center gap-3 sm:grid-cols-[2rem_10rem_1fr]">
-                <span className="font-mono text-sm text-dim">{i + 1}.</span>
+      {ranked.length === 0 ? (
+        <>
+          <h1 className="relative px-4 pt-14 text-center text-4xl font-semibold sm:text-5xl">Who will set foot first?</h1>
+          <p
+            className="relative mx-auto max-w-md px-6 text-center text-ink drop-shadow-[0_1px_2px_rgb(7_11_31)]"
+            style={{ marginTop: "calc(var(--moon-top) - 8.5rem + 10cqw)", paddingBottom: "30svh" }}
+          >
+            No one has landed yet. Finish a practice mission to plant the first flag.
+          </p>
+        </>
+      ) : (
+        <>
+          <h1 className="sr-only">Leaderboard</h1>
+          <p className="absolute top-4 right-4 font-display text-2xl font-semibold sm:right-8">Top 3</p>
+          <ol>
+            {podium.map(({ entry, rank, d }) =>
+              entry ? (
+                <li
+                  key={rank}
+                  className="absolute"
+                  style={{
+                    left: `calc(50% + ${d}cqw)`,
+                    // Feet on the surface, leaning with the curve.
+                    top: `calc(var(--moon-top) + ${surface(d) + 0.3}cqw)`,
+                    transform: `translate(-50%, -100%) rotate(${(Math.asin(d / R) * 180) / Math.PI}deg)`,
+                    transformOrigin: "50% 100%",
+                  }}
+                >
+                  <span className="sr-only">Rank {rank}: </span>
+                  <Astronaut entry={entry} rank={rank} />
+                </li>
+              ) : null,
+            )}
+          </ol>
+
+          <ol
+            ref={listRef}
+            start={4}
+            className="relative mx-auto flex max-w-2xl flex-col gap-3 px-6"
+            style={{ paddingTop: "calc(var(--moon-top) + 8cqw)", paddingBottom: "20svh" }}
+          >
+            {rest.length === 0 && (
+              <li className="text-center text-ink">Only the top 3 have landed so far.</li>
+            )}
+            {rest.map((entry, i) => (
+              <li
+                key={`${entry.name}-${i}`}
+                className="lb-row grid grid-cols-[2rem_8rem_1fr] items-center gap-3 sm:grid-cols-[2.5rem_10rem_1fr]"
+              >
+                <span className="font-mono text-sm text-dim">{i + 4}.</span>
                 <span className="truncate font-medium">{entry.name}</span>
-                <span className="relative h-7 bg-bg/70">
+                <span className="relative h-8 bg-bg/70">
                   <span
                     className="absolute inset-y-0 left-0 bg-accent/80"
                     style={{ width: `${Math.max(8, (entry.score / best) * 100)}%` }}
@@ -145,13 +189,8 @@ export function LeaderboardPlanet({ entries }: { entries: LeaderboardEntry[] }) 
               </li>
             ))}
           </ol>
-        )}
-        {ranked.length === 0 && (
-          <p className="relative mx-auto max-w-md px-6 pt-[16vw] text-center text-ink drop-shadow-[0_1px_2px_rgb(7_11_31)]">
-            No one has landed yet. Finish a practice mission to plant the first flag.
-          </p>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 }
