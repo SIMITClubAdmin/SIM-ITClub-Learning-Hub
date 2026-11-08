@@ -10,9 +10,9 @@ const H = 440;
 const SUN = { x: 400, y: 220, r: 70 };
 const TILT = 0.38;
 const ORBITS = [
-  { rx: 165, size: 66, speed: 0.11, start: 200 },
+  { rx: 165, size: 80, speed: 0.11, start: 200 },
   { rx: 268, size: 80, speed: 0.07, start: 330 },
-  { rx: 365, size: 92, speed: 0.045, start: 80 },
+  { rx: 365, size: 80, speed: 0.045, start: 80 },
 ];
 const ZOOM = 3.2;
 // Where the zoomed planet lands, as a % of the scene, leaving room for the panel.
