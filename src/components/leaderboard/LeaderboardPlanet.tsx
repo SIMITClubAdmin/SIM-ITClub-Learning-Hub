@@ -1,49 +1,50 @@
 export type LeaderboardEntry = { name: string; score: number };
 
-// Soft bands across the planet's visible cap; fixed so server and client match.
-const BANDS = [
-  { y: 8, h: 5, color: "#a493f5" },
-  { y: 18, h: 8, color: "#5646c2" },
-  { y: 31, h: 4, color: "#b8a9ff" },
-  { y: 40, h: 10, color: "#6150cc" },
-  { y: 56, h: 6, color: "#9584ec" },
-  { y: 68, h: 12, color: "#5646c2" },
+// A cool teal moon: craters and soft maria, fixed so server and client match.
+const CRATERS = [
+  [38, 30, 5], [62, 22, 2.5], [150, 28, 4], [118, 44, 6], [24, 58, 3.5], [84, 62, 3],
+  [170, 60, 5], [56, 82, 6], [138, 80, 3], [100, 18, 2], [12, 82, 4], [190, 88, 3.5],
+];
+const MARIA = [
+  [70, 40, 22, 9], [140, 62, 26, 11], [30, 75, 18, 8], [105, 88, 30, 10],
 ];
 
-/** A huge planet whose top curve fills the bottom of the page. */
+/** A huge moon whose top curve fills the bottom of the page; it stays round at any width. */
 function PlanetCap() {
   return (
     <svg
       viewBox="0 0 200 100"
-      preserveAspectRatio="none"
+      preserveAspectRatio="xMidYMin slice"
       className="absolute inset-0 size-full"
       aria-hidden="true"
     >
       <defs>
         <clipPath id="lb-cap">
-          <ellipse cx="100" cy="110" rx="130" ry="110" />
+          <circle cx="100" cy="190" r="180" />
         </clipPath>
-        <linearGradient id="lb-shade" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.12" />
-          <stop offset="35%" stopColor="#ffffff" stopOpacity="0" />
-          <stop offset="100%" stopColor="#070b1f" stopOpacity="0.7" />
-        </linearGradient>
+        <radialGradient id="lb-shade" cx="50%" cy="0%" r="70%">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.14" />
+          <stop offset="60%" stopColor="#ffffff" stopOpacity="0" />
+          <stop offset="100%" stopColor="#070b1f" stopOpacity="0.6" />
+        </radialGradient>
+        <radialGradient id="lb-glow" cx="50%" cy="100%" r="60%">
+          <stop offset="85%" stopColor="#4fd8eb" stopOpacity="0.25" />
+          <stop offset="100%" stopColor="#4fd8eb" stopOpacity="0" />
+        </radialGradient>
       </defs>
-      <ellipse cx="100" cy="110" rx="131" ry="111" fill="none" stroke="#4fd8eb" strokeOpacity="0.7" strokeWidth="0.6" />
+      <circle cx="100" cy="190" r="186" fill="url(#lb-glow)" />
+      <circle cx="100" cy="190" r="180.6" fill="none" stroke="#7fe6d4" strokeOpacity="0.8" strokeWidth="0.4" />
       <g clipPath="url(#lb-cap)">
-        <rect width="200" height="100" fill="#4a3db0" />
-        <g className="surface-drift-wide">
-          {BANDS.map((b) => (
-            <g key={b.y} fill={b.color} opacity="0.35">
-              {[0, 200].map((dx) => (
-                <path
-                  key={dx}
-                  d={`M${dx} ${b.y} q25 -2 50 0 t50 0 t50 0 t50 0 v${b.h} q-25 2 -50 0 t-50 0 t-50 0 t-50 0 z`}
-                />
-              ))}
-            </g>
-          ))}
-        </g>
+        <rect width="200" height="100" fill="#1d5f63" />
+        {MARIA.map(([x, y, rx, ry]) => (
+          <ellipse key={`${x}-${y}`} cx={x} cy={y} rx={rx} ry={ry} fill="#154a50" opacity="0.7" />
+        ))}
+        {CRATERS.map(([x, y, r]) => (
+          <g key={`${x}-${y}`}>
+            <circle cx={x} cy={y} r={r} fill="#0f3b40" opacity="0.6" />
+            <circle cx={x - r * 0.18} cy={y - r * 0.22} r={r * 0.78} fill="#2a7a7c" opacity="0.6" />
+          </g>
+        ))}
         <rect width="200" height="100" fill="url(#lb-shade)" />
       </g>
     </svg>
@@ -100,7 +101,7 @@ export function LeaderboardPlanet({ entries }: { entries: LeaderboardEntry[] }) 
     <div className="relative flex flex-1 flex-col">
       <div className="relative z-10 px-4 pt-6 text-center sm:px-8">
         {ranked.length === 0 ? (
-          <h1 className="mt-10 text-4xl font-semibold sm:text-5xl">Who will set foot first?</h1>
+          <h1 className="mt-6 text-4xl font-semibold sm:text-5xl">Who will set foot first?</h1>
         ) : (
           <>
             <h1 className="sr-only">Leaderboard</h1>
@@ -120,7 +121,11 @@ export function LeaderboardPlanet({ entries }: { entries: LeaderboardEntry[] }) 
       </div>
 
       {/* The planet: the astronauts' feet rest on its top edge. */}
-      <div className="relative -mt-6 min-h-[60svh] flex-1">
+      <div
+        className="relative min-h-[60svh] flex-1"
+        // The moon's top sits 5% of the width down its box; pull it up so feet touch the surface.
+        style={{ marginTop: ranked.length > 0 ? "calc(-5vw + 6px)" : "1rem" }}
+      >
         <PlanetCap />
         {ranked.length > 0 && (
           <ol className="relative mx-auto flex max-w-2xl flex-col gap-3 px-6 pt-[14vw] pb-16 sm:pt-[10vw]">

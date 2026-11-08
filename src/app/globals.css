@@ -382,19 +382,3 @@ html.cc-on .cc-frame {
   }
 }
 
-/* LeaderboardPlanet */
-.surface-drift-wide {
-  animation: surface-drift-wide 120s linear infinite;
-}
-
-@keyframes surface-drift-wide {
-  to {
-    transform: translateX(-200px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .surface-drift-wide {
-    animation: none;
-  }
-}
