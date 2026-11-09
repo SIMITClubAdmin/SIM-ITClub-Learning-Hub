@@ -196,7 +196,8 @@ export function LeaderboardPlanet({ entries }: { entries: LeaderboardEntry[] }) 
             ref={listRef}
             start={4}
             className="relative mx-auto flex max-w-2xl flex-col gap-3 px-6"
-            style={{ paddingTop: "calc(var(--moon-top) + 8cqw)", paddingBottom: "20svh" }}
+            // Always starts below the first screen, so 4th place onward only shows once the member scrolls.
+            style={{ paddingTop: "max(calc(100svh + 2rem), calc(var(--moon-top) + 8cqw))", paddingBottom: "20svh" }}
           >
             {rest.length === 0 && (
               <li className="bg-bg/85 px-4 py-2.5 text-center text-ink">Only the top 3 have landed so far.</li>
