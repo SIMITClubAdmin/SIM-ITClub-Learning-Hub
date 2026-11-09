@@ -20,7 +20,7 @@ const DEMO: LeaderboardEntry[] = [
 
 export default async function LeaderboardPage({ searchParams }: PageProps<"/leaderboard">) {
   const { demo } = await searchParams;
-  // TODO(Practice step): load real scores from Supabase.
+  // TODO(Practice step): load real scores from Supabase, leaving out profiles where is_admin is true.
   const entries: LeaderboardEntry[] = demo !== undefined ? DEMO : [];
   return (
     <main className="flex w-full flex-1 flex-col">

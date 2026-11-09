@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
+import { QUIZZES } from "@/lib/quizzes";
 import type { CourseModule, PlanetPalette } from "@/lib/topics";
 
 // Same scene as the Learn solar system: tilted orbits around a sun.
@@ -306,10 +307,12 @@ export function PracticeSolarSystem({ modules }: { modules: CourseModule[] }) {
                         <Lock className="size-3.5" />
                         {locked}
                       </span>
-                    ) : (
+                    ) : topic.slug in QUIZZES ? (
                       <Link href={`/practice/${topic.slug}`} className="cta">
                         Launch
                       </Link>
+                    ) : (
+                      <span className="font-mono text-xs text-dim">Coming soon</span>
                     )}
                   </div>
                 </li>

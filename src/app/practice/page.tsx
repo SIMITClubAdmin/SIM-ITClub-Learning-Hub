@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { AuthForm } from "@/components/auth/AuthForm";
 import { PracticeSolarSystem } from "@/components/practice/PracticeSolarSystem";
 import { createClient } from "@/lib/supabase/server";
-import { MODULES } from "@/lib/topics";
+import { MODULES, type CourseModule } from "@/lib/topics";
 
 export const metadata: Metadata = { title: "Practice · ITCamp Learning Hub" };
 
@@ -25,6 +25,17 @@ export default async function PracticePage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const { data: profile } = user
+    ? await supabase.from("profiles").select("is_admin").eq("id", user.id).single()
+    : { data: null };
+  // Admins see every lesson and mission unlocked, so they can check content without playing through it.
+  const modules: CourseModule[] = profile?.is_admin
+    ? MODULES.map((m) => ({
+        ...m,
+        lockedReason: null,
+        topics: m.topics.map((t) => ({ ...t, lockedReason: null })),
+      }))
+    : MODULES;
 
   return (
     <main className="relative mx-auto flex w-full max-w-[90rem] flex-1 flex-col px-4 py-2 sm:px-8">
@@ -37,7 +48,7 @@ export default async function PracticePage() {
           inert={!user}
           aria-hidden={!user || undefined}
         >
-          <PracticeSolarSystem modules={MODULES} />
+          <PracticeSolarSystem modules={modules} />
         </div>
       </div>
 
