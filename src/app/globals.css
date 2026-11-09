@@ -57,6 +57,21 @@ html.has-cursor :focus-visible {
   background-size: 38px 38px;
 }
 
+/* Quiz feedback bar slides up from the bottom of the screen. */
+.quiz-bar {
+  animation: quiz-bar-in 250ms ease-out;
+}
+@keyframes quiz-bar-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .quiz-bar {
+    animation: none;
+  }
+}
+
 /* CustomCursor */
 html.has-cursor,
 html.has-cursor * {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Quiz as QuizData, QuizQuestion } from "@/lib/quizzes";
 
 type Round = { question: QuizQuestion; choices: string[]; answer: string }[];
@@ -32,12 +32,37 @@ export function Quiz({ quiz }: { quiz: QuizData }) {
   const [index, setIndex] = useState(0);
   const [picks, setPicks] = useState<string[]>([]);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const nextRef = useRef<HTMLButtonElement>(null);
+  const answersRef = useRef<HTMLUListElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
+  const spacerRef = useRef<HTMLDivElement>(null);
+  const hasAnswered = round !== null && picks[index] !== undefined;
+
+  // Once the feedback bar appears: keep every answer visible above it, and move keyboard focus to Next.
+  useEffect(() => {
+    if (!hasAnswered) return;
+    const answers = answersRef.current?.getBoundingClientRect();
+    // The bar is still sliding in, so use its height rather than where it is right now.
+    const barHeight = barRef.current?.offsetHeight;
+    if (spacerRef.current && barHeight) spacerRef.current.style.height = `${barHeight + 16}px`;
+    if (answers && barHeight) {
+      const barTop = window.innerHeight - barHeight;
+      if (answers.bottom > barTop - 16) {
+        window.scrollBy({ top: answers.bottom - barTop + 16, behavior: "smooth" });
+      }
+    }
+    nextRef.current?.focus({ preventScroll: true });
+  }, [hasAnswered, index]);
 
   function start() {
     setRound(newRound(quiz));
     setIndex(0);
     setPicks([]);
     requestAnimationFrame(() => headingRef.current?.focus());
+  }
+
+  function pick(choice: string) {
+    setPicks((p) => [...p.slice(0, index), choice]);
   }
 
   function next() {
@@ -111,7 +136,7 @@ export function Quiz({ quiz }: { quiz: QuizData }) {
   const answered = picked !== undefined;
 
   return (
-    <section className="border border-violet bg-bg p-6 sm:p-10">
+    <section className="border border-violet bg-bg p-6 sm:p-8">
       <div className="flex justify-between gap-4 font-mono text-sm tracking-wider whitespace-nowrap text-dim uppercase">
         <span>
           <span className="max-sm:hidden">{quiz.title} · </span>Question {index + 1} / {total}
@@ -122,7 +147,7 @@ export function Quiz({ quiz }: { quiz: QuizData }) {
         <div className="h-full bg-accent transition-[width]" style={{ width: `${(index / total) * 100}%` }} />
       </div>
 
-      <h1 ref={headingRef} tabIndex={-1} className="mt-8 text-3xl font-semibold outline-none sm:text-4xl">
+      <h1 ref={headingRef} tabIndex={-1} className="mt-6 text-3xl font-semibold outline-none sm:text-4xl">
         {item.question.question}
       </h1>
       {item.question.code && (
@@ -131,7 +156,8 @@ export function Quiz({ quiz }: { quiz: QuizData }) {
         </pre>
       )}
 
-      <ul className="mt-8 flex flex-col gap-4">
+      {/* Two answers per row on wider screens, so a question fits without scrolling. */}
+      <ul ref={answersRef} className="mt-6 grid gap-3 md:grid-cols-2 md:gap-4">
         {item.choices.map((choice, ci) => {
           const isAnswer = choice === item.answer;
           const isPick = choice === picked;
@@ -144,11 +170,11 @@ export function Quiz({ quiz }: { quiz: QuizData }) {
                 : "border-grid opacity-60";
           }
           return (
-            <li key={choice}>
+            <li key={choice} className="flex">
               <button
                 type="button"
                 disabled={answered}
-                onClick={() => setPicks((p) => [...p.slice(0, index), choice])}
+                onClick={() => pick(choice)}
                 className={`flex w-full items-start gap-4 border px-5 py-4 text-left ${look}`}
               >
                 <span className="font-mono text-base text-accent sm:text-lg">{LETTERS[ci]}</span>
@@ -161,16 +187,30 @@ export function Quiz({ quiz }: { quiz: QuizData }) {
         })}
       </ul>
 
+      {/* Room under the answers so the feedback bar never covers them; sized to the bar below. */}
+      {answered && <div ref={spacerRef} aria-hidden="true" className="h-40 sm:h-28" />}
+
+      {/* Feedback slides up from the bottom of the screen, so Next is always in view. */}
       <div aria-live="polite">
         {answered && (
-          <div className="mt-8">
-            <p className={`font-display text-2xl font-semibold ${picked === item.answer ? "text-accent" : "text-[#ffb38a]"}`}>
-              {picked === item.answer ? "Correct!" : "Not quite."}
-            </p>
-            <p className="mt-2 text-lg text-dim">{item.question.explain}</p>
-            <button type="button" onClick={next} className="cta mt-5">
-              {index + 1 === total ? "See my score" : "Next question"}
-            </button>
+          <div
+            ref={barRef}
+            className="quiz-bar fixed inset-x-0 bottom-0 z-30 border-t-4 bg-bg"
+            style={{ borderTopColor: picked === item.answer ? "var(--color-accent)" : "#ffb38a" }}
+          >
+            <div className="mx-auto flex max-w-5xl flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:px-12">
+              <div>
+                <p
+                  className={`font-display text-2xl font-semibold ${picked === item.answer ? "text-accent" : "text-[#ffb38a]"}`}
+                >
+                  {picked === item.answer ? "Correct!" : "Not quite."}
+                </p>
+                <p className="mt-1 text-lg text-dim">{item.question.explain}</p>
+              </div>
+              <button ref={nextRef} type="button" onClick={next} className="cta cta--lg shrink-0">
+                {index + 1 === total ? "See my score" : "Next question"}
+              </button>
+            </div>
           </div>
         )}
       </div>
