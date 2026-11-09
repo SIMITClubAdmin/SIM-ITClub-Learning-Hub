@@ -1,8 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-/** Pages only logged-in members can open. Learn stays open to everyone. */
-const MEMBERS_ONLY = ["/practice"];
+/**
+ * Pages only logged-in members can open. Learn stays open to everyone, and /practice itself
+ * shows its own locked login card, so only the quiz pages under it redirect.
+ */
+const MEMBERS_ONLY = ["/practice/"];
 
 /**
  * Refreshes the Supabase session cookie on each page request, and sends logged-out
@@ -33,7 +36,7 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname, search } = request.nextUrl;
-  const membersOnly = MEMBERS_ONLY.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+  const membersOnly = MEMBERS_ONLY.some((path) => pathname.startsWith(path));
   if (!user && membersOnly) {
     const login = request.nextUrl.clone();
     login.pathname = "/login";
