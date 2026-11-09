@@ -195,7 +195,7 @@ export function LeaderboardPlanet({ entries }: { entries: LeaderboardEntry[] }) 
           <ol
             ref={listRef}
             start={4}
-            className="relative mx-auto flex max-w-2xl flex-col gap-3 px-6"
+            className="relative mx-auto flex max-w-4xl flex-col gap-4 px-6"
             // Always starts below the first screen, so 4th place onward only shows once the member scrolls.
             style={{ paddingTop: "max(calc(100svh + 2rem), calc(var(--moon-top) + 8cqw))", paddingBottom: "20svh" }}
           >
@@ -205,16 +205,16 @@ export function LeaderboardPlanet({ entries }: { entries: LeaderboardEntry[] }) 
             {rest.map((entry, i) => (
               <li
                 key={`${entry.name}-${i}`}
-                className="lb-row grid grid-cols-[2rem_8rem_1fr] items-center gap-3 border border-violet/50 bg-bg/85 px-4 py-2.5 sm:grid-cols-[2.5rem_10rem_1fr]"
+                className="lb-row grid grid-cols-[2rem_minmax(0,1fr)_7.5rem] items-center gap-4 border border-violet/50 bg-bg/85 px-5 py-4 sm:grid-cols-[3rem_13rem_1fr] sm:px-6"
               >
-                <span className="font-mono text-sm text-dim">{i + 4}.</span>
-                <span className="truncate font-medium">{entry.name}</span>
-                <span className="relative h-7 bg-grid">
+                <span className="font-mono text-lg text-dim">{i + 4}.</span>
+                <span className="truncate text-lg font-medium sm:text-xl">{entry.name}</span>
+                <span className="relative h-10 bg-grid">
                   <span
                     className="absolute inset-y-0 left-0 bg-accent/80"
                     style={{ width: `${Math.max(8, (entry.score / best) * 100)}%` }}
                   />
-                  <span className="relative flex h-full items-center px-3 font-mono text-xs text-ink">
+                  <span className="relative flex h-full items-center px-4 font-mono text-sm whitespace-nowrap text-ink">
                     {entry.score.toLocaleString()} pts
                   </span>
                 </span>
