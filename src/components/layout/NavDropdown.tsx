@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 const CLOSE_DELAY = 150;
@@ -32,7 +31,6 @@ function LockIcon() {
 
 /** Nav item with a menu that opens on hover, keyboard focus, Enter, Space, or tap. */
 export function NavDropdown({ label, href, active = false, align = "left", items }: Props) {
-  const router = useRouter();
   const panelId = useId();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -82,11 +80,26 @@ export function NavDropdown({ label, href, active = false, align = "left", items
     if (event.detail === 0) {
       show();
     } else if (pointerType.current === "mouse") {
-      if (href) router.push(href);
+      // Hover has already opened it, so a mouse click keeps it open rather than toggling it shut.
+      show();
     } else {
       setOpen((value) => !value);
     }
   }
+
+  const chevron = (
+    <svg
+      viewBox="0 0 10 6"
+      className={`nav-chevron w-2.5 ${open ? "rotate-180" : ""}`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden="true"
+    >
+      <path d="M1 1l4 4 4-4" />
+    </svg>
+  );
+  const activeDot = active && <span className="absolute -bottom-1 left-1/2 size-1.5 -translate-x-1/2 bg-accent" />;
 
   return (
     <div
@@ -102,37 +115,55 @@ export function NavDropdown({ label, href, active = false, align = "left", items
         if (!event.currentTarget.contains(event.relatedTarget)) scheduleClose();
       }}
     >
-      <button
-        ref={triggerRef}
-        type="button"
-        aria-expanded={open}
-        aria-controls={panelId}
-        aria-current={active ? "page" : undefined}
-        className="relative flex items-center gap-1.5 px-0.5 py-1.5"
-        onPointerDown={(event) => {
-          pointerType.current = event.pointerType;
-        }}
-        onClick={onTriggerClick}
-        onFocus={(event) => {
-          if (skipFocusOpen.current) skipFocusOpen.current = false;
-          else if (event.currentTarget.matches(":focus-visible")) show();
-        }}
-      >
-        {label}
-        <svg
-          viewBox="0 0 10 6"
-          className={`nav-chevron w-2.5 ${open ? "rotate-180" : ""}`}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          aria-hidden="true"
+      {href ? (
+        // The label always goes to its page; the arrow beside it opens the menu.
+        <div className="relative flex items-center">
+          <Link
+            href={href}
+            aria-current={active ? "page" : undefined}
+            className="relative px-0.5 py-1.5"
+            onClick={() => setOpen(false)}
+          >
+            {label}
+            {activeDot}
+          </Link>
+          <button
+            ref={triggerRef}
+            type="button"
+            aria-expanded={open}
+            aria-controls={panelId}
+            aria-label={`${typeof label === "string" ? label : "More"} menu`}
+            className="-mr-1.5 flex items-center self-stretch px-1.5"
+            onPointerDown={(event) => {
+              pointerType.current = event.pointerType;
+            }}
+            onClick={onTriggerClick}
+          >
+            {chevron}
+          </button>
+        </div>
+      ) : (
+        <button
+          ref={triggerRef}
+          type="button"
+          aria-expanded={open}
+          aria-controls={panelId}
+          aria-current={active ? "page" : undefined}
+          className="relative flex items-center gap-1.5 px-0.5 py-1.5"
+          onPointerDown={(event) => {
+            pointerType.current = event.pointerType;
+          }}
+          onClick={onTriggerClick}
+          onFocus={(event) => {
+            if (skipFocusOpen.current) skipFocusOpen.current = false;
+            else if (event.currentTarget.matches(":focus-visible")) show();
+          }}
         >
-          <path d="M1 1l4 4 4-4" />
-        </svg>
-        {active && (
-          <span className="absolute -bottom-1 left-1/2 size-1.5 -translate-x-1/2 bg-accent" />
-        )}
-      </button>
+          {label}
+          {chevron}
+          {activeDot}
+        </button>
+      )}
 
       {/* The top padding keeps the pointer inside the dropdown while crossing the gap. */}
       <div
