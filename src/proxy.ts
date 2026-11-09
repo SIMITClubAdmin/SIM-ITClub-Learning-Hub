@@ -1,7 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-/** Refreshes the Supabase session cookie on each page request. */
+/** Pages only logged-in members can open. Learn stays open to everyone. */
+const MEMBERS_ONLY = ["/practice"];
+
+/**
+ * Refreshes the Supabase session cookie on each page request, and sends logged-out
+ * visitors from members-only pages to the login page.
+ */
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -22,7 +28,23 @@ export async function proxy(request: NextRequest) {
     },
   );
 
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { pathname, search } = request.nextUrl;
+  const membersOnly = MEMBERS_ONLY.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+  if (!user && membersOnly) {
+    const login = request.nextUrl.clone();
+    login.pathname = "/login";
+    login.search = "";
+    login.searchParams.set("next", pathname + search);
+    const redirect = NextResponse.redirect(login);
+    // Keep any refreshed session cookies on the redirect too.
+    response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
+    return redirect;
+  }
+
   return response;
 }
 

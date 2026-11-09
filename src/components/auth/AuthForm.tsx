@@ -8,6 +8,8 @@ import { createClient } from "@/lib/supabase/client";
 type Props = {
   mode: "login" | "register";
   initialError?: string;
+  /** Where to go after logging in; already checked with safeNext. */
+  next?: string;
 };
 
 const FIELD = "w-full border border-violet bg-bg/85 px-3.5 py-3 text-ink";
@@ -27,7 +29,7 @@ function friendlyError(message: string) {
   return message;
 }
 
-export function AuthForm({ mode, initialError }: Props) {
+export function AuthForm({ mode, initialError, next = "/" }: Props) {
   const router = useRouter();
   const [error, setError] = useState(initialError ?? "");
   const [sentTo, setSentTo] = useState("");
@@ -84,7 +86,7 @@ export function AuthForm({ mode, initialError }: Props) {
       setError(friendlyError(signInError.message));
       return;
     }
-    router.push("/");
+    router.push(next);
     router.refresh();
   }
 
