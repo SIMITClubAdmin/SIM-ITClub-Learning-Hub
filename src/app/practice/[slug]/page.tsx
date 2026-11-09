@@ -10,7 +10,7 @@ export function generateStaticParams() {
 
 export async function generateMetadata(props: PageProps<"/practice/[slug]">): Promise<Metadata> {
   const quiz = QUIZZES[(await props.params).slug];
-  return { title: quiz ? `Lesson ${quiz.lesson} quiz · ITCamp Learning Hub` : "Practice · ITCamp Learning Hub" };
+  return { title: quiz ? `${quiz.title} quiz · ITCamp Learning Hub` : "Practice · ITCamp Learning Hub" };
 }
 
 export default async function QuizPage(props: PageProps<"/practice/[slug]">) {

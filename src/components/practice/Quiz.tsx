@@ -50,11 +50,11 @@ export function Quiz({ quiz }: { quiz: QuizData }) {
   if (!round) {
     return (
       <section className="border border-violet bg-bg/85 p-6 sm:p-8">
-        <p className="font-mono text-xs tracking-wider text-accent uppercase">Lesson {quiz.lesson} quiz</p>
-        <h1 className="mt-2 text-4xl font-semibold">{quiz.title}</h1>
+        <p className="font-mono text-xs tracking-wider text-accent uppercase">Lesson {quiz.lesson} mission</p>
+        <h1 className="mt-2 text-4xl font-semibold">{quiz.title} quiz</h1>
         <p className="mt-3 max-w-prose text-dim">
-          {total} multiple-choice questions on the web, HTML, CSS and JavaScript. The questions and answers come
-          in a different order every time you start.
+          {total} multiple-choice questions on {quiz.title}. The questions and answers come in a different order
+          every time you start.
         </p>
         <button type="button" onClick={start} className="cta cta--lg mt-6">
           Start quiz
@@ -114,7 +114,7 @@ export function Quiz({ quiz }: { quiz: QuizData }) {
     <section className="border border-violet bg-bg/85 p-6 sm:p-8">
       <div className="flex justify-between font-mono text-[11px] tracking-wider text-dim uppercase">
         <span>
-          Question {index + 1} / {total} · {item.question.topic}
+          {quiz.title} · Question {index + 1} / {total}
         </span>
         <span>Score {score}</span>
       </div>

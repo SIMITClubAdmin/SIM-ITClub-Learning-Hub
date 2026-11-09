@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
-import { QUIZZES } from "@/lib/quizzes";
 import type { CourseModule, PlanetPalette } from "@/lib/topics";
 
 // Same scene as the Learn solar system: tilted orbits around a sun.
@@ -284,20 +283,6 @@ export function PracticeSolarSystem({ modules }: { modules: CourseModule[] }) {
               <div className="h-full bg-accent" style={{ width: "0%" }} />
             </div>
           </div>
-          {QUIZZES[lesson.slug] && !lesson.lockedReason && (
-            <div className="mt-5 flex items-center justify-between gap-3 border border-accent bg-accent/10 p-4">
-              <div>
-                <p className="font-mono text-[11px] tracking-wider text-accent uppercase">Lesson quiz</p>
-                <p className="mt-1 font-display text-xl font-semibold">
-                  {QUIZZES[lesson.slug].questions.length} questions
-                </p>
-                <p className="text-sm text-dim">Shuffled every time</p>
-              </div>
-              <Link href={`/practice/${lesson.slug}`} className="cta">
-                Launch
-              </Link>
-            </div>
-          )}
           <ol className="mt-5 flex flex-col gap-3">
             {lesson.topics.map((topic, ti) => {
               const locked = lesson.lockedReason ?? topic.lockedReason;
