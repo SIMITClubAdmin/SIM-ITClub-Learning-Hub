@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { AuthForm } from "@/components/auth/AuthForm";
 import { PracticeSolarSystem } from "@/components/practice/PracticeSolarSystem";
 import { createClient } from "@/lib/supabase/server";
@@ -21,6 +22,8 @@ function BigLock() {
 }
 
 export default async function PracticePage() {
+  // Render per request before anything else runs, so the Supabase client never runs during prerendering.
+  await connection();
   const supabase = await createClient();
   const {
     data: { user },

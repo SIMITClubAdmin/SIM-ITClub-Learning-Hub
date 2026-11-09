@@ -17,7 +17,7 @@ const ORBITS = [
 ];
 const ZOOM = 2.3;
 // Where the zoomed planet lands, as a % of the scene, leaving room for the panel.
-const FOCUS = { x: 28, y: 50 };
+const FOCUS = { x: 23, y: 50 };
 
 function position(i: number, degrees: number) {
   const t = (degrees * Math.PI) / 180;
@@ -257,7 +257,9 @@ export function PracticeSolarSystem({ modules }: { modules: CourseModule[] }) {
         <aside
           id="practice-panel"
           aria-live="polite"
-          className="practice-panel absolute top-1/2 right-[4%] z-10 max-h-[92%] w-[min(24rem,44%)] -translate-y-1/2 overflow-y-auto border border-violet bg-bg/90 p-5"
+          className="practice-panel absolute top-1/2 z-10 max-h-[92%] -translate-y-1/2 overflow-y-auto border border-violet bg-bg/90 p-5"
+          // Set inline so the panel keeps its place on the right even if the page has stale CSS.
+          style={{ right: "1.5%", width: "min(34rem, 52%)" }}
         >
           <button
             type="button"

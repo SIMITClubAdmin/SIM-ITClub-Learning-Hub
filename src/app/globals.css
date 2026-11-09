@@ -48,6 +48,15 @@ html.has-cursor :focus-visible {
   pointer-events: none;
 }
 
+/* Quiz focus mode: a solid, still backdrop over the pixel clouds, with a faint grid to keep the theme. */
+.quiz-backdrop {
+  background-color: var(--color-bg);
+  background-image:
+    linear-gradient(to right, rgb(26 33 80 / 0.35) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(26 33 80 / 0.35) 1px, transparent 1px);
+  background-size: 38px 38px;
+}
+
 /* CustomCursor */
 html.has-cursor,
 html.has-cursor * {

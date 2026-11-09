@@ -49,10 +49,10 @@ export function Quiz({ quiz }: { quiz: QuizData }) {
 
   if (!round) {
     return (
-      <section className="border border-violet bg-bg/85 p-6 sm:p-8">
-        <p className="font-mono text-xs tracking-wider text-accent uppercase">Lesson {quiz.lesson} mission</p>
-        <h1 className="mt-2 text-4xl font-semibold">{quiz.title} quiz</h1>
-        <p className="mt-3 max-w-prose text-dim">
+      <section className="border border-violet bg-bg p-6 sm:p-10">
+        <p className="font-mono text-sm tracking-wider text-accent uppercase">Lesson {quiz.lesson} mission</p>
+        <h1 className="mt-2 text-5xl font-semibold">{quiz.title} quiz</h1>
+        <p className="mt-4 max-w-prose text-lg text-dim">
           {total} multiple-choice questions on {quiz.title}. The questions and answers come in a different order
           every time you start.
         </p>
@@ -67,12 +67,12 @@ export function Quiz({ quiz }: { quiz: QuizData }) {
 
   if (index >= round.length) {
     return (
-      <section className="border border-violet bg-bg/85 p-6 sm:p-8">
-        <p className="font-mono text-xs tracking-wider text-accent uppercase">Mission complete</p>
-        <h1 ref={headingRef} tabIndex={-1} className="mt-2 text-4xl font-semibold outline-none">
+      <section className="border border-violet bg-bg p-6 sm:p-10">
+        <p className="font-mono text-sm tracking-wider text-accent uppercase">Mission complete</p>
+        <h1 ref={headingRef} tabIndex={-1} className="mt-2 text-5xl font-semibold outline-none">
           You scored {score} / {total}
         </h1>
-        <p className="mt-2 text-dim">
+        <p className="mt-3 text-lg text-dim">
           {score === total ? "A perfect landing!" : score >= total * 0.7 ? "Nice flying." : "Have another go."}
         </p>
         {/* TODO(Practice step): save the score to Supabase for stars and the leaderboard. */}
@@ -80,7 +80,7 @@ export function Quiz({ quiz }: { quiz: QuizData }) {
           {round.map((item, i) => {
             const right = picks[i] === item.answer;
             return (
-              <li key={item.question.question} className="border border-grid p-3 text-sm">
+              <li key={item.question.question} className="border border-grid p-4 text-base">
                 <p className="font-medium">
                   <span className={right ? "text-accent" : "text-[#ffb38a]"}>{right ? "✓" : "✗"}</span>{" "}
                   {item.question.question}
@@ -111,27 +111,27 @@ export function Quiz({ quiz }: { quiz: QuizData }) {
   const answered = picked !== undefined;
 
   return (
-    <section className="border border-violet bg-bg/85 p-6 sm:p-8">
-      <div className="flex justify-between font-mono text-[11px] tracking-wider text-dim uppercase">
+    <section className="border border-violet bg-bg p-6 sm:p-10">
+      <div className="flex justify-between gap-4 font-mono text-sm tracking-wider whitespace-nowrap text-dim uppercase">
         <span>
-          {quiz.title} · Question {index + 1} / {total}
+          <span className="max-sm:hidden">{quiz.title} · </span>Question {index + 1} / {total}
         </span>
         <span>Score {score}</span>
       </div>
-      <div className="mt-1.5 h-1.5 bg-grid">
+      <div className="mt-2 h-2 bg-grid">
         <div className="h-full bg-accent transition-[width]" style={{ width: `${(index / total) * 100}%` }} />
       </div>
 
-      <h1 ref={headingRef} tabIndex={-1} className="mt-6 text-2xl font-semibold outline-none sm:text-3xl">
+      <h1 ref={headingRef} tabIndex={-1} className="mt-8 text-3xl font-semibold outline-none sm:text-4xl">
         {item.question.question}
       </h1>
       {item.question.code && (
-        <pre className="mt-4 overflow-x-auto border border-grid bg-grid/40 p-4 font-mono text-sm">
+        <pre className="mt-5 overflow-x-auto border border-grid bg-grid/40 p-5 font-mono text-base sm:text-lg">
           <code>{item.question.code}</code>
         </pre>
       )}
 
-      <ul className="mt-6 flex flex-col gap-3">
+      <ul className="mt-8 flex flex-col gap-4">
         {item.choices.map((choice, ci) => {
           const isAnswer = choice === item.answer;
           const isPick = choice === picked;
@@ -149,10 +149,10 @@ export function Quiz({ quiz }: { quiz: QuizData }) {
                 type="button"
                 disabled={answered}
                 onClick={() => setPicks((p) => [...p.slice(0, index), choice])}
-                className={`flex w-full items-start gap-3 border px-4 py-3 text-left ${look}`}
+                className={`flex w-full items-start gap-4 border px-5 py-4 text-left ${look}`}
               >
-                <span className="font-mono text-sm text-accent">{LETTERS[ci]}</span>
-                <span className="font-mono text-sm whitespace-pre-wrap sm:text-base">{choice}</span>
+                <span className="font-mono text-base text-accent sm:text-lg">{LETTERS[ci]}</span>
+                <span className="font-mono text-base whitespace-pre-wrap sm:text-lg">{choice}</span>
                 {answered && isAnswer && <span className="sr-only">(correct answer)</span>}
                 {answered && isPick && !isAnswer && <span className="sr-only">(your answer)</span>}
               </button>
@@ -163,11 +163,11 @@ export function Quiz({ quiz }: { quiz: QuizData }) {
 
       <div aria-live="polite">
         {answered && (
-          <div className="mt-6">
-            <p className={`font-display text-xl font-semibold ${picked === item.answer ? "text-accent" : "text-[#ffb38a]"}`}>
+          <div className="mt-8">
+            <p className={`font-display text-2xl font-semibold ${picked === item.answer ? "text-accent" : "text-[#ffb38a]"}`}>
               {picked === item.answer ? "Correct!" : "Not quite."}
             </p>
-            <p className="mt-1 text-dim">{item.question.explain}</p>
+            <p className="mt-2 text-lg text-dim">{item.question.explain}</p>
             <button type="button" onClick={next} className="cta mt-5">
               {index + 1 === total ? "See my score" : "Next question"}
             </button>
