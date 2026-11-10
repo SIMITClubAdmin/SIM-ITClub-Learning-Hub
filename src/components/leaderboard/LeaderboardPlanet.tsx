@@ -170,7 +170,6 @@ export function LeaderboardPlanet({ entries }: { entries: LeaderboardEntry[] }) 
       ) : (
         <>
           <h1 className="sr-only">Leaderboard</h1>
-          <p className="absolute top-4 right-4 font-display text-2xl font-semibold sm:right-8">Top 3</p>
           <ol>
             {podium.map(({ entry, rank, d }) =>
               entry ? (
