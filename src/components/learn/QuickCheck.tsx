@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { useSfx } from "@/lib/use-sfx";
 
 type Props = {
   question: string;
@@ -14,6 +15,7 @@ export function QuickCheck({ question, options, answer, explanation }: Props) {
   const name = useId();
   const [picked, setPicked] = useState<number | null>(null);
   const correct = picked === answer;
+  const { play } = useSfx();
 
   return (
     <fieldset className="border border-violet bg-bg/90 p-5">
@@ -36,7 +38,10 @@ export function QuickCheck({ question, options, answer, explanation }: Props) {
               name={name}
               value={i}
               className="sr-only"
-              onChange={() => setPicked(i)}
+              onChange={() => {
+                play(i === answer ? "correct" : "wrong");
+                setPicked(i);
+              }}
             />
             {option}
           </label>
