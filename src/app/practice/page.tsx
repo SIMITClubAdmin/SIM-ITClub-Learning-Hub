@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { AuthForm } from "@/components/auth/AuthForm";
+import { BigLock } from "@/components/auth/BigLock";
 import { PracticeSolarSystem } from "@/components/practice/PracticeSolarSystem";
 import { createClient } from "@/lib/supabase/server";
 import { withProgress } from "@/lib/progress";
@@ -11,17 +12,6 @@ export const metadata: Metadata = { title: "Practice · ITCamp Learning Hub" };
 
 // Shows a login form to logged-out visitors, so this page renders per request.
 export const instant = false;
-
-function BigLock() {
-  return (
-    <svg viewBox="0 0 24 24" className="size-12 text-accent" aria-hidden="true">
-      <rect x="4" y="10.5" width="16" height="11" rx="1.5" fill="currentColor" />
-      <path d="M7.5 10.5V7a4.5 4.5 0 0 1 9 0v3.5" fill="none" stroke="currentColor" strokeWidth="2.2" />
-      <circle cx="12" cy="15.5" r="1.6" fill="#070b1f" />
-      <rect x="11.3" y="16" width="1.4" height="3" fill="#070b1f" />
-    </svg>
-  );
-}
 
 export default async function PracticePage() {
   // Render per request before anything else runs, so the Supabase client never runs during prerendering.

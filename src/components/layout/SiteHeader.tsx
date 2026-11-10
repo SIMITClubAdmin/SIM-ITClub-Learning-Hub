@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { withProgress, type Progress } from "@/lib/progress";
 import { MODULES } from "@/lib/topics";
+import { useClubAccount } from "@/lib/use-club-account";
 import { useProgress } from "@/lib/use-progress";
 import { NavDropdown, type NavDropdownItem } from "./NavDropdown";
 import { SfxToggle } from "./SfxToggle";
@@ -28,6 +29,8 @@ const practiceItems = (progress: Progress): NavDropdownItem[] =>
 export function SiteHeader() {
   const pathname = usePathname();
   const progress = useProgress();
+  // The leaderboard is for club accounts only, so guests don't get the link.
+  const clubAccount = useClubAccount();
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
@@ -43,16 +46,18 @@ export function SiteHeader() {
           active={isActive("/practice")}
           items={practiceItems(progress)}
         />
-        <Link
-          href="/leaderboard"
-          aria-current={isActive("/leaderboard") ? "page" : undefined}
-          className="relative px-0.5 py-1.5"
-        >
-          Leaderboard
-          {isActive("/leaderboard") && (
-            <span className="absolute -bottom-1 left-1/2 size-1.5 -translate-x-1/2 bg-accent" />
-          )}
-        </Link>
+        {clubAccount && (
+          <Link
+            href="/leaderboard"
+            aria-current={isActive("/leaderboard") ? "page" : undefined}
+            className="relative px-0.5 py-1.5"
+          >
+            Leaderboard
+            {isActive("/leaderboard") && (
+              <span className="absolute -bottom-1 left-1/2 size-1.5 -translate-x-1/2 bg-accent" />
+            )}
+          </Link>
+        )}
         <UserMenu />
         <SfxToggle />
       </nav>

@@ -6,9 +6,11 @@ import { createClient } from "@/lib/supabase/client";
 type Props = {
   userId: string;
   initialName: string;
+  /** Only club members below EXCO are listed; guests and admins aren't. */
+  onLeaderboard: boolean;
 };
 
-export function AccountForm({ userId, initialName }: Props) {
+export function AccountForm({ userId, initialName, onLeaderboard }: Props) {
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -59,7 +61,11 @@ export function AccountForm({ userId, initialName }: Props) {
           autoComplete="nickname"
           className="w-full border border-violet bg-bg/85 px-3.5 py-3 text-ink"
         />
-        <span className="text-sm text-dim">Shown publicly on the leaderboard.</span>
+        <span className="text-sm text-dim">
+          {onLeaderboard
+            ? "Shown on the leaderboard, which club members can see."
+            : "Shown in the header and on your account."}
+        </span>
       </label>
       {message && (
         <p role={isError ? "alert" : "status"} className="border border-accent bg-bg/85 px-3.5 py-3">
