@@ -3,8 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { TOPICS } from "@/lib/topics";
-import { useIsAdmin } from "@/lib/use-is-admin";
+import { withProgress, type Progress } from "@/lib/progress";
+import { MODULES } from "@/lib/topics";
+import { useProgress } from "@/lib/use-progress";
 import { NavDropdown, type NavDropdownItem } from "./NavDropdown";
 import { UserMenu } from "./UserMenu";
 
@@ -12,19 +13,20 @@ const LEARN_ITEMS: NavDropdownItem[] = [
   { label: "HTML", href: "/learn/html" },
   { label: "CSS", href: "/learn/css" },
   { label: "JavaScript", href: "/learn/javascript" },
+  { label: "CSS Playground", href: "/learn/playground" },
 ];
 
-/** Admins see every Practice topic unlocked; members see the locks. */
-const practiceItems = (isAdmin: boolean): NavDropdownItem[] =>
-  TOPICS.map((topic) =>
-    topic.lockedReason && !isAdmin
+/** Lesson 1's missions, with locks opening as the member finishes them. Admins see all unlocked. */
+const practiceItems = (progress: Progress): NavDropdownItem[] =>
+  withProgress(MODULES, progress)[0].topics.map((topic) =>
+    topic.lockedReason
       ? { label: topic.name, lockedReason: topic.lockedReason }
       : { label: topic.name, href: `/practice/${topic.slug}` },
   );
 
 export function SiteHeader() {
   const pathname = usePathname();
-  const isAdmin = useIsAdmin();
+  const progress = useProgress();
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
@@ -38,7 +40,7 @@ export function SiteHeader() {
           label="Practice"
           href="/practice"
           active={isActive("/practice")}
-          items={practiceItems(isAdmin)}
+          items={practiceItems(progress)}
         />
         <Link
           href="/leaderboard"

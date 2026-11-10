@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
+import { nextRocketStop } from "@/lib/learn-trail";
 import type { PlanetPalette, Topic } from "@/lib/topics";
 
 // Scene coordinates, in the SVG viewBox.
@@ -65,11 +66,15 @@ function LockIcon({ className }: { className?: string }) {
   );
 }
 
-/** Rocket parked just behind the latest open moon; it flies along the orbit when that changes. */
-function Rocket({ checkpoint }: { checkpoint: number }) {
+/**
+ * Rocket parked just behind a moon; it flies along the orbit when that changes.
+ * from is the moon it starts behind, so it can fly from there to checkpoint on arrival.
+ */
+function Rocket({ checkpoint, from = checkpoint }: { checkpoint: number; from?: number }) {
   const target = STOPS[checkpoint].angle + ROCKET_TRAIL;
-  const [angle, setAngle] = useState(target);
-  const angleRef = useRef(target);
+  const start = STOPS[from].angle + ROCKET_TRAIL;
+  const [angle, setAngle] = useState(start);
+  const angleRef = useRef(start);
 
   useEffect(() => {
     const from = angleRef.current;
@@ -199,6 +204,17 @@ export function PracticeOrbit({ topics, palette, showRocket = true, mode = "prac
   const [selected, setSelected] = useState<number | null>(null);
   const openCount = topics.filter((t) => !t.lockedReason).length;
   const checkpoint = Math.max(0, openCount - 1);
+  // On Learn, the rocket heads for the topic after the one last studied (HTML to start).
+  // It reads this tab's history after mounting, so the server never guesses it.
+  const slugs = topics.map((t) => t.slug).join(",");
+  const [learnStop, setLearnStop] = useState<{ from: number; to: number } | null>(null);
+  useEffect(() => {
+    // Only the planet carrying the rocket tracks it, so other planets can't overwrite its stop.
+    if (mode !== "learn" || !showRocket) return;
+    // Browser-only history; reading it after mount keeps server and client markup the same.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLearnStop(nextRocketStop(slugs.split(",")));
+  }, [mode, showRocket, slugs]);
 
   const topic = selected === null ? null : topics[selected];
   const node = selected === null ? null : orbitPoint(STOPS[selected].angle);
@@ -237,7 +253,12 @@ export function PracticeOrbit({ topics, palette, showRocket = true, mode = "prac
         <Planet palette={palette} ids={ids} />
         <Rings half="front" color={palette.ring} />
         <path d={arc(0, 180)} fill="none" stroke="#94aaff" strokeOpacity="0.8" strokeWidth="1.5" strokeDasharray="4 6" />
-        {showRocket && <Rocket checkpoint={checkpoint} />}
+        {showRocket &&
+          (mode === "learn" ? (
+            learnStop && <Rocket checkpoint={learnStop.to} from={learnStop.from} />
+          ) : (
+            <Rocket checkpoint={checkpoint} />
+          ))}
       </svg>
 
       {topics.map((t, i) => {
@@ -279,6 +300,26 @@ export function PracticeOrbit({ topics, palette, showRocket = true, mode = "prac
           </Link>
         );
       })}
+
+      {/* On Learn, a small planet beside the CSS moon opens the CSS Playground. */}
+      {mode === "learn" &&
+        (() => {
+          const css = topics.findIndex((t) => t.slug === "css");
+          if (css === -1) return null;
+          const p = orbitPoint(STOPS[css].angle);
+          return (
+            <Link
+              href="/learn/playground"
+              aria-label="Open the CSS Playground"
+              className="playground-planet group absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
+              style={{ left: pct(p.x + 84, W), top: pct(p.y + 56, H), width: pct(44, W) }}
+            >
+              {/* A plain round moon, like the topic moons, just smaller. */}
+              <span className="block aspect-square w-full rounded-full bg-[#e8835f]" />
+              <span className="mt-1 font-mono text-xs whitespace-nowrap text-ink group-hover:text-accent">CSS Playground</span>
+            </Link>
+          );
+        })()}
 
       {topic && node && (
         <div

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
+import { starsFor, type BestScores } from "@/lib/progress";
 import { QUIZZES } from "@/lib/quizzes";
 import type { CourseModule, PlanetPalette } from "@/lib/topics";
 
@@ -109,7 +110,7 @@ function Stars({ count }: { count: number }) {
  * One planet per lesson orbits a Practice sun. Clicking a planet zooms the camera
  * into it and lists that lesson's practice sets.
  */
-export function PracticeSolarSystem({ modules }: { modules: CourseModule[] }) {
+export function PracticeSolarSystem({ modules, best = {} }: { modules: CourseModule[]; best?: BestScores }) {
   const [open, setOpen] = useState<number | null>(null);
   const [hovered, setHovered] = useState<number | null>(null);
   const [focus, setFocus] = useState({ x: 50, y: 50 });
@@ -276,16 +277,22 @@ export function PracticeSolarSystem({ modules }: { modules: CourseModule[] }) {
               {lesson.lockedReason}
             </p>
           )}
-          {/* TODO(Practice step): read stars and best scores from the member's real attempts. */}
-          <div className="mt-4">
-            <div className="flex justify-between font-mono text-[11px] tracking-wider text-dim uppercase">
-              <span>Missions cleared</span>
-              <span>0 / {lesson.topics.length}</span>
-            </div>
-            <div className="mt-1.5 h-1.5 bg-grid">
-              <div className="h-full bg-accent" style={{ width: "0%" }} />
-            </div>
-          </div>
+          {(() => {
+            const cleared = lesson.topics.filter((t) => best[t.slug] !== undefined).length;
+            return (
+              <div className="mt-4">
+                <div className="flex justify-between font-mono text-[11px] tracking-wider text-dim uppercase">
+                  <span>Missions cleared</span>
+                  <span>
+                    {cleared} / {lesson.topics.length}
+                  </span>
+                </div>
+                <div className="mt-1.5 h-1.5 bg-grid">
+                  <div className="h-full bg-accent" style={{ width: `${(cleared / lesson.topics.length) * 100}%` }} />
+                </div>
+              </div>
+            );
+          })()}
           <ol className="mt-5 flex flex-col gap-3">
             {lesson.topics.map((topic, ti) => {
               const locked = lesson.lockedReason ?? topic.lockedReason;
@@ -298,12 +305,18 @@ export function PracticeSolarSystem({ modules }: { modules: CourseModule[] }) {
                     <p className="font-mono text-[11px] tracking-wider text-accent uppercase">
                       Mission {String(ti + 1).padStart(2, "0")}
                     </p>
-                    <Stars count={0} />
+                    <Stars count={starsFor(best[topic.slug])} />
                   </div>
                   <p className={`mt-1 font-display text-xl font-semibold ${locked ? "text-dim" : ""}`}>{topic.name}</p>
                   <p className="mt-1 text-sm text-dim">{topic.summary}</p>
                   <div className="mt-3 flex items-center justify-between gap-3">
-                    <span className="font-mono text-xs text-dim">{locked ? "" : "Best: not attempted"}</span>
+                    <span className="font-mono text-xs text-dim">
+                      {locked
+                        ? ""
+                        : best[topic.slug] === undefined
+                          ? "Best: not attempted"
+                          : `Best: ${best[topic.slug]} / 10`}
+                    </span>
                     {locked ? (
                       <span className="flex items-center gap-1.5 font-mono text-xs text-dim">
                         <Lock className="size-3.5" />

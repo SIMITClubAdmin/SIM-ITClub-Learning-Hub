@@ -5,6 +5,13 @@ import { MODULES } from "@/lib/topics";
 
 export const metadata: Metadata = { title: "Learn · ITCamp Learning Hub" };
 
+// Learn is for reference during class, so topics are never locked here; locks only apply in Practice.
+// Lessons whose planet is locked stay locked, since their content does not exist yet.
+const LEARN_MODULES = MODULES.map((module) => ({
+  ...module,
+  topics: module.lockedReason ? module.topics : module.topics.map((topic) => ({ ...topic, lockedReason: null })),
+}));
+
 export default function LearnPage() {
   return (
     <main className="flex w-full flex-1 flex-col px-4 py-6 sm:px-8">
@@ -17,12 +24,19 @@ export default function LearnPage() {
         className="fixed inset-0 z-0 hidden flex-col overflow-clip pt-24 pb-4 sm:flex"
         style={{ "--planet-width": "min(64rem, calc((100svh - 170px) * 800 / 520))" } as React.CSSProperties}
       >
-        <PracticeGalaxy modules={MODULES} mode="learn" />
+        <PracticeGalaxy modules={LEARN_MODULES} mode="learn" />
       </div>
 
+
       {/* The orbit needs room for its callout, so small screens get a list instead. */}
+      {/* On wider screens the CSS Playground is a small planet beside the CSS moon. */}
       <div className="mt-6 flex flex-col gap-6 sm:hidden">
-        {MODULES.map((module) => (
+        <Link href="/learn/playground" className="block border border-accent bg-bg/85 p-4">
+          <p className="font-mono text-xs tracking-wider text-accent uppercase">New · Try it live</p>
+          <p className="mt-1 font-display text-xl font-semibold">CSS Playground</p>
+          <p className="mt-1 text-sm text-dim">Play with colours, boxes and selectors, then copy the CSS.</p>
+        </Link>
+        {LEARN_MODULES.map((module) => (
           <section key={module.slug} className="flex flex-col gap-3">
             <h2 className="font-mono text-xs tracking-wider text-accent uppercase">
               Lesson {module.number}: {module.title}

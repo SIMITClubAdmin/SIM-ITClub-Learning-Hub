@@ -3,7 +3,9 @@ import { connection } from "next/server";
 import { AuthForm } from "@/components/auth/AuthForm";
 import { PracticeSolarSystem } from "@/components/practice/PracticeSolarSystem";
 import { createClient } from "@/lib/supabase/server";
-import { MODULES, type CourseModule } from "@/lib/topics";
+import { withProgress } from "@/lib/progress";
+import { loadProgress } from "@/lib/supabase/progress";
+import { MODULES } from "@/lib/topics";
 
 export const metadata: Metadata = { title: "Practice · ITCamp Learning Hub" };
 
@@ -28,17 +30,9 @@ export default async function PracticePage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const { data: profile } = user
-    ? await supabase.from("profiles").select("is_admin").eq("id", user.id).single()
-    : { data: null };
-  // Admins see every lesson and mission unlocked, so they can check content without playing through it.
-  const modules: CourseModule[] = profile?.is_admin
-    ? MODULES.map((m) => ({
-        ...m,
-        lockedReason: null,
-        topics: m.topics.map((t) => ({ ...t, lockedReason: null })),
-      }))
-    : MODULES;
+  // Locks open as the member finishes missions; admins see everything unlocked.
+  const progress = user ? await loadProgress(supabase, user.id) : { isAdmin: false, best: {} };
+  const modules = withProgress(MODULES, progress);
 
   return (
     <main className="relative mx-auto flex w-full max-w-[90rem] flex-1 flex-col px-4 py-2 sm:px-8">
@@ -51,7 +45,7 @@ export default async function PracticePage() {
           inert={!user}
           aria-hidden={!user || undefined}
         >
-          <PracticeSolarSystem modules={modules} />
+          <PracticeSolarSystem modules={modules} best={progress.best} />
         </div>
       </div>
 

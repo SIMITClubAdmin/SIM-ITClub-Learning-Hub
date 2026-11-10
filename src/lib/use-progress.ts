@@ -1,11 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { Progress } from "@/lib/progress";
 import { createClient } from "@/lib/supabase/client";
+import { loadProgress } from "@/lib/supabase/progress";
 
-/** Whether the logged-in member is an admin. False while loading and for guests. */
-export function useIsAdmin() {
-  const [isAdmin, setIsAdmin] = useState(false);
+const GUEST: Progress = { isAdmin: false, best: {} };
+
+/** The logged-in member's admin flag and best quiz scores. Guests get no progress. */
+export function useProgress() {
+  const [progress, setProgress] = useState<Progress>(GUEST);
 
   useEffect(() => {
     const supabase = createClient();
@@ -13,13 +17,13 @@ export function useIsAdmin() {
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       const userId = session?.user.id;
       if (!userId) {
-        setIsAdmin(false);
+        setProgress(GUEST);
         return;
       }
       // Run outside the auth callback, as Supabase recommends, so the query can't deadlock it.
       setTimeout(async () => {
-        const { data: profile } = await supabase.from("profiles").select("is_admin").eq("id", userId).single();
-        if (current) setIsAdmin(!!profile?.is_admin);
+        const loaded = await loadProgress(supabase, userId);
+        if (current) setProgress(loaded);
       }, 0);
     });
     return () => {
@@ -28,5 +32,5 @@ export function useIsAdmin() {
     };
   }, []);
 
-  return isAdmin;
+  return progress;
 }

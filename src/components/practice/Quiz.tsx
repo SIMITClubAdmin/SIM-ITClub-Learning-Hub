@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { saveQuizResult } from "@/app/practice/actions";
 import type { Quiz as QuizData, QuizQuestion } from "@/lib/quizzes";
 
 type Round = { question: QuizQuestion; choices: string[]; answer: string }[];
@@ -26,11 +27,14 @@ function newRound(quiz: QuizData): Round {
 
 const LETTERS = ["A", "B", "C", "D"];
 
-export function Quiz({ quiz }: { quiz: QuizData }) {
+type SaveState = { state: "idle" | "saving" | "saved" } | { state: "error"; error: string };
+
+export function Quiz({ quiz, slug }: { quiz: QuizData; slug: string }) {
   // Shuffled only when the member presses Start, so server and client render the same first screen.
   const [round, setRound] = useState<Round | null>(null);
   const [index, setIndex] = useState(0);
   const [picks, setPicks] = useState<string[]>([]);
+  const [save, setSave] = useState<SaveState>({ state: "idle" });
   const headingRef = useRef<HTMLHeadingElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
   const answersRef = useRef<HTMLUListElement>(null);
@@ -58,6 +62,7 @@ export function Quiz({ quiz }: { quiz: QuizData }) {
     setRound(newRound(quiz));
     setIndex(0);
     setPicks([]);
+    setSave({ state: "idle" });
     requestAnimationFrame(() => headingRef.current?.focus());
   }
 
@@ -65,7 +70,17 @@ export function Quiz({ quiz }: { quiz: QuizData }) {
     setPicks((p) => [...p.slice(0, index), choice]);
   }
 
+  /** Sends the answers to the server, which grades them and saves the score. */
+  async function saveScore() {
+    if (!round) return;
+    setSave({ state: "saving" });
+    const answers = Object.fromEntries(round.map((item, i) => [item.question.question, picks[i]]));
+    const result = await saveQuizResult(slug, answers);
+    setSave(result.ok ? { state: "saved" } : { state: "error", error: result.error });
+  }
+
   function next() {
+    if (index + 1 === quiz.questions.length) void saveScore();
     setIndex((i) => i + 1);
     requestAnimationFrame(() => headingRef.current?.focus());
   }
@@ -100,7 +115,18 @@ export function Quiz({ quiz }: { quiz: QuizData }) {
         <p className="mt-3 text-lg text-dim">
           {score === total ? "A perfect landing!" : score >= total * 0.7 ? "Nice flying." : "Have another go."}
         </p>
-        {/* TODO(Practice step): save the score to Supabase for stars and the leaderboard. */}
+        <p className="mt-2 font-mono text-sm text-dim" role="status">
+          {save.state === "saving" && "Saving your score…"}
+          {save.state === "saved" && "Score saved. Your best score counts towards the leaderboard."}
+          {save.state === "error" && (
+            <>
+              <span className="text-[#ffb38a]">{save.error}</span>{" "}
+              <button type="button" onClick={saveScore} className="text-ink underline underline-offset-4">
+                Try saving again
+              </button>
+            </>
+          )}
+        </p>
         <ol className="mt-6 flex flex-col gap-2">
           {round.map((item, i) => {
             const right = picks[i] === item.answer;

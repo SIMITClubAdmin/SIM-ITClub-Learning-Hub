@@ -1,3 +1,5 @@
+import { LESSON_TOPICS, lessonHref } from "@/lib/lessons";
+
 export type Topic = {
   slug: string;
   name: string;
@@ -32,6 +34,12 @@ export type CourseModule = {
   topics: Topic[];
 };
 
+/** The Learn lessons for a topic, from the lesson content in src/lib/lessons. */
+function lessonLinks(topicSlug: string) {
+  const topic = LESSON_TOPICS.find((t) => t.slug === topicSlug);
+  return (topic?.lessons ?? []).map((lesson) => ({ title: lesson.title, href: lessonHref(topicSlug, lesson.slug) }));
+}
+
 // TODO(Practice step): work out locks from the member's real scores.
 export const TOPICS: Topic[] = [
   {
@@ -40,14 +48,7 @@ export const TOPICS: Topic[] = [
     short: "HTML",
     summary: "Build the structure of a page with headings, links, images and lists.",
     lockedReason: null,
-    lessons: [
-      { title: "What is HTML?", href: "/learn/html/what-is-html" },
-      { title: "Headings, paragraphs and line breaks" },
-      { title: "Images and links" },
-      { title: "Comments" },
-      { title: "div: the box tag" },
-      { title: "Semantic tags" },
-    ],
+    lessons: lessonLinks("html"),
   },
   {
     slug: "css",
@@ -55,11 +56,7 @@ export const TOPICS: Topic[] = [
     short: "CSS",
     summary: "Style pages with colours, spacing, layout and fonts.",
     lockedReason: "Finish HTML to unlock",
-    lessons: [
-      { title: "What is CSS?" },
-      { title: "Inline, internal and external CSS" },
-      { title: "Selectors" },
-    ],
+    lessons: lessonLinks("css"),
   },
   {
     slug: "javascript",
@@ -67,7 +64,7 @@ export const TOPICS: Topic[] = [
     short: "JS",
     summary: "Make pages interactive with variables, functions and events.",
     lockedReason: "Finish CSS to unlock",
-    lessons: [{ title: "What is JavaScript?" }],
+    lessons: lessonLinks("javascript"),
   },
 ];
 

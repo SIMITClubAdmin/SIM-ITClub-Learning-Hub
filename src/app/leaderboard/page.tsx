@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { LeaderboardPlanet, type LeaderboardEntry } from "@/components/leaderboard/LeaderboardPlanet";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Leaderboard · ITCamp Learning Hub" };
 export const instant = false;
@@ -20,8 +21,16 @@ const DEMO: LeaderboardEntry[] = [
 
 export default async function LeaderboardPage({ searchParams }: PageProps<"/leaderboard">) {
   const { demo } = await searchParams;
-  // TODO(Practice step): load real scores from Supabase, leaving out profiles where is_admin is true.
-  const entries: LeaderboardEntry[] = demo !== undefined ? DEMO : [];
+  // Best score per quiz, 10 points per correct answer; admins are left out (see get_leaderboard).
+  const supabase = await createClient();
+  const { data } = demo !== undefined ? { data: null } : await supabase.rpc("get_leaderboard");
+  const entries: LeaderboardEntry[] =
+    demo !== undefined
+      ? DEMO
+      : ((data ?? []) as { display_name: string; points: number }[]).map((row) => ({
+          name: row.display_name,
+          score: row.points,
+        }));
   return (
     <main className="flex w-full flex-1 flex-col">
       <LeaderboardPlanet entries={entries} />

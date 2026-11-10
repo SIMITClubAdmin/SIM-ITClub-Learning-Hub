@@ -48,13 +48,10 @@ html.has-cursor :focus-visible {
   pointer-events: none;
 }
 
-/* Quiz focus mode: a solid, still backdrop over the pixel clouds, with a faint grid to keep the theme. */
+/* Reading and quiz backdrop: a dark veil over the homepage's pixel clouds, so they show
+   through very faintly without pulling attention from the text. */
 .quiz-backdrop {
-  background-color: var(--color-bg);
-  background-image:
-    linear-gradient(to right, rgb(26 33 80 / 0.35) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(26 33 80 / 0.35) 1px, transparent 1px);
-  background-size: 38px 38px;
+  background-color: rgb(7 11 31 / 0.86);
 }
 
 /* Quiz feedback bar slides up from the bottom of the screen. */
@@ -69,6 +66,34 @@ html.has-cursor :focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .quiz-bar {
     animation: none;
+  }
+}
+
+/* The CSS Playground planet on the Learn wheel bobs gently and grows on hover. */
+/* Same outline as the topic moons: a dark ring, and a cyan ring on hover or focus. */
+.playground-planet > span:first-child {
+  animation: playground-bob 4s ease-in-out infinite;
+  box-shadow: 0 0 0 2px rgb(7 11 31 / 0.9);
+  transition:
+    scale 200ms ease-out,
+    box-shadow 200ms ease-out;
+}
+.playground-planet:hover > span:first-child,
+.playground-planet:focus-visible > span:first-child {
+  scale: 1.08;
+  box-shadow:
+    0 0 0 2px var(--color-bg),
+    0 0 0 4px var(--color-accent);
+}
+@keyframes playground-bob {
+  50% {
+    translate: 0 -4px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .playground-planet > span:first-child {
+    animation: none;
+    transition: none;
   }
 }
 
