@@ -65,9 +65,9 @@ function Astronaut({ entry, rank }: { entry: LeaderboardEntry; rank: number }) {
         {entry.score.toLocaleString()} pts
       </p>
       <p className="mt-2 max-w-48 truncate font-display text-xl font-semibold sm:text-2xl">{entry.name}</p>
-      <svg viewBox="0 0 90 100" className="mt-1 w-32 sm:w-44" aria-hidden="true">
+      <svg viewBox="0 0 90 96" className="mt-1" style={{ display: "block", width: "clamp(11rem, 18vw, 18rem)" }} aria-hidden="true">
         {/* Flag */}
-        <line x1="14" y1="8" x2="14" y2="100" stroke="#e6f1ff" strokeWidth="2.5" />
+        <line x1="14" y1="8" x2="14" y2="96" stroke="#e6f1ff" strokeWidth="2.5" />
         <path d="M15 9 L42 19 L15 29 Z" fill={flag} />
         <text x="22" y="22" fontSize="9" fontFamily="var(--font-jetbrains)" fill="#070b1f" fontWeight="700">
           {rank}

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { starsFor, type BestScores } from "@/lib/progress";
-import { QUIZZES } from "@/lib/quizzes";
+import { QUESTIONS_PER_QUIZ, QUIZZES } from "@/lib/quizzes";
 import type { CourseModule, PlanetPalette } from "@/lib/topics";
 
 // Same scene as the Learn solar system: tilted orbits around a sun.
@@ -315,7 +315,7 @@ export function PracticeSolarSystem({ modules, best = {} }: { modules: CourseMod
                         ? ""
                         : best[topic.slug] === undefined
                           ? "Best: not attempted"
-                          : `Best: ${best[topic.slug]} / 10`}
+                          : `Best: ${best[topic.slug]} / ${QUESTIONS_PER_QUIZ}`}
                     </span>
                     {locked ? (
                       <span className="flex items-center gap-1.5 font-mono text-xs text-dim">

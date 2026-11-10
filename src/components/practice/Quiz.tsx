@@ -181,6 +181,17 @@ export function Quiz({ quiz, slug }: { quiz: QuizData; slug: string }) {
           <code>{item.question.code}</code>
         </pre>
       )}
+      {item.question.preview && (
+        <figure className="mt-3">
+          <figcaption className="font-mono text-xs tracking-wider text-dim uppercase">What the browser shows</figcaption>
+          <iframe
+            title="What the browser shows for this code"
+            sandbox=""
+            srcDoc={item.question.preview}
+            className="mt-1.5 block h-24 w-full border border-grid bg-white"
+          />
+        </figure>
+      )}
 
       {/* Two answers per row on wider screens, so a question fits without scrolling. */}
       <ul ref={answersRef} className="mt-6 grid gap-3 md:grid-cols-2 md:gap-4">

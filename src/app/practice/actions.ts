@@ -35,7 +35,7 @@ export async function saveQuizResult(slug: string, answers: Record<string, strin
   }
   const score = quiz.questions.filter((q) => answers[q.question] === q.choices[0]).length;
 
-  const { error } = await supabase.from("quiz_attempts").insert({ quiz_slug: slug, score });
+  const { error } = await supabase.from("quiz_attempts").insert({ quiz_slug: slug, score, total: quiz.questions.length });
   if (error) return { ok: false, error: "We could not save your score. Please try again." };
 
   refresh();
