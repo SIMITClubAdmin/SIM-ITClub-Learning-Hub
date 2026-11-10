@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { checkPasswordChange } from "@/app/login/actions";
 import { createClient } from "@/lib/supabase/client";
 
 type Props = {
@@ -66,12 +67,15 @@ export function AuthForm({ mode, initialError, next = "/" }: Props) {
     }
 
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-    setBusy(false);
     if (signInError) {
+      setBusy(false);
       setError(friendlyError(signInError.message));
       return;
     }
-    router.push(next);
+    // A subcomm on the shared temporary password goes to choose their own first.
+    const passwordChange = await checkPasswordChange(password);
+    setBusy(false);
+    router.push(passwordChange ?? next);
     router.refresh();
   }
 
