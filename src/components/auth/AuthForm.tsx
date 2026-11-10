@@ -107,7 +107,7 @@ export function AuthForm({ mode, initialError, next = "/" }: Props) {
             className={FIELD}
           />
           <span id="displayNameHint" className="text-sm text-dim">
-            Shown publicly on the leaderboard.
+            Shown in the header and on your account. The leaderboard is for club members only.
           </span>
         </label>
       )}

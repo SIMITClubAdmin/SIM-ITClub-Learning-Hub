@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AccountForm } from "@/components/auth/AccountForm";
 import { createClient } from "@/lib/supabase/server";
@@ -19,9 +20,11 @@ export default async function AccountPage() {
   await ensureLearner(supabase, user);
   const hub = supabase.schema("learning_hub");
   const [{ data: profile }, { data: isAdmin }] = await Promise.all([
-    hub.from("learners").select("display_name, created_at").eq("user_id", user.id).maybeSingle(),
+    hub.from("learners").select("display_name, created_at, account_type").eq("user_id", user.id).maybeSingle(),
     hub.rpc("is_hub_admin"),
   ]);
+  // Same rule as get_leaderboard: club members only, EXCO and above left off.
+  const onLeaderboard = profile?.account_type === "member" && !isAdmin;
 
   const joined = profile
     ? new Date(profile.created_at).toLocaleDateString("en-SG", { dateStyle: "long" })
@@ -51,8 +54,16 @@ export default async function AccountPage() {
           <dt className="text-sm text-dim">Joined</dt>
           <dd>{joined}</dd>
         </div>
+        <div>
+          <dt className="text-sm text-dim">Password</dt>
+          <dd>
+            <Link href="/account/password" className="text-ink underline underline-offset-4">
+              Change password
+            </Link>
+          </dd>
+        </div>
       </dl>
-      <AccountForm userId={user.id} initialName={profile?.display_name ?? ""} />
+      <AccountForm userId={user.id} initialName={profile?.display_name ?? ""} onLeaderboard={onLeaderboard} />
     </main>
   );
 }
