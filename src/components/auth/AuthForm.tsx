@@ -48,21 +48,6 @@ export function AuthForm({ mode, initialError, next = "/" }: Props) {
     const supabase = createClient();
 
     if (isRegister) {
-      const { data: matches, error: lookupError } = await supabase
-        .from("profiles")
-        .select("id")
-        .ilike("display_name", displayName.replace(/[\\%_]/g, "\\$&"))
-        .limit(1);
-      if (lookupError) {
-        setError("We could not check that display name. Please try again.");
-        setBusy(false);
-        return;
-      }
-      if (matches.length > 0) {
-        setError(NAME_TAKEN);
-        setBusy(false);
-        return;
-      }
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
