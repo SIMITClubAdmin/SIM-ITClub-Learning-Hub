@@ -7,6 +7,7 @@ import { withProgress, type Progress } from "@/lib/progress";
 import { MODULES } from "@/lib/topics";
 import { useProgress } from "@/lib/use-progress";
 import { NavDropdown, type NavDropdownItem } from "./NavDropdown";
+import { SfxToggle } from "./SfxToggle";
 import { UserMenu } from "./UserMenu";
 
 const LEARN_ITEMS: NavDropdownItem[] = [
@@ -53,6 +54,7 @@ export function SiteHeader() {
           )}
         </Link>
         <UserMenu />
+        <SfxToggle />
       </nav>
     </header>
   );

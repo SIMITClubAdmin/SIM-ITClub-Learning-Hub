@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { saveQuizResult } from "@/app/practice/actions";
 import type { Quiz as QuizData, QuizQuestion } from "@/lib/quizzes";
+import { useSfx } from "@/lib/use-sfx";
 
 type Round = { question: QuizQuestion; choices: string[]; answer: string }[];
 
@@ -41,6 +42,7 @@ export function Quiz({ quiz, slug }: { quiz: QuizData; slug: string }) {
   const barRef = useRef<HTMLDivElement>(null);
   const spacerRef = useRef<HTMLDivElement>(null);
   const hasAnswered = round !== null && picks[index] !== undefined;
+  const { play } = useSfx();
 
   // Once the feedback bar appears: keep every answer visible above it, and move keyboard focus to Next.
   useEffect(() => {
@@ -59,6 +61,7 @@ export function Quiz({ quiz, slug }: { quiz: QuizData; slug: string }) {
   }, [hasAnswered, index]);
 
   function start() {
+    play("click");
     setRound(newRound(quiz));
     setIndex(0);
     setPicks([]);
@@ -67,6 +70,7 @@ export function Quiz({ quiz, slug }: { quiz: QuizData; slug: string }) {
   }
 
   function pick(choice: string) {
+    if (round) play(choice === round[index].answer ? "correct" : "wrong");
     setPicks((p) => [...p.slice(0, index), choice]);
   }
 
@@ -80,6 +84,7 @@ export function Quiz({ quiz, slug }: { quiz: QuizData; slug: string }) {
   }
 
   function next() {
+    play("click");
     if (index + 1 === quiz.questions.length) void saveScore();
     setIndex((i) => i + 1);
     requestAnimationFrame(() => headingRef.current?.focus());
