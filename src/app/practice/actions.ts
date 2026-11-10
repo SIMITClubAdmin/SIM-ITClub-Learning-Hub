@@ -4,6 +4,7 @@ import { refresh } from "next/cache";
 import { withProgress } from "@/lib/progress";
 import { QUIZZES } from "@/lib/quizzes";
 import { createClient } from "@/lib/supabase/server";
+import { ensureLearner } from "@/lib/supabase/learner";
 import { loadProgress } from "@/lib/supabase/progress";
 import { MODULES } from "@/lib/topics";
 
@@ -35,7 +36,10 @@ export async function saveQuizResult(slug: string, answers: Record<string, strin
   }
   const score = quiz.questions.filter((q) => answers[q.question] === q.choices[0]).length;
 
-  const { error } = await supabase.from("quiz_attempts").insert({ quiz_slug: slug, score, total: quiz.questions.length });
+  await ensureLearner(supabase, user);
+  const { error } = await supabase
+    .schema("learning_hub")
+    .rpc("record_quiz_result", { topic_slug: slug, score, total: quiz.questions.length });
   if (error) return { ok: false, error: "We could not save your score. Please try again." };
 
   refresh();

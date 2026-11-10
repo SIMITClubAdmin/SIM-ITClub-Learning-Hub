@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { AccountForm } from "@/components/auth/AccountForm";
 import { createClient } from "@/lib/supabase/server";
+import { ensureLearner } from "@/lib/supabase/learner";
 
 export const metadata: Metadata = { title: "Account · ITCamp Learning Hub" };
 
@@ -15,11 +16,12 @@ export default async function AccountPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("display_name, created_at, is_admin")
-    .eq("id", user.id)
-    .single();
+  await ensureLearner(supabase, user);
+  const hub = supabase.schema("learning_hub");
+  const [{ data: profile }, { data: isAdmin }] = await Promise.all([
+    hub.from("learners").select("display_name, created_at").eq("user_id", user.id).maybeSingle(),
+    hub.rpc("is_hub_admin"),
+  ]);
 
   const joined = profile
     ? new Date(profile.created_at).toLocaleDateString("en-SG", { dateStyle: "long" })
@@ -29,13 +31,13 @@ export default async function AccountPage() {
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 py-12">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-4xl font-semibold">Your account</h1>
-        {profile?.is_admin && (
+        {isAdmin && (
           <span className="border border-accent px-2 py-0.5 font-mono text-xs tracking-wider text-accent uppercase">
             Admin
           </span>
         )}
       </div>
-      {profile?.is_admin && (
+      {isAdmin && (
         <p className="-mt-3 text-sm text-dim">
           Everything in Practice is unlocked for you, and you are kept off the leaderboard.
         </p>

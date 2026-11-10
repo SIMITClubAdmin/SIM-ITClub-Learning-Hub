@@ -21,9 +21,10 @@ const DEMO: LeaderboardEntry[] = [
 
 export default async function LeaderboardPage({ searchParams }: PageProps<"/leaderboard">) {
   const { demo } = await searchParams;
-  // Best score per quiz, 10 points per correct answer; admins are left out (see get_leaderboard).
+  // Up to 100 points per quiz (best score / total); club members only, EXCO and guests left out (see get_leaderboard).
   const supabase = await createClient();
-  const { data } = demo !== undefined ? { data: null } : await supabase.rpc("get_leaderboard");
+  const { data } =
+    demo !== undefined ? { data: null } : await supabase.schema("learning_hub").rpc("get_leaderboard");
   const entries: LeaderboardEntry[] =
     demo !== undefined
       ? DEMO

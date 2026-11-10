@@ -27,9 +27,10 @@ export function AccountForm({ userId, initialName }: Props) {
 
     const supabase = createClient();
     const { error } = await supabase
-      .from("profiles")
+      .schema("learning_hub")
+      .from("learners")
       .update({ display_name: displayName })
-      .eq("id", userId);
+      .eq("user_id", userId);
     if (error) {
       show(
         error.code === "23505"
