@@ -48,7 +48,7 @@ export default async function AccountPage() {
       </div>
       {isAdmin && (
         <p className="-mt-3 text-sm text-dim">
-          Everything in Practice is unlocked for you, and you are kept off the leaderboard.{" "}
+          Every challenge is unlocked for you, and you are kept off the leaderboard.{" "}
           <Link href="/admin/results" className="text-ink underline underline-offset-4">
             See every member&apos;s results
           </Link>
@@ -82,12 +82,12 @@ export default async function AccountPage() {
       <section aria-labelledby="points-heading" className="flex flex-col gap-3 border border-violet bg-bg/85 p-5">
         <div className="flex items-baseline justify-between gap-3">
           <h2 id="points-heading" className="text-xl font-semibold">
-            Your points
+            Correct answers
           </h2>
           <p className="font-mono text-lg text-accent">{points}</p>
         </div>
         <p className="text-sm text-dim">
-          One point per correct answer in your best attempt of each quiz ({MAX_ATTEMPTS} attempts each).
+          Questions you got right, counting your best attempt of each challenge ({MAX_ATTEMPTS} attempts each).
         </p>
         <ul className="flex flex-col gap-1.5">
           {Object.entries(QUIZ_TITLES).map(([slug, title]) => {

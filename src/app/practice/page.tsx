@@ -10,7 +10,7 @@ import { openForGuests, withProgress } from "@/lib/progress";
 import { loadProgress } from "@/lib/supabase/progress";
 import { MODULES } from "@/lib/topics";
 
-export const metadata: Metadata = { title: "Practice · ITCamp Learning Hub" };
+export const metadata: Metadata = { title: "Challenge · ITCamp Learning Hub" };
 
 // Shows a login form to logged-out visitors, so this page renders per request.
 export const instant = false;
@@ -31,7 +31,7 @@ export default async function PracticePage() {
 
   return (
     <main className="relative mx-auto flex w-full max-w-[90rem] flex-1 flex-col px-4 py-2 sm:px-8">
-      <h1 className="sr-only">Practice</h1>
+      <h1 className="sr-only">Challenge</h1>
       <div className="flex flex-1 items-center">
         {/* Grows with the screen, but never so tall that the orbits need scrolling. */}
         <div
@@ -50,7 +50,7 @@ export default async function PracticePage() {
           <section className="w-full max-w-md border border-violet bg-bg/90 p-6 shadow-[0_0_60px_10px_rgb(109_74_255_/_0.25)] sm:p-8">
             <BigLock />
             <p className="mt-4 font-mono text-xs tracking-wider text-accent uppercase">Members only</p>
-            <p className="mt-1 mb-6 text-dim">Log in to unlock Practice and start your missions.</p>
+            <p className="mt-1 mb-6 text-dim">Log in to unlock the challenges.</p>
             <AuthForm mode="login" next="/practice" allowGuest />
           </section>
         </div>

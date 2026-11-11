@@ -36,7 +36,7 @@ export default async function LeaderboardPage({ searchParams }: PageProps<"/lead
           <BigLock />
           <p className="mt-4 font-mono text-xs tracking-wider text-accent uppercase">Members only</p>
           <p className="mt-1 mb-6 text-dim">
-            Log in to see the leaderboard. Guests can still read the notes and try every Practice mission.
+            Log in to see the leaderboard. Guests can still read the notes and try every challenge.
           </p>
           <AuthForm mode="login" next="/leaderboard" />
         </section>

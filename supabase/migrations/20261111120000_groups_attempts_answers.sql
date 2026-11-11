@@ -22,6 +22,33 @@ create unique index profiles_group_seat_unique on public.profiles (group_number,
 revoke insert, update, delete, truncate on public.profiles from anon, authenticated;
 grant update (display_name) on public.profiles to authenticated;
 
+-- PRIVACY FIX: the first migration let anyone with the public key read every profile (ids,
+-- display names, who is admin). Now a member reads only their own row. The leaderboard and
+-- admin results are security-definer functions, so they still work.
+revoke select on public.profiles from anon;
+drop policy if exists "Profiles are readable by everyone" on public.profiles;
+create policy "Members read their own profile"
+  on public.profiles for select
+  to authenticated
+  using ((select auth.uid()) = id);
+
+-- Sign-up checks a display name before creating the account. This answers yes/no only, so
+-- the profile list stays private.
+create function public.display_name_taken(name text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.profiles where lower(btrim(display_name)) = lower(btrim(name))
+  );
+$$;
+
+revoke execute on function public.display_name_taken(text) from public;
+grant execute on function public.display_name_taken(text) to anon, authenticated;
+
 -- Gives a member the next free seat in their group when the group is set. A seat can't be
 -- edited by hand, and changing group (admins only, in the SQL editor) gives a new seat.
 create function public.assign_group_seat()

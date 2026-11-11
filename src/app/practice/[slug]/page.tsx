@@ -7,10 +7,9 @@ import { GroupPicker } from "@/components/account/GroupPicker";
 import { Quiz } from "@/components/practice/Quiz";
 import { formatDateTime } from "@/lib/format";
 import { GUEST_COOKIE } from "@/lib/guest";
-import { withProgress } from "@/lib/progress";
+import { bestScores, withProgress } from "@/lib/progress";
 import { MAX_ATTEMPTS } from "@/lib/quiz-meta";
 import { findQuestion, QUIZZES } from "@/lib/quizzes";
-import { loadProgress } from "@/lib/supabase/progress";
 import { createClient } from "@/lib/supabase/server";
 import { MODULES } from "@/lib/topics";
 
@@ -19,7 +18,7 @@ export const instant = false;
 
 export async function generateMetadata(props: PageProps<"/practice/[slug]">): Promise<Metadata> {
   const quiz = QUIZZES[(await props.params).slug];
-  return { title: quiz ? `${quiz.title} quiz · ITCamp Learning Hub` : "Practice · ITCamp Learning Hub" };
+  return { title: quiz ? `${quiz.title} challenge · ITCamp Learning Hub` : "Challenge · ITCamp Learning Hub" };
 }
 
 type AnswerRow = { position: number; question_id: string; chosen: string; is_correct: boolean; answered_at: string };
@@ -39,7 +38,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       {/* A dark veil keeps the homepage background very faint behind the content. */}
       <div className="quiz-backdrop pointer-events-none fixed inset-0" style={{ zIndex: -1 }} aria-hidden="true" />
       <Link href="/practice" className="font-mono text-sm tracking-wider text-dim uppercase hover:text-accent">
-        ← All lessons
+        ← All challenges
       </Link>
       <div className="mt-3 flex flex-col gap-6">{children}</div>
     </main>
@@ -76,7 +75,19 @@ export default async function QuizPage(props: PageProps<"/practice/[slug]">) {
     );
   }
 
-  const progress = await loadProgress(supabase, user.id);
+  // One round trip: the profile and the attempts (with their answers) are fetched together,
+  // and the lock for this quiz is worked out from the same attempts.
+  const [{ data: profile }, { data: attemptData }, { data: allAttempts }] = await Promise.all([
+    supabase.from("profiles").select("is_admin, group_number, group_seat").eq("id", user.id).maybeSingle(),
+    supabase
+      .from("quiz_attempts")
+      .select("id, attempt_no, score, total, started_at, finished_at, quiz_answers(position, question_id, chosen, is_correct, answered_at)")
+      .eq("user_id", user.id)
+      .eq("quiz_slug", slug)
+      .order("attempt_no"),
+    supabase.from("quiz_attempts").select("quiz_slug, score, total").eq("user_id", user.id).not("finished_at", "is", null),
+  ]);
+  const progress = { isAdmin: !!profile?.is_admin, best: bestScores(allAttempts ?? []) };
   const lockedReason = withProgress(MODULES, progress)
     .flatMap((m) => m.topics)
     .find((t) => t.slug === slug)?.lockedReason;
@@ -85,25 +96,16 @@ export default async function QuizPage(props: PageProps<"/practice/[slug]">) {
       <Shell>
         <section className="border border-violet bg-bg p-6 sm:p-8">
           <p className="font-mono text-sm tracking-wider text-accent uppercase">Locked</p>
-          <h1 className="mt-2 text-4xl font-semibold">{quiz.title} quiz</h1>
+          <h1 className="mt-2 text-4xl font-semibold">{quiz.title} challenge</h1>
           <p className="mt-3 text-lg text-dim">{lockedReason} first, then come back for this mission.</p>
           <Link href="/practice" className="cta mt-6">
-            Back to Practice
+            Back to Challenge
           </Link>
         </section>
       </Shell>
     );
   }
 
-  const [{ data: profile }, { data: attemptData }] = await Promise.all([
-    supabase.from("profiles").select("group_number, group_seat").eq("id", user.id).maybeSingle(),
-    supabase
-      .from("quiz_attempts")
-      .select("id, attempt_no, score, total, started_at, finished_at, quiz_answers(position, question_id, chosen, is_correct, answered_at)")
-      .eq("user_id", user.id)
-      .eq("quiz_slug", slug)
-      .order("attempt_no"),
-  ]);
   const attempts = (attemptData ?? []) as AttemptRow[];
   const finished = attempts.filter((a) => a.finished_at);
   const open = attempts.find((a) => !a.finished_at);
@@ -114,7 +116,7 @@ export default async function QuizPage(props: PageProps<"/practice/[slug]">) {
       {!profile?.group_number ? (
         <>
           <section className="border border-violet bg-bg p-6 sm:p-8">
-            <h1 className="text-4xl font-semibold">{quiz.title} quiz</h1>
+            <h1 className="text-4xl font-semibold">{quiz.title} challenge</h1>
             <p className="mt-3 text-lg text-dim">
               Teammates get different questions, so we need your ITCamp group before you start.
             </p>
@@ -135,7 +137,7 @@ export default async function QuizPage(props: PageProps<"/practice/[slug]">) {
       ) : (
         <section className="border border-violet bg-bg p-6 sm:p-10">
           <p className="font-mono text-sm tracking-wider text-accent uppercase">Mission complete</p>
-          <h1 className="mt-2 text-5xl font-semibold">{quiz.title} quiz</h1>
+          <h1 className="mt-2 text-5xl font-semibold">{quiz.title} challenge</h1>
           <p className="mt-4 text-lg text-dim">
             You have used both attempts. Your score for this quiz is your best one: {best} / {finished[0].total}.
           </p>

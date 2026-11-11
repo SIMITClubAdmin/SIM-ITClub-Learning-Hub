@@ -59,17 +59,13 @@ export function AuthForm({ mode, initialError, next = "/", allowGuest = false }:
         return;
       }
       // Display names are unique (ignoring case), so check before creating the account.
-      const { data: matches, error: lookupError } = await supabase
-        .from("profiles")
-        .select("id")
-        .ilike("display_name", displayName.replace(/[\\%_]/g, "\\$&"))
-        .limit(1);
+      const { data: taken, error: lookupError } = await supabase.rpc("display_name_taken", { name: displayName });
       if (lookupError) {
         setError("We could not check that display name. Please try again.");
         setBusy(false);
         return;
       }
-      if (matches.length > 0) {
+      if (taken) {
         setError(NAME_TAKEN);
         setBusy(false);
         return;

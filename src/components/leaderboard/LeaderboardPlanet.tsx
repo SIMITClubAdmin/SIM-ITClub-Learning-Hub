@@ -56,16 +56,37 @@ function Moon({ c }: { c: MoonColors }) {
   );
 }
 
-/** An astronaut planting a flag, with the score tag and name floating above. */
+/** A small gold trophy, drawn around (0, 0) so it can sit in the astronaut's hand. */
+function Trophy({ x, y, scale = 1 }: { x: number; y: number; scale?: number }) {
+  return (
+    <g transform={`translate(${x} ${y}) scale(${scale})`}>
+      <path d="M-7 -14 H7 V-8 Q7 0 0 2 Q-7 0 -7 -8 Z" fill="#ffd166" />
+      <path d="M-7 -12 Q-12 -12 -11 -7 Q-10 -3 -6 -3" stroke="#ffd166" strokeWidth="2" fill="none" />
+      <path d="M7 -12 Q12 -12 11 -7 Q10 -3 6 -3" stroke="#ffd166" strokeWidth="2" fill="none" />
+      <rect x="-1.5" y="2" width="3" height="4" fill="#e0a948" />
+      <rect x="-5" y="6" width="10" height="3" rx="1" fill="#e0a948" />
+      <path d="M-3 -12 L-2 -5" stroke="#fff6d8" strokeWidth="1.5" strokeLinecap="round" opacity="0.8" />
+    </g>
+  );
+}
+
+/**
+ * A podium astronaut: name on top, then a trophy tag with the number of correct answers,
+ * then the astronaut planting a rank flag and waving a trophy.
+ */
 function Astronaut({ entry, rank }: { entry: LeaderboardEntry; rank: number }) {
   const flag = rank === 1 ? "#4fd8eb" : rank === 2 ? "#d4caff" : "#ffb38a";
   return (
     <div className="flex flex-col items-center">
-      <p className="border border-violet bg-bg/90 px-3 py-1 font-mono text-base text-accent">
-        {entry.score.toLocaleString()} pts
+      <p className="max-w-56 truncate font-display text-xl font-semibold sm:text-2xl">{entry.name}</p>
+      <p
+        className="lb-trophy-tag mt-2 flex items-center gap-2 border border-[#ffd166]/70 bg-bg/90 px-3 py-1 font-mono text-base text-[#ffd166]"
+        aria-label={`${entry.score} correct answers`}
+      >
+        <span aria-hidden="true">🏆</span>
+        {entry.score.toLocaleString()} correct
       </p>
-      <p className="mt-2 max-w-48 truncate font-display text-xl font-semibold sm:text-2xl">{entry.name}</p>
-      <svg viewBox="0 0 90 96" className="mt-1" style={{ display: "block", width: "clamp(11rem, 18vw, 18rem)" }} aria-hidden="true">
+      <svg viewBox="0 0 90 96" className="mt-1 overflow-visible" style={{ display: "block", width: "clamp(11rem, 18vw, 18rem)" }} aria-hidden="true">
         {/* Flag */}
         <line x1="14" y1="8" x2="14" y2="96" stroke="#e6f1ff" strokeWidth="2.5" />
         <path d="M15 9 L42 19 L15 29 Z" fill={flag} />
@@ -78,14 +99,58 @@ function Astronaut({ entry, rank }: { entry: LeaderboardEntry; rank: number }) {
         <circle cx="62" cy="32" r="14" fill="#e6f1ff" />
         <rect x="54" y="26" width="18" height="11" rx="5" fill="#070b1f" />
         <rect x="57" y="28" width="6" height="3" rx="1.5" fill="#4fd8eb" opacity="0.8" />
-        {/* Arm reaching to the flag */}
+        {/* Arm holding the flag */}
         <path d="M54 50 L20 46" stroke="#e6f1ff" strokeWidth="7" strokeLinecap="round" />
+        {/* Arm raised with a trophy, waving */}
+        <g className="lb-wave">
+          <path d="M68 48 L82 26" stroke="#e6f1ff" strokeWidth="7" strokeLinecap="round" />
+          <Trophy x={84} y={20} scale={rank === 1 ? 1.15 : 0.95} />
+        </g>
         {/* Legs */}
         <rect x="52" y="70" width="8" height="22" rx="3" fill="#e6f1ff" />
         <rect x="64" y="70" width="8" height="22" rx="3" fill="#e6f1ff" />
         <rect x="50" y="90" width="11" height="6" rx="2" fill="#94a3c8" />
         <rect x="63" y="90" width="11" height="6" rx="2" fill="#94a3c8" />
       </svg>
+    </div>
+  );
+}
+
+// Ribbons for the celebration shower. Fixed values (not random) so server and browser match.
+const RIBBON_COLORS = ["#4fd8eb", "#be3caa", "#ffd166", "#d4caff", "#ffb38a", "#6d4aff", "#3fbf8f"];
+const RIBBONS = Array.from({ length: 36 }, (_, i) => ({
+  left: (i * 37 + 11) % 100,
+  delay: ((i * 0.53) % 6).toFixed(2),
+  fall: (5 + ((i * 7) % 5) * 0.6).toFixed(2),
+  drift: ((i % 5) - 2) * 1.5,
+  spin: 360 + ((i * 97) % 540),
+  color: RIBBON_COLORS[i % RIBBON_COLORS.length],
+  wide: i % 3 === 0,
+}));
+
+/** Ribbons drifting down over the podium. Hidden for people who prefer less motion. */
+function RibbonShower() {
+  return (
+    <div className="pointer-events-none absolute inset-x-0 top-0 overflow-hidden" style={{ height: "var(--moon-top)" }} aria-hidden="true">
+      {RIBBONS.map((r, i) => (
+        <span
+          key={i}
+          className="lb-ribbon"
+          style={
+            {
+              left: `${r.left}%`,
+              background: r.color,
+              width: r.wide ? "0.8rem" : undefined,
+              height: r.wide ? "0.5rem" : undefined,
+              "--delay": `${r.delay}s`,
+              "--fall": `${r.fall}s`,
+              "--drift": `${r.drift}rem`,
+              "--spin": `${r.spin}deg`,
+              "--drop": "calc(var(--moon-top) + 4rem)",
+            } as React.CSSProperties
+          }
+        />
+      ))}
     </div>
   );
 }
@@ -164,12 +229,13 @@ export function LeaderboardPlanet({ entries }: { entries: LeaderboardEntry[] }) 
         >
           <h1 className="text-4xl font-semibold sm:text-6xl">Who will set foot first?</h1>
           <p className="max-w-md text-lg text-dim">
-            No one has landed yet. Finish a practice mission to plant the first flag.
+            No one has landed yet. Finish a challenge to plant the first flag.
           </p>
         </div>
       ) : (
         <>
           <h1 className="sr-only">Leaderboard</h1>
+          <RibbonShower />
           <ol>
             {podium.map(({ entry, rank, d }) =>
               entry ? (
@@ -214,7 +280,7 @@ export function LeaderboardPlanet({ entries }: { entries: LeaderboardEntry[] }) 
                     style={{ width: `${Math.max(8, (entry.score / best) * 100)}%` }}
                   />
                   <span className="relative flex h-full items-center px-4 font-mono text-sm whitespace-nowrap text-ink">
-                    {entry.score.toLocaleString()} pts
+                    {entry.score.toLocaleString()} correct
                   </span>
                 </span>
               </li>

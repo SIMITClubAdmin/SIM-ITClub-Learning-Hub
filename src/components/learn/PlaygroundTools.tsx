@@ -423,7 +423,16 @@ export function Playground() {
             your own <span className="font-mono text-accent">style.css</span>.
           </p>
           <p className="text-sm text-dim">
-            Based on last year&apos;s ITCamp CSS Playground by <span className="text-ink">Michelle Chan</span>, 25/26 Vice
+            Based on last year&apos;s ITCamp CSS Playground by{" "}
+            <a
+              href="https://www.linkedin.com/in/mchellechan/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-ink underline underline-offset-4 hover:text-accent"
+            >
+              Michelle Chan
+            </a>
+            , 25/26 Vice
             President.
           </p>
         </header>

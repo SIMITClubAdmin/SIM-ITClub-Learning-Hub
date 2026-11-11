@@ -26,6 +26,8 @@ export function Quiz({ slug, title, lesson, mode, attemptNo = 1, resuming = fals
   const [index, setIndex] = useState(0);
   const [feedback, setFeedback] = useState<(Feedback | null)[]>([]);
   const [busy, setBusy] = useState(false);
+  // The choice being checked by the server, shown straight away so a click never feels ignored.
+  const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState("");
   const headingRef = useRef<HTMLHeadingElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
@@ -71,10 +73,12 @@ export function Quiz({ slug, title, lesson, mode, attemptNo = 1, resuming = fals
   async function pick(choice: string) {
     if (!round || busy || feedback[index]) return;
     setBusy(true);
+    setPending(choice);
     setError("");
     const question = round.questions[index];
     const result = await answerQuestion(slug, round.attemptId, index + 1, question.id, choice);
     setBusy(false);
+    setPending(null);
     if (!result.ok) {
       setError(result.error);
       return;
@@ -92,17 +96,17 @@ export function Quiz({ slug, title, lesson, mode, attemptNo = 1, resuming = fals
   if (!round) {
     return (
       <section className="border border-violet bg-bg p-6 sm:p-10">
-        <p className="font-mono text-sm tracking-wider text-accent uppercase">Lesson {lesson} mission</p>
-        <h1 className="mt-2 text-5xl font-semibold">{title} quiz</h1>
+        <p className="font-mono text-sm tracking-wider text-accent uppercase">Lesson {lesson} challenge</p>
+        <h1 className="mt-2 text-5xl font-semibold">{title} challenge</h1>
         {mode === "member" ? (
           <p className="mt-4 max-w-prose text-lg text-dim">
             Attempt {attemptNo} of {MAX_ATTEMPTS}. Each answer is saved as soon as you pick it and can&apos;t be
-            changed. Your best attempt counts towards your points.
+            changed. Your best attempt counts on the leaderboard.
           </p>
         ) : (
           <p className="mt-4 max-w-prose text-lg text-dim">
-            Guest mode: try the questions as often as you like. Nothing is saved, and it doesn&apos;t count for
-            points.
+            Guest mode: try the questions as often as you like. Nothing is saved, and it doesn&apos;t count on the
+            leaderboard.
           </p>
         )}
         {error && (
@@ -131,7 +135,7 @@ export function Quiz({ slug, title, lesson, mode, attemptNo = 1, resuming = fals
           {score === total ? "A perfect landing!" : score >= total * 0.7 ? "Nice flying." : "Have another go."}
         </p>
         <p className="mt-2 font-mono text-sm text-dim" role="status">
-          {round.mode === "member" ? "Saved. Your best attempt counts towards your points." : "Guest mode: this score isn't saved."}
+          {round.mode === "member" ? "Saved. Your best attempt counts on the leaderboard." : "Guest mode: this score isn't saved."}
         </p>
         <ol className="mt-6 flex flex-col gap-2">
           {round.questions.map((question, i) => {
@@ -163,7 +167,7 @@ export function Quiz({ slug, title, lesson, mode, attemptNo = 1, resuming = fals
             </button>
           )}
           <Link href="/practice" className="font-mono text-xs tracking-wider text-dim uppercase hover:text-accent">
-            ← Back to Practice
+            ← Back to Challenge
           </Link>
         </div>
       </section>
@@ -214,7 +218,9 @@ export function Quiz({ slug, title, lesson, mode, attemptNo = 1, resuming = fals
         {question.choices.map((choice, ci) => {
           const isAnswer = !!current && choice === current.answer;
           const isPick = choice === picked;
+          const isPending = !current && choice === pending;
           let look = "border-violet/60 hover:border-accent hover:bg-violet/10";
+          if (isPending) look = "border-accent bg-accent/10";
           if (current) {
             look = isAnswer ? "border-accent bg-accent/15" : isPick ? "border-[#ffb38a] bg-[#ffb38a]/10" : "border-grid opacity-60";
           }
@@ -228,6 +234,7 @@ export function Quiz({ slug, title, lesson, mode, attemptNo = 1, resuming = fals
               >
                 <span className="font-mono text-base text-accent sm:text-lg">{LETTERS[ci]}</span>
                 <span className="font-mono text-base whitespace-pre-wrap sm:text-lg">{choice}</span>
+                {isPending && <span className="ml-auto shrink-0 font-mono text-xs tracking-wider text-accent uppercase">Checking…</span>}
                 {isAnswer && <span className="sr-only">(correct answer)</span>}
                 {isPick && !isAnswer && <span className="sr-only">(your answer)</span>}
               </button>

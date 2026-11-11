@@ -75,19 +75,6 @@ export async function startQuiz(slug: string): Promise<StartResult> {
     return { ok: true, round: { mode: "guest", attemptId: null, attemptNo: null, questions, answered: questions.map(() => null) } };
   }
 
-  const progress = await loadProgress(supabase, user.id);
-  const topic = withProgress(MODULES, progress)
-    .flatMap((m) => m.topics)
-    .find((t) => t.slug === slug);
-  if (topic?.lockedReason) return { ok: false, error: topic.lockedReason };
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("group_number, group_seat")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (!profile?.group_number || !profile.group_seat) return { ok: false, error: "Choose your ITCamp group first." };
-
   const admin = createAdminClient();
   if (!admin) return { ok: false, error: NOT_CONFIGURED };
 
@@ -99,10 +86,26 @@ export async function startQuiz(slug: string): Promise<StartResult> {
       .eq("quiz_slug", slug)
       .order("attempt_no");
 
-  let { data: attempts, error } = await loadAttempts();
-  if (error || !attempts) return { ok: false, error: "We could not load your attempts. Please try again." };
+  // One round trip: progress (for the lock), group and attempts are fetched together.
+  const [progress, { data: profile }, firstLoad] = await Promise.all([
+    loadProgress(supabase, user.id),
+    supabase.from("profiles").select("group_number, group_seat").eq("id", user.id).maybeSingle(),
+    loadAttempts(),
+  ]);
+  const topic = withProgress(MODULES, progress)
+    .flatMap((m) => m.topics)
+    .find((t) => t.slug === slug);
+  if (topic?.lockedReason) return { ok: false, error: topic.lockedReason };
+  if (!profile?.group_number || !profile.group_seat) return { ok: false, error: "Choose your ITCamp group first." };
+
+  let { data: attempts, error } = firstLoad;
+  if (error || !attempts) {
+    console.error("startQuiz: loading attempts failed", error);
+    return { ok: false, error: "We could not load your attempts. Please try again." };
+  }
 
   let current = attempts.find((a) => !a.finished_at);
+  let isNew = false;
   if (!current) {
     if (attempts.length >= MAX_ATTEMPTS) return { ok: false, error: "You have used both attempts for this quiz." };
     const attemptNo = attempts.length + 1;
@@ -119,22 +122,26 @@ export async function startQuiz(slug: string): Promise<StartResult> {
       .single();
     if (insert.error) {
       // Started in another tab at the same moment: use that one.
-      if (insert.error.code !== "23505") return { ok: false, error: "We could not start your attempt. Please try again." };
+      if (insert.error.code !== "23505") {
+        console.error("startQuiz: starting an attempt failed", insert.error);
+        return { ok: false, error: "We could not start your attempt. Please try again." };
+      }
       ({ data: attempts, error } = await loadAttempts());
       current = attempts?.find((a) => !a.finished_at);
       if (error || !current) return { ok: false, error: "We could not start your attempt. Please refresh the page." };
     } else {
       current = insert.data;
+      isNew = true;
     }
   }
 
   const questions = toPublic(quiz, current.question_ids);
   if (!questions) return { ok: false, error: "A question in this attempt was removed from the bank. Tell a mentor." };
 
-  const { data: saved } = await admin
-    .from("quiz_answers")
-    .select("position, question_id, chosen")
-    .eq("attempt_id", current.id);
+  // Only a resumed attempt can have saved answers.
+  const { data: saved } = isNew
+    ? { data: [] as { position: number; question_id: string; chosen: string }[] }
+    : await admin.from("quiz_answers").select("position, question_id, chosen").eq("attempt_id", current.id);
   const answered: (Feedback | null)[] = questions.map(() => null);
   for (const row of saved ?? []) answered[row.position - 1] = feedbackFor(quiz, row.question_id, row.chosen);
 
@@ -171,25 +178,59 @@ export async function answerQuestion(
   const admin = createAdminClient();
   if (!admin) return { ok: false, error: NOT_CONFIGURED };
 
+  // One database call: it checks the attempt is yours, saves the answer and returns the score.
+  const { data, error } = await admin.rpc("submit_answer", {
+    p_user: user.id,
+    p_attempt: attemptId,
+    p_position: position,
+    p_question: questionId,
+    p_chosen: chosen,
+    p_correct: feedback.correct,
+  });
+  if (error) {
+    // The function isn't installed yet (migration 20261111140000 not run): use the slower steps.
+    if (error.code === "PGRST202") return answerSlowly(admin, user.id, slug, attemptId, position, questionId, feedback);
+    if (error.code === "42501") return { ok: false, error: "That attempt is not yours." };
+    if (error.code !== "23505") console.error("answerQuestion: saving the answer failed", error);
+    return { ok: false, error: answerError(error) };
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  return { ok: true, ...feedback, finished: !!row?.finished, score: row?.score ?? null };
+}
+
+function answerError(error: { code?: string; message?: string }) {
+  if (error.code === "23505") return "You already answered this question. Refresh the page.";
+  if (error.message?.includes("already finished")) return "This attempt is already finished.";
+  if (error.message?.includes("not part of this attempt")) return "That question is not in this attempt.";
+  return "We could not save your answer. Please try again.";
+}
+
+/** The original three-step version, kept only as a fallback until the submit_answer function exists. */
+async function answerSlowly(
+  admin: NonNullable<ReturnType<typeof createAdminClient>>,
+  userId: string,
+  slug: string,
+  attemptId: number,
+  position: number,
+  questionId: string,
+  feedback: Feedback,
+): Promise<AnswerResult> {
   const { data: attempt } = await admin
     .from("quiz_attempts")
     .select("user_id, quiz_slug, question_ids, finished_at")
     .eq("id", attemptId)
     .maybeSingle();
-  if (!attempt || attempt.user_id !== user.id || attempt.quiz_slug !== slug) return { ok: false, error: "That attempt is not yours." };
+  if (!attempt || attempt.user_id !== userId || attempt.quiz_slug !== slug) return { ok: false, error: "That attempt is not yours." };
   if (attempt.finished_at) return { ok: false, error: "This attempt is already finished." };
   if (attempt.question_ids[position - 1] !== questionId) return { ok: false, error: "That question is not in this attempt." };
 
   const { error } = await admin
     .from("quiz_answers")
-    .insert({ attempt_id: attemptId, position, question_id: questionId, chosen, is_correct: feedback.correct });
+    .insert({ attempt_id: attemptId, position, question_id: questionId, chosen: feedback.chosen, is_correct: feedback.correct });
   if (error) {
-    return {
-      ok: false,
-      error: error.code === "23505" ? "You already answered this question. Refresh the page." : "We could not save your answer. Please try again.",
-    };
+    if (error.code !== "23505") console.error("answerQuestion: saving the answer failed", error);
+    return { ok: false, error: answerError(error) };
   }
-
   const { data: after } = await admin.from("quiz_attempts").select("score, finished_at").eq("id", attemptId).single();
   return { ok: true, ...feedback, finished: !!after?.finished_at, score: after?.score ?? null };
 }

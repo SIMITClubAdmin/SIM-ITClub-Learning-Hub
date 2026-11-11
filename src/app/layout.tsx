@@ -15,7 +15,7 @@ const jetbrains = JetBrains_Mono({ variable: "--font-jetbrains", subsets: ["lati
 
 export const metadata: Metadata = {
   title: "ITCamp Learning Hub",
-  description: "HTML, CSS and JavaScript lessons and practice for SIM IT Club ITCamp members.",
+  description: "HTML, CSS and JavaScript lessons and challenges for SIM IT Club ITCamp members.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

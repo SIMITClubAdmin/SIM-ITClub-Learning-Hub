@@ -295,7 +295,7 @@ export function PracticeOrbit({ topics, palette, showRocket = true, mode = "prac
             {content}
           </span>
         ) : (
-          <Link key={t.slug} href={href} aria-label={`${mode === "learn" ? "Learn" : "Practice"} ${t.name}`} {...handlers}>
+          <Link key={t.slug} href={href} aria-label={`${mode === "learn" ? "Learn" : "Challenge"} ${t.name}`} {...handlers}>
             {content}
           </Link>
         );

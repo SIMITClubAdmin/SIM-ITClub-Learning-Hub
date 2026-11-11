@@ -19,6 +19,22 @@ function needsSignIn(pathname: string) {
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
+  // Visitors with no Supabase login cookie can't have a session, so skip the network call
+  // to Supabase Auth. Only the guest gate and the password-change cookie still apply.
+  const hasSession = request.cookies.getAll().some((c) => c.name.startsWith("sb-") && c.name.includes("-auth-token"));
+  if (!hasSession) {
+    const guest = request.cookies.get(GUEST_COOKIE)?.value === "1";
+    if (request.cookies.has(PASSWORD_CHANGE_COOKIE)) response.cookies.delete(PASSWORD_CHANGE_COOKIE);
+    if (!guest && needsSignIn(request.nextUrl.pathname)) {
+      const login = request.nextUrl.clone();
+      login.pathname = "/login";
+      login.search = "";
+      login.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
+      return redirectKeepingCookies(login, response);
+    }
+    return response;
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,

@@ -226,7 +226,7 @@ export function PracticeSolarSystem({ modules, best = {} }: { modules: CourseMod
             type="button"
             aria-expanded={open === i}
             aria-controls="practice-panel"
-            aria-label={`Lesson ${m.number} practice: ${m.title}${m.lockedReason ? ", locked" : ""}`}
+            aria-label={`Lesson ${m.number} challenge: ${m.title}${m.lockedReason ? ", locked" : ""}`}
             onClick={() => toggle(i)}
             onPointerEnter={() => setHovered(i)}
             onPointerLeave={() => setHovered(null)}
@@ -269,7 +269,7 @@ export function PracticeSolarSystem({ modules, best = {} }: { modules: CourseMod
           >
             ← All lessons
           </button>
-          <p className="mt-3 font-mono text-xs tracking-wider text-accent uppercase">Lesson {lesson.number} practice</p>
+          <p className="mt-3 font-mono text-xs tracking-wider text-accent uppercase">Lesson {lesson.number} challenge</p>
           <h2 className="mt-1 text-3xl font-semibold">{lesson.title}</h2>
           {lesson.lockedReason && (
             <p className="mt-2 flex items-center gap-2 text-sm text-dim">

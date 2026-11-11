@@ -59,7 +59,7 @@ export default async function ResultsPage() {
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-10 sm:px-8">
       <h1 className="text-4xl font-semibold">Member results</h1>
       <p className="mt-2 text-dim">
-        Best finished score per quiz (attempts used in brackets). Members who haven&apos;t started any quiz don&apos;t
+        Correct answers in each member&apos;s best attempt per quiz (attempts used in brackets). Members who haven&apos;t started any quiz don&apos;t
         appear yet.
       </p>
       <div className="mt-6 overflow-x-auto border border-violet bg-bg/90">
@@ -73,7 +73,7 @@ export default async function ResultsPage() {
                   {title}
                 </th>
               ))}
-              <th className="p-3">Points</th>
+              <th className="p-3">Correct answers</th>
               <th className="p-3">Last finished</th>
             </tr>
           </thead>

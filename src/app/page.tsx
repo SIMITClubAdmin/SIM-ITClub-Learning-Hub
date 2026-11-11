@@ -8,7 +8,7 @@ export default function Home() {
         SIM ITClub Learning Hub
       </h1>
       <p className="max-w-xl text-lg text-pretty text-dim">
-          Your ITCamp notes and practice questions, in one place.
+          Your ITCamp notes and challenge questions, in one place.
       </p>
       <div className="flex flex-wrap justify-center gap-5">
         <CtaButton href="/learn" size="lg">

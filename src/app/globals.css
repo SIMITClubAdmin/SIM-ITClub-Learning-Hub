@@ -482,3 +482,54 @@ html.cc-on .cc-frame {
     animation: none;
   }
 }
+
+/* Leaderboard podium: the trophy arm waves, and ribbons shower down over the moon. */
+.lb-wave {
+  transform-box: view-box;
+  transform-origin: 66px 48px; /* the astronaut's shoulder */
+  animation: lb-wave 1.6s ease-in-out infinite;
+}
+
+@keyframes lb-wave {
+  0%, 100% { transform: rotate(-8deg); }
+  50% { transform: rotate(16deg); }
+}
+
+.lb-trophy-tag {
+  animation: lb-bob 2.4s ease-in-out infinite;
+}
+
+@keyframes lb-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.lb-ribbon {
+  position: absolute;
+  top: -6%;
+  width: 0.55rem;
+  height: 1.4rem;
+  border-radius: 2px;
+  opacity: 0;
+  animation: lb-fall var(--fall, 6s) linear var(--delay, 0s) infinite;
+}
+
+@keyframes lb-fall {
+  0% { opacity: 0; transform: translate3d(0, 0, 0) rotate(0deg) rotateY(0deg); }
+  8% { opacity: 1; }
+  85% { opacity: 1; }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--drift, 2rem), var(--drop, 70svh), 0) rotate(var(--spin, 540deg)) rotateY(720deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lb-wave,
+  .lb-trophy-tag {
+    animation: none;
+  }
+  .lb-ribbon {
+    display: none;
+  }
+}
