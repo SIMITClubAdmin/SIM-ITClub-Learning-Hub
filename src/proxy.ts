@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { PASSWORD_CHANGE_COOKIE, PASSWORD_CHANGE_PATH } from "@/lib/temporary-password";
 
 /**
  * Pages only logged-in members can open. Learn stays open to everyone, and /practice itself
@@ -8,8 +9,9 @@ import { NextResponse, type NextRequest } from "next/server";
 const MEMBERS_ONLY = ["/practice/"];
 
 /**
- * Refreshes the Supabase session cookie on each page request, and sends logged-out
- * visitors from members-only pages to the login page.
+ * Refreshes the Supabase session cookie on each page request, sends logged-out
+ * visitors from members-only pages to the login page, and keeps a subcomm on the
+ * change-password page until they've replaced the temporary password.
  */
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -42,13 +44,26 @@ export async function proxy(request: NextRequest) {
     login.pathname = "/login";
     login.search = "";
     login.searchParams.set("next", pathname + search);
-    const redirect = NextResponse.redirect(login);
-    // Keep any refreshed session cookies on the redirect too.
-    response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
-    return redirect;
+    return redirectKeepingCookies(login, response);
+  }
+
+  // A subcomm who logged in with the temporary password can only change it until they have.
+  if (request.cookies.has(PASSWORD_CHANGE_COOKIE)) {
+    // Logging out happens in the browser, which can't clear this cookie, so clear it here.
+    if (!user) response.cookies.delete(PASSWORD_CHANGE_COOKIE);
+    else if (pathname !== "/account/password" && !pathname.startsWith("/auth/")) {
+      return redirectKeepingCookies(new URL(PASSWORD_CHANGE_PATH, request.url), response);
+    }
   }
 
   return response;
+}
+
+/** Redirects, keeping any refreshed session cookies on the redirect too. */
+function redirectKeepingCookies(url: URL, response: NextResponse) {
+  const redirect = NextResponse.redirect(url);
+  response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
+  return redirect;
 }
 
 export const config = {

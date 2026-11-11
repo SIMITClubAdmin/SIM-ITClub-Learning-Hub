@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { saveQuizResult } from "@/app/practice/actions";
 import type { Quiz as QuizData, QuizQuestion } from "@/lib/quizzes";
+import { useClubAccount } from "@/lib/use-club-account";
 import { useSfx } from "@/lib/use-sfx";
 
 type Round = { question: QuizQuestion; choices: string[]; answer: string }[];
@@ -36,6 +37,8 @@ export function Quiz({ quiz, slug }: { quiz: QuizData; slug: string }) {
   const [index, setIndex] = useState(0);
   const [picks, setPicks] = useState<string[]>([]);
   const [save, setSave] = useState<SaveState>({ state: "idle" });
+  // Guests aren't on the leaderboard, so their save message doesn't mention it.
+  const clubAccount = useClubAccount();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
   const answersRef = useRef<HTMLUListElement>(null);
@@ -122,7 +125,8 @@ export function Quiz({ quiz, slug }: { quiz: QuizData; slug: string }) {
         </p>
         <p className="mt-2 font-mono text-sm text-dim" role="status">
           {save.state === "saving" && "Saving your score…"}
-          {save.state === "saved" && "Score saved. Your best score counts towards the leaderboard."}
+          {save.state === "saved" &&
+            (clubAccount ? "Score saved. Your best score counts towards the leaderboard." : "Score saved.")}
           {save.state === "error" && (
             <>
               <span className="text-[#ffb38a]">{save.error}</span>{" "}

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { checkPasswordChange } from "@/app/login/actions";
 import { createClient } from "@/lib/supabase/client";
 
 type Props = {
@@ -48,21 +49,6 @@ export function AuthForm({ mode, initialError, next = "/" }: Props) {
     const supabase = createClient();
 
     if (isRegister) {
-      const { data: matches, error: lookupError } = await supabase
-        .from("profiles")
-        .select("id")
-        .ilike("display_name", displayName.replace(/[\\%_]/g, "\\$&"))
-        .limit(1);
-      if (lookupError) {
-        setError("We could not check that display name. Please try again.");
-        setBusy(false);
-        return;
-      }
-      if (matches.length > 0) {
-        setError(NAME_TAKEN);
-        setBusy(false);
-        return;
-      }
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -81,12 +67,15 @@ export function AuthForm({ mode, initialError, next = "/" }: Props) {
     }
 
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-    setBusy(false);
     if (signInError) {
+      setBusy(false);
       setError(friendlyError(signInError.message));
       return;
     }
-    router.push(next);
+    // A subcomm on the shared temporary password goes to choose their own first.
+    const passwordChange = await checkPasswordChange(password);
+    setBusy(false);
+    router.push(passwordChange ?? next);
     router.refresh();
   }
 
@@ -118,7 +107,7 @@ export function AuthForm({ mode, initialError, next = "/" }: Props) {
             className={FIELD}
           />
           <span id="displayNameHint" className="text-sm text-dim">
-            Shown publicly on the leaderboard.
+            Shown in the header and on your account. The leaderboard is for club members only.
           </span>
         </label>
       )}
