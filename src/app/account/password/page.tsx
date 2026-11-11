@@ -1,3 +1,4 @@
+import { PageVeil } from "@/components/layout/PageVeil";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -22,6 +23,7 @@ export default async function PasswordPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 py-12">
+      <PageVeil />
       <h1 className="text-4xl font-semibold">Change your password</h1>
       {forced && (
         <p role="status" className="border border-accent bg-bg/85 px-3.5 py-3">

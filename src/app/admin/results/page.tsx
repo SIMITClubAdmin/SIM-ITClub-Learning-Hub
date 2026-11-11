@@ -1,3 +1,4 @@
+import { PageVeil } from "@/components/layout/PageVeil";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -35,6 +36,7 @@ export default async function ResultsPage() {
   if (error) {
     return (
       <main className="mx-auto w-full max-w-md flex-1 px-4 py-12">
+      <PageVeil />
         <h1 className="text-4xl font-semibold">Results</h1>
         <p className="mt-3 text-dim">This page is for admins only.</p>
         <Link href="/account" className="cta mt-6">
@@ -57,6 +59,7 @@ export default async function ResultsPage() {
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-10 sm:px-8">
+      <PageVeil />
       <h1 className="text-4xl font-semibold">Member results</h1>
       <p className="mt-2 text-dim">
         Correct answers in each member&apos;s best attempt per quiz (attempts used in brackets). Members who haven&apos;t started any quiz don&apos;t

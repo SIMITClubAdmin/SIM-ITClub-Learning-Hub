@@ -1,3 +1,4 @@
+import { PageVeil } from "@/components/layout/PageVeil";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -38,6 +39,7 @@ export default async function AccountPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 py-12">
+      <PageVeil />
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-4xl font-semibold">Your account</h1>
         {isAdmin && (

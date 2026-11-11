@@ -1,3 +1,4 @@
+import { PageVeil } from "@/components/layout/PageVeil";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import Link from "next/link";
@@ -35,8 +36,7 @@ type AttemptRow = {
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-3 sm:px-8">
-      {/* A dark veil keeps the homepage background very faint behind the content. */}
-      <div className="quiz-backdrop pointer-events-none fixed inset-0" style={{ zIndex: -1 }} aria-hidden="true" />
+      <PageVeil />
       <Link href="/practice" className="font-mono text-sm tracking-wider text-dim uppercase hover:text-accent">
         ← All challenges
       </Link>

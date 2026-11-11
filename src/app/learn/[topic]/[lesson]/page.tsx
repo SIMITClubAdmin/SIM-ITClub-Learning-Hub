@@ -1,3 +1,4 @@
+import { PageVeil } from "@/components/layout/PageVeil";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -29,8 +30,7 @@ export default async function LessonPage(props: PageProps<"/learn/[topic]/[lesso
 
   return (
     <main className="mx-auto grid w-full max-w-[96rem] flex-1 gap-8 px-4 py-8 sm:px-8 md:grid-cols-[13rem_1fr] lg:grid-cols-[15rem_1fr] xl:gap-14">
-      {/* A dark veil keeps the homepage background very faint behind the content. */}
-      <div className="quiz-backdrop pointer-events-none fixed inset-0" style={{ zIndex: -1 }} aria-hidden="true" />
+      <PageVeil />
 
       <nav aria-label={`${topic.name} lessons`} className="md:sticky md:top-6 md:h-[calc(100svh-8rem)] md:self-start md:overflow-y-auto md:border-r md:border-violet/50 md:pr-6">
         <Link href="/learn" className="font-mono text-xs tracking-wider text-dim uppercase hover:text-accent">
