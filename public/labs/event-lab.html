@@ -78,7 +78,7 @@ code, .mono { font-family: var(--mono); }
 .console #last .t { color: var(--gold); }
 .console .count { color: var(--dim); white-space: nowrap; }
 .history {
-  margin-top: 0.5rem; max-height: 9rem; overflow-y: auto;
+  margin-top: 0.5rem; height: 9rem; overflow-y: auto;
   border: 1px solid var(--line); background: var(--panel); padding: 0.5rem 0.75rem;
   font: 0.78rem/1.7 var(--mono); color: var(--dim);
 }
@@ -122,15 +122,15 @@ label { display: grid; gap: 0.35rem; font-size: 0.9rem; color: var(--dim); }
 
 /* click */
 .bell-row { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
-.big-num { font: 700 3rem/1 var(--display); color: var(--gold); font-variant-numeric: tabular-nums; min-width: 3ch; }
+.big-num { font: 700 3rem/1 var(--display); color: var(--gold); font-variant-numeric: tabular-nums; min-width: 4.5ch; }
 .bell { font-size: 1.15rem; padding: 0.9rem 1.4rem; }
 .bell.ring { animation: ring 0.35s; }
 @keyframes ring { 25% { transform: rotate(-6deg) scale(1.05); } 75% { transform: rotate(6deg) scale(1.05); } }
 
 /* mouseover */
 .planet-pad { height: 9rem; border: 1px dashed var(--line); display: grid; place-items: center; position: relative; overflow: hidden; }
-.planet { width: 5rem; height: 5rem; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #a493f5, #4a3db0 70%); transition: transform 0.3s, box-shadow 0.3s; }
-.planet-pad.hot .planet { transform: scale(1.25); box-shadow: 0 0 40px 10px rgb(109 74 255 / 0.6); }
+.planet { width: 5rem; height: 5rem; border-radius: 50%; cursor: pointer; background: radial-gradient(circle at 35% 30%, #a493f5, #4a3db0 70%); transition: transform 0.3s, box-shadow 0.3s; }
+.planet.hot { transform: scale(1.25); box-shadow: 0 0 40px 10px rgb(109 74 255 / 0.6); }
 .planet-pad .msg { position: absolute; bottom: 0.5rem; font: 0.8rem var(--mono); color: var(--dim); }
 
 /* input */
@@ -238,17 +238,18 @@ bell.<span class="f">addEventListener</span>(<span class="s">"click"</span>, <sp
       </header>
       <div class="stage">
         <div class="planet-pad" id="pad">
-          <div class="planet" aria-hidden="true"></div>
-          <span class="msg" id="pad-msg">Move your mouse onto the planet area</span>
+          <div class="planet" id="planet" aria-hidden="true"></div>
+          <span class="msg" id="pad-msg">Move your mouse onto the planet</span>
         </div>
       </div>
-      <pre class="code">pad.<span class="f">addEventListener</span>(<span class="s">"mouseover"</span>, <span class="k">function</span> () {
-  pad.classList.<span class="f">add</span>(<span class="s">"hot"</span>);
+      <pre class="code"><span class="k">const</span> planet = document.<span class="f">querySelector</span>(<span class="s">"#planet"</span>);
+planet.<span class="f">addEventListener</span>(<span class="s">"mouseover"</span>, <span class="k">function</span> () {
+  planet.classList.<span class="f">add</span>(<span class="s">"hot"</span>);
 });
-pad.<span class="f">addEventListener</span>(<span class="s">"mouseout"</span>, <span class="k">function</span> () {
-  pad.classList.<span class="f">remove</span>(<span class="s">"hot"</span>);
+planet.<span class="f">addEventListener</span>(<span class="s">"mouseout"</span>, <span class="k">function</span> () {
+  planet.classList.<span class="f">remove</span>(<span class="s">"hot"</span>);
 });</pre>
-      <p class="try" id="try-hover"><span class="badge">TRY</span> Hover in and out 3 times. On a phone, tap instead: touch screens have no hover.</p>
+      <p class="try" id="try-hover"><span class="badge">TRY</span> Hover onto the planet and off again, 3 times. On a phone, tap instead: touch screens have no hover.</p>
     </article>
 
     <!-- input -->
@@ -470,28 +471,26 @@ glow.<span class="f">addEventListener</span>(<span class="s">"change"</span>, <s
   });
 
   // ---- mouseover / mouseout ----
-  const pad = $("#pad");
+  const planet = $("#planet");
   let hovers = 0;
-  pad.addEventListener("mouseover", function (e) {
-    if (pad.contains(e.relatedTarget)) return;
-    pad.classList.add("hot");
+  planet.addEventListener("mouseover", function () {
+    planet.classList.add("hot");
     hovers++;
     $("#pad-msg").textContent = `Mouse is ON the planet (${hovers})`;
-    log("#pad", "mouseover");
+    log("#planet", "mouseover");
     if (hovers >= 3) done("#try-hover");
   });
-  pad.addEventListener("mouseout", function (e) {
-    if (pad.contains(e.relatedTarget)) return;
-    pad.classList.remove("hot");
+  planet.addEventListener("mouseout", function () {
+    planet.classList.remove("hot");
     $("#pad-msg").textContent = "Mouse left the planet";
-    log("#pad", "mouseout");
+    log("#planet", "mouseout");
   });
-  pad.addEventListener("click", function () {
+  planet.addEventListener("click", function () {
     // touch screens have no hover, so a tap toggles the glow instead
     if (window.matchMedia("(hover: none)").matches) {
-      pad.classList.toggle("hot");
+      planet.classList.toggle("hot");
       hovers++;
-      log("#pad", "click", "tap (no hover on touch screens)");
+      log("#planet", "click", "tap (no hover on touch screens)");
       if (hovers >= 3) done("#try-hover");
     }
   });

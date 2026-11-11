@@ -113,7 +113,7 @@ function BlockView({ block }: { block: Block }): ReactNode {
         />
       );
     case "tryit":
-      return <TryIt starter={block.starter} task={block.task} />;
+      return <TryIt starter={block.starter} task={block.task} js={block.js} />;
     case "link":
       return (
         <Link href={block.href} className="self-start font-mono text-sm tracking-wider text-accent uppercase hover:underline">

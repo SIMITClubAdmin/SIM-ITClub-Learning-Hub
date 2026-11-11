@@ -1,4 +1,4 @@
-import { page, type Lesson } from "./types";
+import { page, type Block, type Lesson } from "./types";
 
 // Written from the "Lesson 1 - HTML, CSS, JS" Canva slides. "extra" blocks go beyond the slides.
 
@@ -16,7 +16,7 @@ const DARK_HTML = `<!DOCTYPE html>
 </body>
 </html>`;
 
-export const JS_LESSONS: Lesson[] = [
+const BASE_LESSONS: Lesson[] = [
   {
     slug: "what-is-javascript",
     title: "What is JavaScript?",
@@ -460,3 +460,281 @@ toggle.addEventListener("click", function () {
     ],
   },
 ];
+
+// ---------------------------------------------------------------------------------------
+// Hands-on extras: every lesson ends with code that really runs (with a console underneath)
+// and a quick check. These follow the slides, so students repeat on the site what they saw.
+// ---------------------------------------------------------------------------------------
+
+const shell = (body: string, script: string, css = "") => `<!DOCTYPE html>
+<html lang="en">
+<head>
+<style>
+  body { font-family: system-ui, sans-serif; padding: 16px; }
+  button { font-size: 16px; padding: 8px 14px; cursor: pointer; }
+${css}</style>
+</head>
+<body>
+${body}
+<script>
+${script}
+</script>
+</body>
+</html>`;
+
+const EXTRAS: Record<string, Block[]> = {
+  "what-is-javascript": [
+    { type: "h2", text: "Your turn: start the engine" },
+    {
+      type: "tryit",
+      js: true,
+      task: "Press the button, then read the Console under the preview. Change the message inside console.log and press the button again.",
+      starter: shell(
+        `<h1>🚗 My car</h1>
+<button id="start">Start engine</button>`,
+        `console.log("JS works!");
+
+const button = document.querySelector("#start");
+button.addEventListener("click", function () {
+  console.log("Vroom! The engine is running.");
+});`,
+      ),
+    },
+    {
+      type: "check",
+      question: "What does defer do in <script src=\"script.js\" defer>?",
+      options: [
+        "Waits until the page is built, then runs the JavaScript",
+        "Makes the JavaScript run faster",
+        "Stops the JavaScript from running",
+        "Runs the JavaScript twice",
+      ],
+      answer: 0,
+      explanation: "Without defer, the script can run before your buttons exist, so it can't find them.",
+    },
+  ],
+  "variables-and-data-types": [
+    { type: "h2", text: "Your turn: lunch boxes" },
+    {
+      type: "tryit",
+      js: true,
+      task: "Press Feed me to change the let box. Then try changing name = \"Ben\" at the bottom: the sealed const box shows a red error in the Console.",
+      starter: shell(
+        `<p>Name: <b id="name"></b></p>
+<p>Snacks eaten: <b id="snacks"></b></p>
+<button id="feed">Feed me 🍪</button>`,
+        `const name = "Alex";   // sealed box
+let snacks = 0;        // box you can swap
+
+document.querySelector("#name").textContent = name;
+document.querySelector("#snacks").textContent = snacks;
+
+document.querySelector("#feed").addEventListener("click", function () {
+  snacks = snacks + 1;
+  document.querySelector("#snacks").textContent = snacks;
+  console.log("snacks is now", snacks, "and its type is", typeof snacks);
+});
+
+console.log("5" + "5", "vs", 5 + 5);
+// name = "Ben";   // remove the // at the start of this line to see the error`,
+      ),
+    },
+    {
+      type: "check",
+      question: "What is \"5\" + 5?",
+      options: ['"55"', "10", "An error", "NaN"],
+      answer: 0,
+      explanation: "One side is a string (in quotes), so + joins them into the text \"55\".",
+    },
+  ],
+  "conditionals-and-operators": [
+    { type: "h2", text: "Your turn: the bouncer" },
+    {
+      type: "tryit",
+      js: true,
+      task: "Type an age and press Enter. Then change the rule so you also need a ticket: age >= 18 && hasTicket.",
+      starter: shell(
+        `<h2>🎟️ ITCamp Party</h2>
+<input id="age" type="number" placeholder="Your age">
+<button id="check">Can I come in?</button>
+<p id="answer"></p>`,
+        `const hasTicket = true;
+
+document.querySelector("#check").addEventListener("click", function () {
+  const age = Number(document.querySelector("#age").value);
+  const answer = document.querySelector("#answer");
+
+  if (age >= 18) {
+    answer.textContent = "Welcome in! 🎉";
+  } else if (age >= 16) {
+    answer.textContent = "Almost! Come back soon.";
+  } else {
+    answer.textContent = "Sorry, too young. 🍼";
+  }
+  console.log("age:", age, "| age >= 18 is", age >= 18);
+});
+
+document.querySelector("#age").addEventListener("keydown", function (event) {
+  if (event.key === "Enter") document.querySelector("#check").click();
+});`,
+      ),
+    },
+    {
+      type: "check",
+      question: 'What does 5 === "5" give?',
+      options: ["false", "true", '"55"', "An error"],
+      answer: 0,
+      explanation: "=== checks the value AND the type. A number and a string are different types.",
+    },
+  ],
+  "loops-and-arrays": [
+    { type: "h2", text: "Your turn: the fruit stall" },
+    {
+      type: "tryit",
+      js: true,
+      task: "The loop builds the list from the array. Add \"durian\" with fruits.push, and watch the list and the count grow.",
+      starter: shell(
+        `<h2>🍉 Fruit stall</h2>
+<ul id="list"></ul>
+<p id="count"></p>`,
+        `const fruits = ["apple", "banana", "mango"];
+// fruits.push("durian");
+
+const list = document.querySelector("#list");
+for (const fruit of fruits) {
+  const item = document.createElement("li");
+  item.textContent = fruit;
+  list.appendChild(item);
+}
+
+document.querySelector("#count").textContent = fruits.length + " fruits";
+console.log("first fruit:", fruits[0], "| last fruit:", fruits[fruits.length - 1]);
+
+for (let i = 1; i <= 3; i++) {
+  console.log("Loop round", i);
+}`,
+      ),
+    },
+    {
+      type: "check",
+      question: 'fruits = ["apple", "banana", "mango"]. What is fruits[3]?',
+      options: ["undefined", '"mango"', '"apple"', "An error"],
+      answer: 0,
+      explanation: "Counting starts at 0, so the last item is fruits[2]. There is nothing at 3.",
+    },
+  ],
+  objects: [
+    { type: "h2", text: "Your turn: the class list" },
+    {
+      type: "tryit",
+      js: true,
+      task: "Each object is an ID card, and the loop turns them into cards. Add yourself to the members array.",
+      starter: shell(
+        `<h2>🪪 ITCamp members</h2>
+<div id="cards"></div>`,
+        `const members = [
+  { name: "Aisha", role: "Designer", emoji: "🎨" },
+  { name: "Ben", role: "Developer", emoji: "💻" },
+  // { name: "Your name", role: "Your role", emoji: "🚀" },
+];
+
+const cards = document.querySelector("#cards");
+for (const m of members) {
+  const card = document.createElement("div");
+  card.className = "card";
+  card.textContent = m.emoji + " " + m.name + " · " + m.role;
+  cards.appendChild(card);
+}
+console.log(members.length + " members. The first one is", members[0].name);`,
+        `  .card { border: 2px solid #6d4aff; padding: 10px 14px; margin: 8px 0; border-radius: 8px; }`,
+      ),
+    },
+    {
+      type: "check",
+      question: "const student = { name: \"Alex\", age: 20 }; How do you read the name?",
+      options: ["student.name", "student[name]", "student(name)", "name.student"],
+      answer: 0,
+      explanation: "Dot notation reads one label on the ID card: student.name gives \"Alex\".",
+    },
+  ],
+  functions: [
+    { type: "h2", text: "Your turn: the vending machine" },
+    {
+      type: "tryit",
+      js: true,
+      task: "Pick a drink and press Buy. Then write your own function add(a, b) that returns a + b, and log add(2, 3).",
+      starter: shell(
+        `<h2>🥤 Vending machine</h2>
+<select id="drink">
+  <option>100 Plus</option>
+  <option>Milo</option>
+  <option>Teh Tarik</option>
+</select>
+<button id="buy">Buy</button>
+<p id="tray"></p>`,
+        `function order(drink) {        // drink = the coins you put in
+  return "Here's your " + drink + "!";   // return = what comes out
+}
+
+document.querySelector("#buy").addEventListener("click", function () {
+  const choice = document.querySelector("#drink").value;
+  const result = order(choice);  // pressing the button = calling it
+  document.querySelector("#tray").textContent = result;
+  console.log(result);
+});
+
+// Write add(a, b) here, then:
+// console.log(add(2, 3));`,
+      ),
+    },
+    {
+      type: "check",
+      question: "A function has no return line. What does calling it give back?",
+      options: ["undefined", "0", "An error", "The last line's value"],
+      answer: 0,
+      explanation: "Without return, the vending machine works but nothing drops out: undefined.",
+    },
+  ],
+  "the-dom": [
+    { type: "h2", text: "Your turn: dark mode that really works" },
+    {
+      type: "tryit",
+      js: true,
+      task: "Press the button to switch between white and black. Then make the heading say \"Lights off!\" in dark mode.",
+      starter: shell(
+        `<h1 id="title">Hello, ITCamp!</h1>
+<button id="toggle">Toggle dark mode</button>
+<p>Clicks: <span id="clicks">0</span></p>`,
+        `const toggle = document.querySelector("#toggle");
+let clicks = 0;
+
+toggle.addEventListener("click", function () {
+  document.body.classList.toggle("dark");
+  clicks++;
+  document.querySelector("#clicks").textContent = clicks;
+  console.log("dark mode on?", document.body.classList.contains("dark"));
+});`,
+        `  body { transition: background 0.3s, color 0.3s; }
+  .dark { background: #111; color: white; }`,
+      ),
+    },
+    {
+      type: "check",
+      question: 'Your button is <button id="toggle">. Which line finds it?',
+      options: [
+        'document.querySelector("#toggle")',
+        'document.querySelector("toggle")',
+        'document.querySelector(".toggle")',
+        "document.querySelector(toggle)",
+      ],
+      answer: 0,
+      explanation: "# means id, the same address as in CSS. Without it, the browser looks for a <toggle> tag.",
+    },
+    { type: "link", href: "/learn/event-lab", text: "Play with more events in the JS Event Lab" },
+  ],
+};
+
+export const JS_LESSONS: Lesson[] = BASE_LESSONS.map((lesson) => ({
+  ...lesson,
+  blocks: [...lesson.blocks, ...(EXTRAS[lesson.slug] ?? [])],
+}));

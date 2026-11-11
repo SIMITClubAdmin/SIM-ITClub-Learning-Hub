@@ -15,7 +15,8 @@ export type Block =
   /** Explanation that goes beyond what the slides show. */
   | { type: "extra"; title: string; blocks: Block[] }
   | { type: "check"; question: string; options: string[]; answer: number; explanation: string }
-  | { type: "tryit"; starter: string; task: string }
+  /** js: run the JavaScript and show console.log output (sandboxed). */
+  | { type: "tryit"; starter: string; task: string; js?: boolean }
   /** A link to another page on the site, such as a CSS Playground tool. */
   | { type: "link"; href: string; text: string };
 
