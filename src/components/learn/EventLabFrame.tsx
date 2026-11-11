@@ -26,13 +26,13 @@ export function EventLabFrame() {
       "pointermove",
       (e) => {
         const box = frame.getBoundingClientRect();
-        window.dispatchEvent(
-          new PointerEvent("pointermove", {
-            clientX: box.left + e.clientX,
-            clientY: box.top + e.clientY,
-            pointerType: e.pointerType,
-          }),
-        );
+        const move = new PointerEvent("pointermove", {
+          clientX: box.left + e.clientX,
+          clientY: box.top + e.clientY,
+          pointerType: e.pointerType,
+        });
+        // The real element under the mouse, so the cursor can frame lab buttons too.
+        window.dispatchEvent(Object.assign(move, { ccTarget: e.target }));
       },
       { passive: true },
     );
@@ -54,6 +54,7 @@ export function EventLabFrame() {
     <iframe
       ref={ref}
       onLoad={connectCursor}
+      data-cursor-bridge="1"
       src="/labs/event-lab.html"
       title="JS Event Lab: try click, hover, type, keyboard, scroll, submit and change events"
       className="block w-full border-0"

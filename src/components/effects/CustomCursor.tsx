@@ -36,7 +36,10 @@ export function CustomCursor() {
       const el = hovered || focused;
       if (el && el.isConnected) {
         const r = el.getBoundingClientRect();
-        return { x: r.left - PAD, y: r.top - PAD, w: r.width + PAD * 2, h: r.height + PAD * 2 };
+        // An element inside a same-site frame (the Event Lab): add the frame's position.
+        const host = el.ownerDocument !== document ? el.ownerDocument.defaultView?.frameElement : null;
+        const off = host ? host.getBoundingClientRect() : { left: 0, top: 0 };
+        return { x: off.left + r.left - PAD, y: off.top + r.top - PAD, w: r.width + PAD * 2, h: r.height + PAD * 2 };
       }
       return { x: px - REST / 2, y: py - REST / 2, w: REST, h: REST };
     }
@@ -61,9 +64,12 @@ export function CustomCursor() {
       if (!raf && !document.hidden) raf = requestAnimationFrame(tick);
     }
 
-    function onMove(e: PointerEvent) {
+    function onMove(e: PointerEvent & { ccTarget?: EventTarget | null }) {
       if (e.pointerType === "touch") return;
-      const el = e.target instanceof Element ? e.target : null;
+      // Moves forwarded from the Event Lab carry the real element in ccTarget. Elements from
+      // another document fail instanceof Element, so check for closest() instead.
+      const raw = e.ccTarget ?? e.target;
+      const el = raw && typeof (raw as Element).closest === "function" ? (raw as Element) : null;
       if (!seen) {
         cur = { ...cur, x: e.clientX - REST / 2, y: e.clientY - REST / 2 };
         seen = true;
@@ -77,6 +83,15 @@ export function CustomCursor() {
     }
     function onLeave() {
       root.classList.remove("cc-on");
+    }
+    // Code previews are sandboxed, so their mouse moves never reach this page. Step aside
+    // while the pointer is over one (the normal pointer shows there) instead of freezing.
+    function onOver(e: MouseEvent) {
+      const el = e.target as Element | null;
+      if (el?.tagName === "IFRAME" && !(el as HTMLElement).dataset.cursorBridge) {
+        hovered = null;
+        root.classList.remove("cc-on");
+      }
     }
     function onEnter() {
       if (seen) root.classList.add("cc-on");
@@ -102,6 +117,7 @@ export function CustomCursor() {
     window.addEventListener("scroll", kick, { passive: true });
     document.addEventListener("mouseleave", onLeave);
     document.addEventListener("mouseenter", onEnter);
+    document.addEventListener("mouseover", onOver);
     document.addEventListener("focusin", onFocusIn);
     document.addEventListener("focusout", onFocusOut);
 
@@ -112,6 +128,7 @@ export function CustomCursor() {
       window.removeEventListener("scroll", kick);
       document.removeEventListener("mouseleave", onLeave);
       document.removeEventListener("mouseenter", onEnter);
+      document.removeEventListener("mouseover", onOver);
       document.removeEventListener("focusin", onFocusIn);
       document.removeEventListener("focusout", onFocusOut);
     };
