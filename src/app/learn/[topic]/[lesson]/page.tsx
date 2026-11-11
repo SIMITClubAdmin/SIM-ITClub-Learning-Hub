@@ -82,6 +82,14 @@ export default async function LessonPage(props: PageProps<"/learn/[topic]/[lesso
           </p>
           <h1 className="text-4xl font-semibold sm:text-6xl">{lesson.title}</h1>
           <p className="text-xl text-dim">{lesson.summary}</p>
+          {topic.slug === "javascript" && (
+            // Same running-light button as the CSS Playground one.
+            <Link href="/learn/event-lab" className="pg-cta self-start">
+              <span className="pg-cta-inner">
+                <span aria-hidden="true">⚡</span> Try events live in the JS Event Lab →
+              </span>
+            </Link>
+          )}
           {topic.slug === "css" && (
             // A light runs round the border, like the playground's colour wheel.
             <Link href="/learn/playground" className="pg-cta self-start">

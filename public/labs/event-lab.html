@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JS Event Lab</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one mission-control console. Each event gets a "station" (demo + the exact code
+   running it), and every event any station fires lands in the shared console strip. */
+:root {
+  --bg: #070b1f;
+  --panel: #0e1430;
+  --line: #2a2f63;
+  --ink: #e6f1ff;
+  --dim: #9aa6c8;
+  --accent: #4fd8eb;
+  --violet: #6d4aff;
+  --pink: #be3caa;
+  --gold: #ffd166;
+  --good: #3fbf8f;
+  --warn: #ffb38a;
+  --display: "Chakra Petch", "Space Grotesk", system-ui, sans-serif;
+  --body: "Space Grotesk", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  background-image: radial-gradient(circle at 20% -10%, rgb(109 74 255 / 0.25), transparent 45%),
+    radial-gradient(circle at 100% 30%, rgb(79 216 235 / 0.12), transparent 40%);
+  color: var(--ink);
+  font: 16px/1.6 var(--body);
+}
+.wrap {
+  max-width: 76rem;
+  margin: 0 auto;
+  padding-block: 2rem 4rem;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid;
+  gap: 2.5rem;
+}
+h1, h2, h3 { font-family: var(--display); line-height: 1.1; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2.4rem, 6vw, 4.2rem); }
+h2 { font-size: clamp(1.5rem, 3vw, 2rem); }
+p { margin: 0; }
+.eyebrow { font: 600 0.75rem/1 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
+.dim { color: var(--dim); }
+code, .mono { font-family: var(--mono); }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+/* Hero */
+.hero { display: grid; gap: 1rem; max-width: 52rem; }
+.hero p.lead { font-size: 1.15rem; color: var(--dim); max-width: 62ch; }
+.recipe {
+  display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;
+  font: 600 0.85rem var(--mono);
+}
+.recipe span { border: 1px solid var(--line); padding: 0.35rem 0.6rem; background: var(--panel); }
+.recipe b { color: var(--accent); font-weight: 600; }
+
+/* Console strip */
+.console {
+  position: relative; top: env(safe-area-inset-top, 0px); z-index: 5;
+  border: 1px solid var(--violet);
+  background: rgb(7 11 31 / 0.94);
+  backdrop-filter: blur(6px);
+  display: grid; grid-template-columns: auto 1fr auto; gap: 0.75rem; align-items: center;
+  padding: 0.6rem 0.9rem;
+  font: 0.85rem var(--mono);
+}
+.console .lamp { width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--line); transition: background 0.15s; }
+.console .lamp.on { background: var(--good); box-shadow: 0 0 10px var(--good); }
+.console #last { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.console #last .t { color: var(--gold); }
+.console .count { color: var(--dim); white-space: nowrap; }
+.history {
+  margin-top: 0.5rem; max-height: 9rem; overflow-y: auto;
+  border: 1px solid var(--line); background: var(--panel); padding: 0.5rem 0.75rem;
+  font: 0.78rem/1.7 var(--mono); color: var(--dim);
+}
+.history .t { color: var(--gold); }
+.history .who { color: var(--accent); }
+
+/* Stations */
+.stations { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 33rem), 1fr)); gap: 1.5rem; }
+.station {
+  border: 1px solid var(--line); background: var(--panel);
+  display: grid; grid-template-rows: auto 1fr auto; min-width: 0;
+}
+.station header { padding: 1.1rem 1.25rem 0.9rem; display: grid; gap: 0.35rem; border-bottom: 1px solid var(--line); }
+.station header .row { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+.tag { font: 600 0.8rem var(--mono); color: var(--bg); background: var(--accent); padding: 0.15rem 0.5rem; white-space: nowrap; }
+.analogy { color: var(--dim); font-size: 0.95rem; }
+.stage { padding: 1.25rem; display: grid; gap: 1rem; align-content: start; min-width: 0; }
+.code {
+  margin: 0; overflow-x: auto; border-top: 1px solid var(--line);
+  background: #050816; padding: 0.9rem 1.25rem; font: 0.8rem/1.6 var(--mono); color: #c9d4f2;
+}
+.code .k { color: var(--pink); } .code .s { color: var(--good); } .code .f { color: var(--accent); } .code .c { color: #6b76a3; }
+.try {
+  border-top: 1px dashed var(--line); padding: 0.75rem 1.25rem;
+  display: flex; gap: 0.75rem; align-items: center; font-size: 0.9rem;
+}
+.try .badge { font: 600 0.7rem var(--mono); letter-spacing: 0.1em; color: var(--gold); border: 1px solid var(--gold); padding: 0.1rem 0.4rem; white-space: nowrap; }
+.try.done { background: rgb(63 191 143 / 0.12); }
+.try.done .badge { color: var(--good); border-color: var(--good); }
+
+button, .btn {
+  font: 600 0.95rem var(--mono); letter-spacing: 0.04em;
+  background: var(--accent); color: var(--bg); border: 0; padding: 0.7rem 1.1rem; cursor: pointer;
+}
+button.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+input, select {
+  font: 1rem var(--body); color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); padding: 0.65rem 0.75rem; width: 100%;
+}
+label { display: grid; gap: 0.35rem; font-size: 0.9rem; color: var(--dim); }
+
+/* click */
+.bell-row { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
+.big-num { font: 700 3rem/1 var(--display); color: var(--gold); font-variant-numeric: tabular-nums; min-width: 3ch; }
+.bell { font-size: 1.15rem; padding: 0.9rem 1.4rem; }
+.bell.ring { animation: ring 0.35s; }
+@keyframes ring { 25% { transform: rotate(-6deg) scale(1.05); } 75% { transform: rotate(6deg) scale(1.05); } }
+
+/* mouseover */
+.planet-pad { height: 9rem; border: 1px dashed var(--line); display: grid; place-items: center; position: relative; overflow: hidden; }
+.planet { width: 5rem; height: 5rem; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #a493f5, #4a3db0 70%); transition: transform 0.3s, box-shadow 0.3s; }
+.planet-pad.hot .planet { transform: scale(1.25); box-shadow: 0 0 40px 10px rgb(109 74 255 / 0.6); }
+.planet-pad .msg { position: absolute; bottom: 0.5rem; font: 0.8rem var(--mono); color: var(--dim); }
+
+/* input */
+.nametag { border: 2px solid var(--pink); padding: 1rem; display: grid; gap: 0.2rem; background: var(--bg); }
+.nametag small { font: 600 0.7rem var(--mono); letter-spacing: 0.14em; color: var(--pink); }
+.nametag strong { font: 700 1.8rem var(--display); min-height: 2.2rem; overflow-wrap: anywhere; }
+
+/* keydown */
+.space { position: relative; height: 10rem; border: 1px dashed var(--line); overflow: hidden; outline: none; }
+.space:focus-visible { outline: 2px solid var(--gold); }
+.space .rocket { position: absolute; font-size: 2rem; transition: left 0.12s, top 0.12s; transform: translate(-50%, -50%); }
+.space .star { position: absolute; font-size: 1.4rem; transform: translate(-50%, -50%); }
+.keycap { display: inline-block; min-width: 3.5rem; text-align: center; border: 1px solid var(--line); border-bottom-width: 3px; padding: 0.2rem 0.5rem; font: 600 0.9rem var(--mono); color: var(--gold); }
+
+/* scroll */
+.scroller { height: 10rem; overflow-y: auto; border: 1px dashed var(--line); padding: 0.75rem 1rem; }
+.scroller p { margin-bottom: 0.9rem; color: var(--dim); }
+.bar { height: 0.5rem; background: var(--line); }
+.bar span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--violet), var(--accent)); }
+
+/* submit */
+form.signup { display: grid; gap: 0.75rem; }
+.result { font: 0.85rem var(--mono); border-left: 3px solid var(--line); padding: 0.4rem 0.75rem; color: var(--dim); }
+.result.ok { border-color: var(--good); color: var(--ink); }
+.result.bad { border-color: var(--warn); color: var(--warn); }
+
+/* change */
+.swatches { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
+.preview-card { padding: 1rem; border: 2px solid var(--accent); transition: border-color 0.2s, background 0.2s; }
+
+/* Quiz */
+.quiz { border: 1px solid var(--violet); background: var(--panel); padding: 1.5rem 1.25rem; display: grid; gap: 1rem; }
+.quiz .scenario { font: 600 1.35rem/1.35 var(--display); }
+.choices { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.choices button { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+.choices button:hover { border-color: var(--accent); }
+.choices button.right { background: var(--good); color: var(--bg); border-color: var(--good); }
+.choices button.wrong { background: transparent; color: var(--warn); border-color: var(--warn); }
+.quiz-foot { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.score { font: 600 1rem var(--mono); color: var(--gold); }
+
+.cheat { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); gap: 0.75rem; }
+.cheat div { border: 1px solid var(--line); padding: 0.75rem 1rem; display: grid; gap: 0.2rem; }
+.cheat code { color: var(--accent); font-weight: 600; }
+.cheat span { color: var(--dim); font-size: 0.9rem; }
+
+footer { color: var(--dim); font-size: 0.9rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="hero">
+    <p class="eyebrow">ITCamp · Lesson 1 · JavaScript</p>
+    <h1>JS Event Lab</h1>
+    <p class="lead">Events are the page's doorbells. JavaScript installs a doorbell on an element, waits, and runs your function when someone rings it. Every station below is live: poke it, then read the exact code that just ran.</p>
+    <div class="recipe" aria-label="The three steps">
+      <span>1 <b>select</b> the element</span>
+      <span>2 <b>listen</b> for an event</span>
+      <span>3 <b>change</b> the page</span>
+    </div>
+  </header>
+
+  <section aria-label="Event console">
+    <div class="console" role="status" aria-live="polite">
+      <span class="lamp" id="lamp" aria-hidden="true"></span>
+      <span id="last">Console: nothing has happened yet. Click, type or scroll in any station.</span>
+      <span class="count"><span id="total">0</span> events</span>
+    </div>
+    <div class="history" id="history" aria-label="Event history">This is like the Console tab in DevTools (F12). Each event lands here.</div>
+  </section>
+
+  <div class="stations">
+    <!-- click -->
+    <article class="station" id="st-click">
+      <header>
+        <div class="row"><h2>Click</h2><span class="tag">"click"</span></div>
+        <p class="analogy">The doorbell. Fires when someone presses and releases on the element.</p>
+      </header>
+      <div class="stage">
+        <div class="bell-row">
+          <button class="bell" id="bell" type="button">🔔 Ring the bell</button>
+          <div><div class="big-num" id="rings">0</div><div class="dim mono">rings</div></div>
+          <button class="ghost" id="reset" type="button">Reset</button>
+        </div>
+      </div>
+      <pre class="code"><span class="k">let</span> count = <span class="s">0</span>;
+<span class="k">const</span> bell = document.<span class="f">querySelector</span>(<span class="s">"#bell"</span>);
+bell.<span class="f">addEventListener</span>(<span class="s">"click"</span>, <span class="k">function</span> () {
+  count++;
+  rings.textContent = count;
+});</pre>
+      <p class="try" id="try-click"><span class="badge">TRY</span> Ring it 10 times to unlock the star. Then press Reset.</p>
+    </article>
+
+    <!-- mouseover -->
+    <article class="station" id="st-hover">
+      <header>
+        <div class="row"><h2>Hover</h2><span class="tag">"mouseover"</span></div>
+        <p class="analogy">Automatic doors. Fires when the mouse moves onto the element; "mouseout" when it leaves.</p>
+      </header>
+      <div class="stage">
+        <div class="planet-pad" id="pad">
+          <div class="planet" aria-hidden="true"></div>
+          <span class="msg" id="pad-msg">Move your mouse onto the planet area</span>
+        </div>
+      </div>
+      <pre class="code">pad.<span class="f">addEventListener</span>(<span class="s">"mouseover"</span>, <span class="k">function</span> () {
+  pad.classList.<span class="f">add</span>(<span class="s">"hot"</span>);
+});
+pad.<span class="f">addEventListener</span>(<span class="s">"mouseout"</span>, <span class="k">function</span> () {
+  pad.classList.<span class="f">remove</span>(<span class="s">"hot"</span>);
+});</pre>
+      <p class="try" id="try-hover"><span class="badge">TRY</span> Hover in and out 3 times. On a phone, tap instead: touch screens have no hover.</p>
+    </article>
+
+    <!-- input -->
+    <article class="station" id="st-input">
+      <header>
+        <div class="row"><h2>Type</h2><span class="tag">"input"</span></div>
+        <p class="analogy">A live name tag printer. Fires on every single letter you type or delete.</p>
+      </header>
+      <div class="stage">
+        <label for="name">Your name
+          <input id="name" maxlength="24" autocomplete="off" placeholder="Start typing…">
+        </label>
+        <div class="nametag" aria-live="polite">
+          <small>HELLO, MY NAME IS</small>
+          <strong id="tag-name">…</strong>
+          <span class="dim mono" id="tag-count">0 / 24 letters</span>
+        </div>
+      </div>
+      <pre class="code">nameBox.<span class="f">addEventListener</span>(<span class="s">"input"</span>, <span class="k">function</span> () {
+  tagName.textContent = nameBox.value;
+  tagCount.textContent = nameBox.value.length + <span class="s">" / 24 letters"</span>;
+});</pre>
+      <p class="try" id="try-input"><span class="badge">TRY</span> Type <code>itcamp</code> (any capitals). Watch how many events one word fires.</p>
+    </article>
+
+    <!-- keydown -->
+    <article class="station" id="st-key">
+      <header>
+        <div class="row"><h2>Keyboard</h2><span class="tag">"keydown"</span></div>
+        <p class="analogy">A game controller. Fires when a key goes down, and <code>event.key</code> says which one.</p>
+      </header>
+      <div class="stage">
+        <div class="space" id="space" tabindex="0" aria-label="Rocket game. Click here, then use the arrow keys.">
+          <span class="star" id="star">⭐</span>
+          <span class="rocket" id="rocket">🚀</span>
+        </div>
+        <p class="dim">Click the box, then use the arrow keys. Last key: <span class="keycap" id="keycap">none</span></p>
+      </div>
+      <pre class="code">space.<span class="f">addEventListener</span>(<span class="s">"keydown"</span>, <span class="k">function</span> (event) {
+  <span class="k">if</span> (event.key === <span class="s">"ArrowRight"</span>) x = x + <span class="s">10</span>;
+  <span class="k">if</span> (event.key === <span class="s">"ArrowLeft"</span>)  x = x - <span class="s">10</span>;
+  rocket.style.left = x + <span class="s">"%"</span>;
+});</pre>
+      <p class="try" id="try-key"><span class="badge">TRY</span> Fly the rocket to the star.</p>
+    </article>
+
+    <!-- scroll -->
+    <article class="station" id="st-scroll">
+      <header>
+        <div class="row"><h2>Scroll</h2><span class="tag">"scroll"</span></div>
+        <p class="analogy">A reading-progress bar. Fires again and again while the box scrolls.</p>
+      </header>
+      <div class="stage">
+        <div class="bar" aria-hidden="true"><span id="bar"></span></div>
+        <div class="scroller" id="scroller" tabindex="0" aria-label="Scrollable story">
+          <p>3… 2… 1… liftoff. Our rocket leaves the launch pad at SIM.</p>
+          <p>It passes the clouds. The browser is the spaceship: it reads HTML, paints CSS and runs JavaScript.</p>
+          <p>At 400 km up, the DOM tree floats by. Every tag is a branch you can select.</p>
+          <p>A comet called <code>addEventListener</code> streaks past, carrying doorbells for every planet.</p>
+          <p>The Moon. The rocket lands, and the event console lights up one more time.</p>
+          <p><strong>You reached the end.</strong> The scroll event fired many times to get you here.</p>
+        </div>
+        <p class="dim mono" id="scroll-msg">Scrolled 0%</p>
+      </div>
+      <pre class="code">box.<span class="f">addEventListener</span>(<span class="s">"scroll"</span>, <span class="k">function</span> () {
+  <span class="k">const</span> max = box.scrollHeight - box.clientHeight;
+  <span class="k">const</span> percent = Math.<span class="f">round</span>(box.scrollTop / max * <span class="s">100</span>);
+  bar.style.width = percent + <span class="s">"%"</span>;
+});</pre>
+      <p class="try" id="try-scroll"><span class="badge">TRY</span> Scroll to 100%. The console counts scroll events in bursts.</p>
+    </article>
+
+    <!-- submit -->
+    <article class="station" id="st-submit">
+      <header>
+        <div class="row"><h2>Submit a form</h2><span class="tag">"submit"</span></div>
+        <p class="analogy">Posting a letter. Fires when the form is sent; <code>preventDefault()</code> stops the page reloading so JS can check it first.</p>
+      </header>
+      <div class="stage">
+        <form class="signup" id="signup" novalidate>
+          <label for="f-name">Name <input id="f-name" name="name" autocomplete="off"></label>
+          <label for="f-group">ITCamp group
+            <select id="f-group" name="group">
+              <option value="">Choose a group</option>
+              <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+            </select>
+          </label>
+          <button type="submit">Join the mission</button>
+        </form>
+        <p class="result" id="result" aria-live="polite">Nothing submitted yet.</p>
+      </div>
+      <pre class="code">form.<span class="f">addEventListener</span>(<span class="s">"submit"</span>, <span class="k">function</span> (event) {
+  event.<span class="f">preventDefault</span>(); <span class="c">// stay on this page</span>
+  <span class="k">if</span> (nameBox.value === <span class="s">""</span>) {
+    result.textContent = <span class="s">"Please enter your name"</span>;
+    <span class="k">return</span>;
+  }
+  result.textContent = <span class="s">"Welcome, "</span> + nameBox.value + <span class="s">"!"</span>;
+});</pre>
+      <p class="try" id="try-submit"><span class="badge">TRY</span> First press the button with the form empty, then fill it in properly.</p>
+    </article>
+
+    <!-- change -->
+    <article class="station" id="st-change">
+      <header>
+        <div class="row"><h2>Choose</h2><span class="tag">"change"</span></div>
+        <p class="analogy">A light switch. Fires once when a choice is made, not on every letter like "input".</p>
+      </header>
+      <div class="stage">
+        <div class="swatches">
+          <label for="colour">Card colour
+            <select id="colour">
+              <option value="#4fd8eb">Cyan</option>
+              <option value="#be3caa">Pink</option>
+              <option value="#ffd166">Gold</option>
+              <option value="#3fbf8f">Green</option>
+            </select>
+          </label>
+          <label for="darkcard" style="display:flex;align-items:center;gap:0.5rem;color:var(--ink)">
+            <input id="darkcard" type="checkbox" style="width:auto"> Glow mode
+          </label>
+        </div>
+        <div class="preview-card" id="card">This card listens to the two controls above.</div>
+      </div>
+      <pre class="code">colour.<span class="f">addEventListener</span>(<span class="s">"change"</span>, <span class="k">function</span> () {
+  card.style.borderColor = colour.value;
+});
+glow.<span class="f">addEventListener</span>(<span class="s">"change"</span>, <span class="k">function</span> () {
+  card.classList.<span class="f">toggle</span>(<span class="s">"glow"</span>, glow.checked);
+});</pre>
+      <p class="try" id="try-change"><span class="badge">TRY</span> Try every colour, then switch Glow mode on.</p>
+    </article>
+  </div>
+
+  <section class="quiz" aria-labelledby="quiz-title">
+    <p class="eyebrow">Mini game</p>
+    <h2 id="quiz-title">Which event would you listen for?</h2>
+    <p class="scenario" id="scenario"></p>
+    <div class="choices" id="choices"></div>
+    <p class="dim" id="explain" aria-live="polite"></p>
+    <div class="quiz-foot">
+      <span class="score" id="score">Score 0 / 0</span>
+      <button type="button" class="ghost" id="next">Next scenario</button>
+    </div>
+  </section>
+
+  <section aria-labelledby="cheat-title" style="display:grid;gap:1rem">
+    <h2 id="cheat-title">Cheat sheet</h2>
+    <div class="cheat">
+      <div><code>click</code><span>Pressed and released</span></div>
+      <div><code>dblclick</code><span>Clicked twice quickly</span></div>
+      <div><code>mouseover / mouseout</code><span>Mouse moves on / off</span></div>
+      <div><code>input</code><span>Every change while typing</span></div>
+      <div><code>change</code><span>A choice is finished (select, checkbox)</span></div>
+      <div><code>keydown</code><span>A key goes down; read <code>event.key</code></span></div>
+      <div><code>scroll</code><span>The page or a box scrolls</span></div>
+      <div><code>submit</code><span>A form is sent; use <code>preventDefault()</code></span></div>
+    </div>
+  </section>
+
+  <footer>Made for ITCamp: Frontendamentals, Lesson 1. Open DevTools (F12 or Cmd+Option+J) and you'll see the same events in the real Console.</footer>
+</div>
+
+<script>
+(function () {
+  const $ = (s) => document.querySelector(s);
+
+  // ---- shared console: every station reports here (and to the real DevTools console) ----
+  let total = 0;
+  let lampTimer;
+  const history = $("#history");
+  let historyStarted = false;
+  function log(station, type, detail) {
+    total++;
+    $("#total").textContent = total;
+    const time = new Date().toLocaleTimeString("en-SG", { hour12: false });
+    const text = `<span class="t">${type}</span> on <span class="who">${station}</span>${detail ? " · " + detail : ""}`;
+    $("#last").innerHTML = text;
+    const lamp = $("#lamp");
+    lamp.classList.add("on");
+    clearTimeout(lampTimer);
+    lampTimer = setTimeout(() => lamp.classList.remove("on"), 250);
+    if (!historyStarted) { history.textContent = ""; historyStarted = true; }
+    const line = document.createElement("div");
+    line.innerHTML = `[${time}] ${text}`;
+    history.prepend(line);
+    while (history.childElementCount > 40) history.lastElementChild.remove();
+    console.log(`[Event Lab] "${type}" on ${station}`, detail || "");
+  }
+  // Scroll and mouse events fire in bursts; log at most one line per burst.
+  function throttled(fn, ms) {
+    let last = 0;
+    return function (...args) {
+      const now = Date.now();
+      if (now - last > ms) { last = now; fn.apply(this, args); }
+    };
+  }
+  function done(id) {
+    const el = $(id);
+    if (el.classList.contains("done")) return;
+    el.classList.add("done");
+    el.querySelector(".badge").textContent = "DONE ✓";
+  }
+
+  // ---- click ----
+  let count = 0;
+  const bell = $("#bell");
+  bell.addEventListener("click", function () {
+    count++;
+    $("#rings").textContent = count;
+    bell.classList.remove("ring"); void bell.offsetWidth; bell.classList.add("ring");
+    log("#bell", "click", `count is now ${count}`);
+    if (count === 10) { $("#rings").textContent = "10 ⭐"; done("#try-click"); }
+  });
+  $("#reset").addEventListener("click", function () {
+    count = 0;
+    $("#rings").textContent = count;
+    log("#reset", "click", "count back to 0");
+  });
+
+  // ---- mouseover / mouseout ----
+  const pad = $("#pad");
+  let hovers = 0;
+  pad.addEventListener("mouseover", function (e) {
+    if (pad.contains(e.relatedTarget)) return;
+    pad.classList.add("hot");
+    hovers++;
+    $("#pad-msg").textContent = `Mouse is ON the planet (${hovers})`;
+    log("#pad", "mouseover");
+    if (hovers >= 3) done("#try-hover");
+  });
+  pad.addEventListener("mouseout", function (e) {
+    if (pad.contains(e.relatedTarget)) return;
+    pad.classList.remove("hot");
+    $("#pad-msg").textContent = "Mouse left the planet";
+    log("#pad", "mouseout");
+  });
+  pad.addEventListener("click", function () {
+    // touch screens have no hover, so a tap toggles the glow instead
+    if (window.matchMedia("(hover: none)").matches) {
+      pad.classList.toggle("hot");
+      hovers++;
+      log("#pad", "click", "tap (no hover on touch screens)");
+      if (hovers >= 3) done("#try-hover");
+    }
+  });
+
+  // ---- input ----
+  const nameBox = $("#name");
+  let typed = 0;
+  nameBox.addEventListener("input", function () {
+    typed++;
+    $("#tag-name").textContent = nameBox.value || "…";
+    $("#tag-count").textContent = nameBox.value.length + " / 24 letters";
+    log("#name", "input", `value is "${nameBox.value}" (event #${typed})`);
+    if (nameBox.value.trim().toLowerCase() === "itcamp") done("#try-input");
+  });
+
+  // ---- keydown ----
+  const space = $("#space");
+  const rocket = $("#rocket");
+  const star = $("#star");
+  let x = 15, y = 50;
+  const starPos = { x: 85, y: 30 };
+  star.style.left = starPos.x + "%"; star.style.top = starPos.y + "%";
+  function place() { rocket.style.left = x + "%"; rocket.style.top = y + "%"; }
+  place();
+  space.addEventListener("click", () => space.focus());
+  space.addEventListener("keydown", function (event) {
+    const moves = { ArrowRight: [10, 0], ArrowLeft: [-10, 0], ArrowUp: [0, -10], ArrowDown: [0, 10] };
+    $("#keycap").textContent = event.key === " " ? "Space" : event.key;
+    log("#space", "keydown", `event.key = "${event.key}"`);
+    const move = moves[event.key];
+    if (!move) return;
+    event.preventDefault(); // arrows would scroll the page otherwise
+    x = Math.min(95, Math.max(5, x + move[0]));
+    y = Math.min(85, Math.max(15, y + move[1]));
+    place();
+    if (Math.abs(x - starPos.x) <= 5 && Math.abs(y - starPos.y) <= 10) {
+      star.textContent = "🌟";
+      done("#try-key");
+    }
+  });
+
+  // ---- scroll ----
+  const scroller = $("#scroller");
+  let scrolls = 0;
+  const logScroll = throttled((p) => log("#scroller", "scroll", `${p}% · ${scrolls} scroll events so far`), 300);
+  scroller.addEventListener("scroll", function () {
+    scrolls++;
+    const max = scroller.scrollHeight - scroller.clientHeight;
+    const percent = max > 0 ? Math.round((scroller.scrollTop / max) * 100) : 100;
+    $("#bar").style.width = percent + "%";
+    $("#scroll-msg").textContent = `Scrolled ${percent}% · scroll fired ${scrolls} times`;
+    logScroll(percent);
+    if (percent >= 99) done("#try-scroll");
+  });
+
+  // ---- submit ----
+  let triedEmpty = false;
+  $("#signup").addEventListener("submit", function (event) {
+    event.preventDefault();
+    const name = $("#f-name").value.trim();
+    const group = $("#f-group").value;
+    const result = $("#result");
+    if (name === "" || group === "") {
+      triedEmpty = true;
+      result.className = "result bad";
+      result.textContent = name === "" ? "Please enter your name." : "Please choose your group.";
+      log("#signup", "submit", "stopped: form not complete");
+      return;
+    }
+    result.className = "result ok";
+    result.textContent = `Welcome to group ${group}, ${name}! 🚀 (The page didn't reload: that's preventDefault.)`;
+    log("#signup", "submit", `name="${name}", group=${group}`);
+    if (triedEmpty) done("#try-submit");
+  });
+
+  // ---- change ----
+  const card = $("#card");
+  const seen = new Set();
+  $("#colour").addEventListener("change", function (e) {
+    card.style.borderColor = e.target.value;
+    seen.add(e.target.value);
+    log("#colour", "change", `value = "${e.target.selectedOptions[0].text}"`);
+    checkChange();
+  });
+  $("#darkcard").addEventListener("change", function (e) {
+    const on = e.target.checked;
+    card.style.boxShadow = on ? `0 0 30px 4px ${$("#colour").value}` : "none";
+    card.style.background = on ? "rgb(255 255 255 / 0.05)" : "transparent";
+    log("#darkcard", "change", `checked = ${on}`);
+    checkChange();
+  });
+  function checkChange() {
+    if (seen.size >= 3 && $("#darkcard").checked) done("#try-change");
+  }
+
+  // ---- quiz ----
+  const EVENTS = ["click", "input", "change", "keydown", "scroll", "submit", "mouseover"];
+  const SCENARIOS = [
+    ["Show how many letters are left while someone writes a tweet.", "input", "input fires on every letter, so the counter updates live."],
+    ["Check the email and password before a sign-up form is sent.", "submit", "Listen on the form for submit, and call preventDefault() while you check."],
+    ["Make a 'Back to top' button appear after the reader goes down the page.", "scroll", "scroll tells you the page moved, then check how far."],
+    ["Let the player jump when they press the space bar.", "keydown", "keydown gives you event.key, which is \" \" for space."],
+    ["Add one to a 'likes' number each time the heart button is pressed.", "click", "A button press is a click."],
+    ["Switch the page to dark mode when a checkbox is ticked.", "change", "Checkboxes and dropdowns fire change once the choice is made."],
+    ["Show a tooltip when the mouse moves over an icon.", "mouseover", "mouseover fires when the pointer moves onto the element."],
+    ["Filter a list of products as the shopper types in the search box.", "input", "Filtering live means reacting to every letter: input."],
+    ["Close a pop-up when the user presses Escape.", "keydown", "Check event.key === \"Escape\" in a keydown listener."],
+    ["Open a menu when the hamburger icon is tapped.", "click", "Taps on touch screens also fire click."],
+  ];
+  let order = [], qi = -1, right = 0, asked = 0, answered = false;
+  function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+  function nextQ() {
+    if (qi + 1 >= order.length) { order = shuffle([...SCENARIOS.keys()]); qi = -1; }
+    qi++;
+    answered = false;
+    const [text, answer] = SCENARIOS[order[qi]];
+    $("#scenario").textContent = text;
+    $("#explain").textContent = "";
+    const options = shuffle(EVENTS.filter((e) => e !== answer)).slice(0, 3).concat(answer);
+    const box = $("#choices");
+    box.innerHTML = "";
+    shuffle(options).forEach((opt) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = `"${opt}"`;
+      b.addEventListener("click", () => pick(b, opt, answer));
+      box.appendChild(b);
+    });
+  }
+  function pick(button, opt, answer) {
+    if (answered) return;
+    answered = true;
+    asked++;
+    const correct = opt === answer;
+    if (correct) right++;
+    button.classList.add(correct ? "right" : "wrong");
+    if (!correct) [...$("#choices").children].find((b) => b.textContent === `"${answer}"`).classList.add("right");
+    $("#explain").textContent = (correct ? "Correct! " : `It's "${answer}". `) + SCENARIOS[order[qi]][2];
+    $("#score").textContent = `Score ${right} / ${asked}`;
+    log("#quiz", "click", correct ? "right answer" : "wrong answer");
+  }
+  $("#next").addEventListener("click", nextQ);
+  nextQ();
+})();
+</script>
+<script>
+// Inside the hub's /learn/event-lab page: report height so the frame never needs its own scrollbar.
+(function () {
+  if (window.parent === window) return;
+  const send = () => window.parent.postMessage({ eventLabHeight: document.documentElement.scrollHeight }, location.origin);
+  new ResizeObserver(send).observe(document.body);
+  window.addEventListener("load", send);
+})();
+</script>
+
+</body>
+</html>
