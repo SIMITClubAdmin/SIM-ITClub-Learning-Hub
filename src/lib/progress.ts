@@ -1,4 +1,4 @@
-import { QUESTIONS_PER_QUIZ } from "@/lib/quizzes";
+import { QUESTIONS_PER_QUIZ } from "@/lib/quiz-meta";
 import type { CourseModule } from "@/lib/topics";
 
 /** Best score out of QUESTIONS_PER_QUIZ per quiz slug. A quiz missing here has not been finished yet. */
@@ -39,5 +39,13 @@ export function withProgress(modules: CourseModule[], { isAdmin, best }: Progres
       const open = isAdmin || !topic.lockedReason || (!module.lockedReason && prev && best[prev.slug] !== undefined);
       return { ...topic, lockedReason: open ? null : topic.lockedReason };
     }),
+  }));
+}
+
+/** Guests have no saved progress, so every topic in an open lesson is open for them. */
+export function openForGuests(modules: CourseModule[]): CourseModule[] {
+  return modules.map((module) => ({
+    ...module,
+    topics: module.lockedReason ? module.topics : module.topics.map((topic) => ({ ...topic, lockedReason: null })),
   }));
 }

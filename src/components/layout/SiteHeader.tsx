@@ -3,10 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { withProgress, type Progress } from "@/lib/progress";
+import { openForGuests, withProgress, type Progress } from "@/lib/progress";
 import { MODULES } from "@/lib/topics";
-import { useClubAccount } from "@/lib/use-club-account";
 import { useProgress } from "@/lib/use-progress";
+import { useSession } from "@/lib/use-session";
 import { NavDropdown, type NavDropdownItem } from "./NavDropdown";
 import { SfxToggle } from "./SfxToggle";
 import { UserMenu } from "./UserMenu";
@@ -18,9 +18,9 @@ const LEARN_ITEMS: NavDropdownItem[] = [
   { label: "CSS Playground", href: "/learn/playground" },
 ];
 
-/** Lesson 1's missions, with locks opening as the member finishes them. Admins see all unlocked. */
-const practiceItems = (progress: Progress): NavDropdownItem[] =>
-  withProgress(MODULES, progress)[0].topics.map((topic) =>
+/** Lesson 1's missions, with locks opening as the member finishes them. Admins and guests see all unlocked. */
+const practiceItems = (progress: Progress, guest: boolean): NavDropdownItem[] =>
+  (guest ? openForGuests(MODULES) : withProgress(MODULES, progress))[0].topics.map((topic) =>
     topic.lockedReason
       ? { label: topic.name, lockedReason: topic.lockedReason }
       : { label: topic.name, href: `/practice/${topic.slug}` },
@@ -29,8 +29,8 @@ const practiceItems = (progress: Progress): NavDropdownItem[] =>
 export function SiteHeader() {
   const pathname = usePathname();
   const progress = useProgress();
-  // The leaderboard is for club accounts only, so guests don't get the link.
-  const clubAccount = useClubAccount();
+  // The leaderboard is for registered members only, so guests don't get the link.
+  const { loggedIn, guest } = useSession();
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
@@ -44,9 +44,9 @@ export function SiteHeader() {
           label="Practice"
           href="/practice"
           active={isActive("/practice")}
-          items={practiceItems(progress)}
+          items={practiceItems(progress, guest)}
         />
-        {clubAccount && (
+        {loggedIn && (
           <Link
             href="/leaderboard"
             aria-current={isActive("/leaderboard") ? "page" : undefined}

@@ -1,20 +1,65 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { refresh } from "next/cache";
+import { drawForGuest, drawForMember, shuffle } from "@/lib/draw";
+import { GUEST_COOKIE } from "@/lib/guest";
+import { isGroupNumber } from "@/lib/groups";
 import { withProgress } from "@/lib/progress";
-import { QUIZZES } from "@/lib/quizzes";
-import { createClient } from "@/lib/supabase/server";
-import { ensureLearner } from "@/lib/supabase/learner";
+import { MAX_ATTEMPTS, QUESTIONS_PER_QUIZ } from "@/lib/quiz-meta";
+import { findQuestion, QUIZZES, type Quiz } from "@/lib/quizzes";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { loadProgress } from "@/lib/supabase/progress";
+import { createClient } from "@/lib/supabase/server";
 import { MODULES } from "@/lib/topics";
 
-export type SaveResult = { ok: true; score: number } | { ok: false; error: string };
+/** A question as the browser sees it: shuffled choices and no answer. */
+export type PublicQuestion = { id: string; question: string; code?: string; preview?: string; choices: string[] };
+
+/** Feedback for one answered question. */
+export type Feedback = { chosen: string; correct: boolean; answer: string; explain: string };
+
+export type Round = {
+  mode: "member" | "guest";
+  /** null for guests: nothing is saved. */
+  attemptId: number | null;
+  attemptNo: number | null;
+  questions: PublicQuestion[];
+  /** Answers already saved, by question position (0-based), when resuming an attempt. */
+  answered: (Feedback | null)[];
+};
+
+export type StartResult = { ok: true; round: Round } | { ok: false; error: string };
+export type AnswerResult = ({ ok: true } & Feedback & { finished: boolean; score: number | null }) | { ok: false; error: string };
+
+const NOT_CONFIGURED = "Scores can't be saved right now. Tell a mentor (the server is missing SUPABASE_SECRET_KEY).";
+
+function toPublic(quiz: Quiz, ids: string[]): PublicQuestion[] | null {
+  const questions: PublicQuestion[] = [];
+  for (const id of ids) {
+    const q = findQuestion(quiz, id);
+    if (!q) return null;
+    questions.push({ id: q.id, question: q.question, code: q.code, preview: q.preview, choices: shuffle(q.choices) });
+  }
+  return questions;
+}
+
+function feedbackFor(quiz: Quiz, questionId: string, chosen: string): Feedback | null {
+  const q = findQuestion(quiz, questionId);
+  if (!q) return null;
+  return { chosen, correct: chosen === q.choices[0], answer: q.choices[0], explain: q.explain };
+}
+
+async function isGuest() {
+  return (await cookies()).get(GUEST_COOKIE)?.value === "1";
+}
 
 /**
- * Grades a finished quiz on the server and saves the score for the logged-in member.
- * answers maps each question's text to the choice the member picked.
+ * Starts (or resumes) a quiz.
+ * Members: resumes an unfinished attempt, or starts the next one (up to MAX_ATTEMPTS), with
+ * the questions for their group and seat. Guests: a random set that is never saved.
  */
-export async function saveQuizResult(slug: string, answers: Record<string, string>): Promise<SaveResult> {
+export async function startQuiz(slug: string): Promise<StartResult> {
   const quiz = QUIZZES[slug];
   if (!quiz) return { ok: false, error: "That quiz does not exist." };
 
@@ -22,7 +67,13 @@ export async function saveQuizResult(slug: string, answers: Record<string, strin
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "Log in to save your score." };
+
+  if (!user) {
+    if (!(await isGuest())) return { ok: false, error: "Log in, or continue as a guest, to try this quiz." };
+    const questions = toPublic(quiz, drawForGuest(quiz.questions, QUESTIONS_PER_QUIZ));
+    if (!questions) return { ok: false, error: "Could not load the questions." };
+    return { ok: true, round: { mode: "guest", attemptId: null, attemptNo: null, questions, answered: questions.map(() => null) } };
+  }
 
   const progress = await loadProgress(supabase, user.id);
   const topic = withProgress(MODULES, progress)
@@ -30,18 +81,130 @@ export async function saveQuizResult(slug: string, answers: Record<string, strin
     .find((t) => t.slug === slug);
   if (topic?.lockedReason) return { ok: false, error: topic.lockedReason };
 
-  // Every question must be answered once; the first choice in quizzes.ts is the right one.
-  if (quiz.questions.some((q) => !(q.question in answers))) {
-    return { ok: false, error: "Answer every question before saving." };
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("group_number, group_seat")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!profile?.group_number || !profile.group_seat) return { ok: false, error: "Choose your ITCamp group first." };
+
+  const admin = createAdminClient();
+  if (!admin) return { ok: false, error: NOT_CONFIGURED };
+
+  const loadAttempts = () =>
+    admin
+      .from("quiz_attempts")
+      .select("id, attempt_no, question_ids, finished_at")
+      .eq("user_id", user.id)
+      .eq("quiz_slug", slug)
+      .order("attempt_no");
+
+  let { data: attempts, error } = await loadAttempts();
+  if (error || !attempts) return { ok: false, error: "We could not load your attempts. Please try again." };
+
+  let current = attempts.find((a) => !a.finished_at);
+  if (!current) {
+    if (attempts.length >= MAX_ATTEMPTS) return { ok: false, error: "You have used both attempts for this quiz." };
+    const attemptNo = attempts.length + 1;
+    const ids = drawForMember(quiz.questions, QUESTIONS_PER_QUIZ, {
+      slug,
+      group: profile.group_number,
+      seat: profile.group_seat,
+      attempt: attemptNo,
+    });
+    const insert = await admin
+      .from("quiz_attempts")
+      .insert({ user_id: user.id, quiz_slug: slug, attempt_no: attemptNo, question_ids: ids, total: ids.length })
+      .select("id, attempt_no, question_ids, finished_at")
+      .single();
+    if (insert.error) {
+      // Started in another tab at the same moment: use that one.
+      if (insert.error.code !== "23505") return { ok: false, error: "We could not start your attempt. Please try again." };
+      ({ data: attempts, error } = await loadAttempts());
+      current = attempts?.find((a) => !a.finished_at);
+      if (error || !current) return { ok: false, error: "We could not start your attempt. Please refresh the page." };
+    } else {
+      current = insert.data;
+    }
   }
-  const score = quiz.questions.filter((q) => answers[q.question] === q.choices[0]).length;
 
-  await ensureLearner(supabase, user);
-  const { error } = await supabase
-    .schema("learning_hub")
-    .rpc("record_quiz_result", { topic_slug: slug, score, total: quiz.questions.length });
-  if (error) return { ok: false, error: "We could not save your score. Please try again." };
+  const questions = toPublic(quiz, current.question_ids);
+  if (!questions) return { ok: false, error: "A question in this attempt was removed from the bank. Tell a mentor." };
 
+  const { data: saved } = await admin
+    .from("quiz_answers")
+    .select("position, question_id, chosen")
+    .eq("attempt_id", current.id);
+  const answered: (Feedback | null)[] = questions.map(() => null);
+  for (const row of saved ?? []) answered[row.position - 1] = feedbackFor(quiz, row.question_id, row.chosen);
+
+  return { ok: true, round: { mode: "member", attemptId: current.id, attemptNo: current.attempt_no, questions, answered } };
+}
+
+/**
+ * Grades one answer. Members: saved straight away and can't be changed, so refreshing
+ * the page never gives a second try. Guests: graded only.
+ */
+export async function answerQuestion(
+  slug: string,
+  attemptId: number | null,
+  position: number,
+  questionId: string,
+  chosen: string,
+): Promise<AnswerResult> {
+  const quiz = QUIZZES[slug];
+  const question = quiz && findQuestion(quiz, questionId);
+  if (!quiz || !question || !question.choices.includes(chosen)) return { ok: false, error: "That answer is not valid." };
+  const feedback = feedbackFor(quiz, questionId, chosen)!;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (attemptId === null) {
+    if (user || !(await isGuest())) return { ok: false, error: "Please refresh the page and start again." };
+    return { ok: true, ...feedback, finished: false, score: null };
+  }
+  if (!user) return { ok: false, error: "Your session ended. Log in again to keep going." };
+
+  const admin = createAdminClient();
+  if (!admin) return { ok: false, error: NOT_CONFIGURED };
+
+  const { data: attempt } = await admin
+    .from("quiz_attempts")
+    .select("user_id, quiz_slug, question_ids, finished_at")
+    .eq("id", attemptId)
+    .maybeSingle();
+  if (!attempt || attempt.user_id !== user.id || attempt.quiz_slug !== slug) return { ok: false, error: "That attempt is not yours." };
+  if (attempt.finished_at) return { ok: false, error: "This attempt is already finished." };
+  if (attempt.question_ids[position - 1] !== questionId) return { ok: false, error: "That question is not in this attempt." };
+
+  const { error } = await admin
+    .from("quiz_answers")
+    .insert({ attempt_id: attemptId, position, question_id: questionId, chosen, is_correct: feedback.correct });
+  if (error) {
+    return {
+      ok: false,
+      error: error.code === "23505" ? "You already answered this question. Refresh the page." : "We could not save your answer. Please try again.",
+    };
+  }
+
+  const { data: after } = await admin.from("quiz_attempts").select("score, finished_at").eq("id", attemptId).single();
+  return { ok: true, ...feedback, finished: !!after?.finished_at, score: after?.score ?? null };
+}
+
+/** For members who registered before groups existed. The group can only be set once. */
+export async function setMyGroup(group: number): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!isGroupNumber(group)) return { ok: false, error: "Choose a valid group number." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_my_group", { group_no: group });
+  if (error) {
+    return {
+      ok: false,
+      error: error.message.includes("already set") ? "Your group is already set. Ask a mentor to change it." : "We could not save your group. Please try again.",
+    };
+  }
   refresh();
-  return { ok: true, score };
+  return { ok: true };
 }

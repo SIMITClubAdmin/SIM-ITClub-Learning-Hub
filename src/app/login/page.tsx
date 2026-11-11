@@ -12,14 +12,15 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const goTo = safeNext(next);
   return (
     <main className="mx-auto w-full max-w-md flex-1 px-4 py-12">
-      {goTo.startsWith("/practice") && (
+      {(goTo.startsWith("/practice") || goTo.startsWith("/learn")) && (
         <p className="mb-6 border border-violet bg-bg/85 px-3.5 py-3">
-          Practice is for members. Log in or create an account to start your missions.
+          Log in to see the notes and save your quiz points. Not a subcomm? Continue as a guest below.
         </p>
       )}
       <AuthForm
         mode="login"
         next={goTo}
+        allowGuest
         initialError={
           error === "confirm"
             ? "That confirmation link did not work. It may have expired, or been opened in a different browser. Try logging in."

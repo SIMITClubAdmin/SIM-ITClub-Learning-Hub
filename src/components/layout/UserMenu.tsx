@@ -2,33 +2,46 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { leaveGuestMode } from "@/app/login/actions";
 import { createClient } from "@/lib/supabase/client";
+import { useSession } from "@/lib/use-session";
 import { NavDropdown } from "./NavDropdown";
 
 const BUTTON =
   "border border-ink px-3 py-1.5 text-sm transition-colors duration-200 hover:border-accent hover:bg-accent hover:text-bg";
 
-/** Shows Log in for guests, or a menu under the display name for members. */
+/** Log in for visitors, a Guest menu in guest mode, or a menu under the display name for members. */
 export function UserMenu() {
   const router = useRouter();
   const pathname = usePathname();
-  const [loggedIn, setLoggedIn] = useState(false);
-  const [name, setName] = useState("");
-
-  useEffect(() => {
-    const supabase = createClient();
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      setLoggedIn(!!session);
-      setName(session?.user.user_metadata.display_name ?? "");
-    });
-    return () => data.subscription.unsubscribe();
-  }, []);
+  const { loggedIn, guest, name } = useSession();
 
   async function logOut() {
     await createClient().auth.signOut();
     router.push("/");
     router.refresh();
+  }
+
+  async function leaveGuest() {
+    await leaveGuestMode();
+    router.push("/");
+    router.refresh();
+  }
+
+  if (guest) {
+    return (
+      <NavDropdown
+        label="Guest"
+        href="/login"
+        active={false}
+        align="right"
+        items={[
+          { label: "Log in", href: "/login" },
+          { label: "Create an account", href: "/register" },
+          { label: "Leave guest mode", onSelect: leaveGuest },
+        ]}
+      />
+    );
   }
 
   if (!loggedIn) {

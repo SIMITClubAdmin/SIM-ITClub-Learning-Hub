@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { starsFor, type BestScores } from "@/lib/progress";
-import { QUESTIONS_PER_QUIZ, QUIZZES } from "@/lib/quizzes";
+import { hasQuiz, QUESTIONS_PER_QUIZ } from "@/lib/quiz-meta";
 import type { CourseModule, PlanetPalette } from "@/lib/topics";
 
 // Same scene as the Learn solar system: tilted orbits around a sun.
@@ -322,7 +322,7 @@ export function PracticeSolarSystem({ modules, best = {} }: { modules: CourseMod
                         <Lock className="size-3.5" />
                         {locked}
                       </span>
-                    ) : topic.slug in QUIZZES ? (
+                    ) : hasQuiz(topic.slug) ? (
                       <Link href={`/practice/${topic.slug}`} className="cta">
                         Launch
                       </Link>

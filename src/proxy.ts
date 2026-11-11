@@ -1,12 +1,15 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { GUEST_COOKIE } from "@/lib/guest";
 import { PASSWORD_CHANGE_COOKIE, PASSWORD_CHANGE_PATH } from "@/lib/temporary-password";
 
 /**
- * Pages only logged-in members can open. Learn stays open to everyone, and /practice itself
- * shows its own locked login card, so only the quiz pages under it redirect.
+ * Pages that need a login or guest mode: the notes (Learn) and the quizzes. /practice
+ * itself shows its own locked login card, so only the quiz pages under it redirect.
  */
-const MEMBERS_ONLY = ["/practice/"];
+function needsSignIn(pathname: string) {
+  return pathname === "/learn" || pathname.startsWith("/learn/") || pathname.startsWith("/practice/");
+}
 
 /**
  * Refreshes the Supabase session cookie on each page request, sends logged-out
@@ -38,8 +41,11 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname, search } = request.nextUrl;
-  const membersOnly = MEMBERS_ONLY.some((path) => pathname.startsWith(path));
-  if (!user && membersOnly) {
+  const guest = request.cookies.get(GUEST_COOKIE)?.value === "1";
+  // A real login replaces guest mode.
+  if (user && guest) response.cookies.delete(GUEST_COOKIE);
+
+  if (!user && !guest && needsSignIn(pathname)) {
     const login = request.nextUrl.clone();
     login.pathname = "/login";
     login.search = "";

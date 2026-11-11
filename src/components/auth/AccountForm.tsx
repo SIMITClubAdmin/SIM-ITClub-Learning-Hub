@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 type Props = {
   userId: string;
   initialName: string;
-  /** Only club members below EXCO are listed; guests and admins aren't. */
+  /** Admins are kept off the leaderboard. */
   onLeaderboard: boolean;
 };
 
@@ -28,16 +28,14 @@ export function AccountForm({ userId, initialName, onLeaderboard }: Props) {
     setMessage("");
 
     const supabase = createClient();
-    const { error } = await supabase
-      .schema("learning_hub")
-      .from("learners")
-      .update({ display_name: displayName })
-      .eq("user_id", userId);
+    const { error } = await supabase.from("profiles").update({ display_name: displayName }).eq("id", userId);
     if (error) {
       show(
         error.code === "23505"
           ? "That display name is taken. Try a different one."
-          : "We could not save your display name. Please try again.",
+          : error.code === "23514"
+            ? "Use 2 to 30 characters."
+            : "We could not save your display name. Please try again.",
         true,
       );
       return;
@@ -62,9 +60,7 @@ export function AccountForm({ userId, initialName, onLeaderboard }: Props) {
           className="w-full border border-violet bg-bg/85 px-3.5 py-3 text-ink"
         />
         <span className="text-sm text-dim">
-          {onLeaderboard
-            ? "Shown on the leaderboard, which club members can see."
-            : "Shown in the header and on your account."}
+          {onLeaderboard ? "Shown on the leaderboard, which members can see." : "Shown in the header and on your account."}
         </span>
       </label>
       {message && (

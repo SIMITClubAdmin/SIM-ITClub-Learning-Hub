@@ -1,119 +1,126 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { saveQuizResult } from "@/app/practice/actions";
-import type { Quiz as QuizData, QuizQuestion } from "@/lib/quizzes";
-import { useClubAccount } from "@/lib/use-club-account";
+import { answerQuestion, startQuiz, type Feedback, type Round } from "@/app/practice/actions";
+import { MAX_ATTEMPTS } from "@/lib/quiz-meta";
 import { useSfx } from "@/lib/use-sfx";
-
-type Round = { question: QuizQuestion; choices: string[]; answer: string }[];
-
-function shuffle<T>(items: readonly T[]): T[] {
-  const out = [...items];
-  for (let i = out.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [out[i], out[j]] = [out[j], out[i]];
-  }
-  return out;
-}
-
-/** A new random order of questions, and of choices inside each question. */
-function newRound(quiz: QuizData): Round {
-  return shuffle(quiz.questions).map((question) => ({
-    question,
-    choices: shuffle(question.choices),
-    answer: question.choices[0],
-  }));
-}
 
 const LETTERS = ["A", "B", "C", "D"];
 
-type SaveState = { state: "idle" | "saving" | "saved" } | { state: "error"; error: string };
+type Props = {
+  slug: string;
+  title: string;
+  lesson: number;
+  mode: "member" | "guest";
+  /** Members: the attempt this button starts or continues (1 or 2). */
+  attemptNo?: number;
+  /** Members: an unfinished attempt exists, so the button continues it. */
+  resuming?: boolean;
+};
 
-export function Quiz({ quiz, slug }: { quiz: QuizData; slug: string }) {
-  // Shuffled only when the member presses Start, so server and client render the same first screen.
+export function Quiz({ slug, title, lesson, mode, attemptNo = 1, resuming = false }: Props) {
+  const router = useRouter();
   const [round, setRound] = useState<Round | null>(null);
   const [index, setIndex] = useState(0);
-  const [picks, setPicks] = useState<string[]>([]);
-  const [save, setSave] = useState<SaveState>({ state: "idle" });
-  // Guests aren't on the leaderboard, so their save message doesn't mention it.
-  const clubAccount = useClubAccount();
+  const [feedback, setFeedback] = useState<(Feedback | null)[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const headingRef = useRef<HTMLHeadingElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
   const answersRef = useRef<HTMLUListElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const spacerRef = useRef<HTMLDivElement>(null);
-  const hasAnswered = round !== null && picks[index] !== undefined;
   const { play } = useSfx();
+
+  const current = round && index < round.questions.length ? feedback[index] : null;
+  const hasAnswered = !!current;
 
   // Once the feedback bar appears: keep every answer visible above it, and move keyboard focus to Next.
   useEffect(() => {
     if (!hasAnswered) return;
     const answers = answersRef.current?.getBoundingClientRect();
-    // The bar is still sliding in, so use its height rather than where it is right now.
     const barHeight = barRef.current?.offsetHeight;
     if (spacerRef.current && barHeight) spacerRef.current.style.height = `${barHeight + 16}px`;
     if (answers && barHeight) {
       const barTop = window.innerHeight - barHeight;
-      if (answers.bottom > barTop - 16) {
-        window.scrollBy({ top: answers.bottom - barTop + 16, behavior: "smooth" });
-      }
+      if (answers.bottom > barTop - 16) window.scrollBy({ top: answers.bottom - barTop + 16, behavior: "smooth" });
     }
     nextRef.current?.focus({ preventScroll: true });
   }, [hasAnswered, index]);
 
-  function start() {
+  async function start() {
     play("click");
-    setRound(newRound(quiz));
-    setIndex(0);
-    setPicks([]);
-    setSave({ state: "idle" });
+    setBusy(true);
+    setError("");
+    const result = await startQuiz(slug);
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setRound(result.round);
+    setFeedback(result.round.answered);
+    // Resuming: carry on from the first question not answered yet.
+    const firstOpen = result.round.answered.findIndex((a) => a === null);
+    setIndex(firstOpen === -1 ? result.round.questions.length : firstOpen);
     requestAnimationFrame(() => headingRef.current?.focus());
   }
 
-  function pick(choice: string) {
-    if (round) play(choice === round[index].answer ? "correct" : "wrong");
-    setPicks((p) => [...p.slice(0, index), choice]);
-  }
-
-  /** Sends the answers to the server, which grades them and saves the score. */
-  async function saveScore() {
-    if (!round) return;
-    setSave({ state: "saving" });
-    const answers = Object.fromEntries(round.map((item, i) => [item.question.question, picks[i]]));
-    const result = await saveQuizResult(slug, answers);
-    setSave(result.ok ? { state: "saved" } : { state: "error", error: result.error });
+  async function pick(choice: string) {
+    if (!round || busy || feedback[index]) return;
+    setBusy(true);
+    setError("");
+    const question = round.questions[index];
+    const result = await answerQuestion(slug, round.attemptId, index + 1, question.id, choice);
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    play(result.correct ? "correct" : "wrong");
+    setFeedback((f) => f.map((item, i) => (i === index ? result : item)));
   }
 
   function next() {
     play("click");
-    if (index + 1 === quiz.questions.length) void saveScore();
     setIndex((i) => i + 1);
     requestAnimationFrame(() => headingRef.current?.focus());
   }
 
-  const total = quiz.questions.length;
-
   if (!round) {
     return (
       <section className="border border-violet bg-bg p-6 sm:p-10">
-        <p className="font-mono text-sm tracking-wider text-accent uppercase">Lesson {quiz.lesson} mission</p>
-        <h1 className="mt-2 text-5xl font-semibold">{quiz.title} quiz</h1>
-        <p className="mt-4 max-w-prose text-lg text-dim">
-          {total} multiple-choice questions on {quiz.title}. The questions and answers come in a different order
-          every time you start.
-        </p>
-        <button type="button" onClick={start} className="cta cta--lg mt-6">
-          Start quiz
+        <p className="font-mono text-sm tracking-wider text-accent uppercase">Lesson {lesson} mission</p>
+        <h1 className="mt-2 text-5xl font-semibold">{title} quiz</h1>
+        {mode === "member" ? (
+          <p className="mt-4 max-w-prose text-lg text-dim">
+            Attempt {attemptNo} of {MAX_ATTEMPTS}. Each answer is saved as soon as you pick it and can&apos;t be
+            changed. Your best attempt counts towards your points.
+          </p>
+        ) : (
+          <p className="mt-4 max-w-prose text-lg text-dim">
+            Guest mode: try the questions as often as you like. Nothing is saved, and it doesn&apos;t count for
+            points.
+          </p>
+        )}
+        {error && (
+          <p role="alert" className="mt-4 border border-[#ffb38a] px-3.5 py-3">
+            {error}
+          </p>
+        )}
+        <button type="button" onClick={start} disabled={busy} className="cta cta--lg mt-6 disabled:opacity-60">
+          {busy ? "Loading" : resuming ? `Continue attempt ${attemptNo}` : mode === "member" ? `Start attempt ${attemptNo}` : "Start quiz"}
         </button>
       </section>
     );
   }
 
-  const score = round.filter((item, i) => picks[i] === item.answer).length;
+  const total = round.questions.length;
+  const score = feedback.filter((f) => f?.correct).length;
 
-  if (index >= round.length) {
+  if (index >= total) {
     return (
       <section className="border border-violet bg-bg p-6 sm:p-10">
         <p className="font-mono text-sm tracking-wider text-accent uppercase">Mission complete</p>
@@ -124,30 +131,20 @@ export function Quiz({ quiz, slug }: { quiz: QuizData; slug: string }) {
           {score === total ? "A perfect landing!" : score >= total * 0.7 ? "Nice flying." : "Have another go."}
         </p>
         <p className="mt-2 font-mono text-sm text-dim" role="status">
-          {save.state === "saving" && "Saving your score…"}
-          {save.state === "saved" &&
-            (clubAccount ? "Score saved. Your best score counts towards the leaderboard." : "Score saved.")}
-          {save.state === "error" && (
-            <>
-              <span className="text-[#ffb38a]">{save.error}</span>{" "}
-              <button type="button" onClick={saveScore} className="text-ink underline underline-offset-4">
-                Try saving again
-              </button>
-            </>
-          )}
+          {round.mode === "member" ? "Saved. Your best attempt counts towards your points." : "Guest mode: this score isn't saved."}
         </p>
         <ol className="mt-6 flex flex-col gap-2">
-          {round.map((item, i) => {
-            const right = picks[i] === item.answer;
+          {round.questions.map((question, i) => {
+            const f = feedback[i];
             return (
-              <li key={item.question.question} className="border border-grid p-4 text-base">
+              <li key={question.id} className="border border-grid p-4 text-base">
                 <p className="font-medium">
-                  <span className={right ? "text-accent" : "text-[#ffb38a]"}>{right ? "✓" : "✗"}</span>{" "}
-                  {item.question.question}
+                  <span className={f?.correct ? "text-accent" : "text-[#ffb38a]"}>{f?.correct ? "✓" : "✗"}</span>{" "}
+                  {question.question}
                 </p>
-                {!right && (
+                {f && !f.correct && (
                   <p className="mt-1 text-dim">
-                    Answer: <span className="text-ink">{item.answer}</span>
+                    Answer: <span className="text-ink">{f.answer}</span>
                   </p>
                 )}
               </li>
@@ -155,9 +152,16 @@ export function Quiz({ quiz, slug }: { quiz: QuizData; slug: string }) {
           })}
         </ol>
         <div className="mt-6 flex flex-wrap items-center gap-4">
-          <button type="button" onClick={start} className="cta">
-            Try again
-          </button>
+          {round.mode === "member" ? (
+            // The page shows the saved record and, if there is one left, the extra attempt.
+            <button type="button" onClick={() => router.refresh()} className="cta">
+              See my record
+            </button>
+          ) : (
+            <button type="button" onClick={start} className="cta">
+              Try another set
+            </button>
+          )}
           <Link href="/practice" className="font-mono text-xs tracking-wider text-dim uppercase hover:text-accent">
             ← Back to Practice
           </Link>
@@ -166,15 +170,18 @@ export function Quiz({ quiz, slug }: { quiz: QuizData; slug: string }) {
     );
   }
 
-  const item = round[index];
-  const picked = picks[index];
-  const answered = picked !== undefined;
+  const question = round.questions[index];
+  const picked = current?.chosen;
 
   return (
     <section className="border border-violet bg-bg p-6 sm:p-8">
       <div className="flex justify-between gap-4 font-mono text-sm tracking-wider whitespace-nowrap text-dim uppercase">
         <span>
-          <span className="max-sm:hidden">{quiz.title} · </span>Question {index + 1} / {total}
+          <span className="max-sm:hidden">
+            {title}
+            {round.attemptNo ? ` · Attempt ${round.attemptNo}` : " · Guest"} ·{" "}
+          </span>
+          Question {index + 1} / {total}
         </span>
         <span>Score {score}</span>
       </div>
@@ -183,20 +190,20 @@ export function Quiz({ quiz, slug }: { quiz: QuizData; slug: string }) {
       </div>
 
       <h1 ref={headingRef} tabIndex={-1} className="mt-6 text-3xl font-semibold outline-none sm:text-4xl">
-        {item.question.question}
+        {question.question}
       </h1>
-      {item.question.code && (
+      {question.code && (
         <pre className="mt-5 overflow-x-auto border border-grid bg-grid/40 p-5 font-mono text-base sm:text-lg">
-          <code>{item.question.code}</code>
+          <code>{question.code}</code>
         </pre>
       )}
-      {item.question.preview && (
+      {question.preview && (
         <figure className="mt-3">
           <figcaption className="font-mono text-xs tracking-wider text-dim uppercase">What the browser shows</figcaption>
           <iframe
             title="What the browser shows for this code"
             sandbox=""
-            srcDoc={item.question.preview}
+            srcDoc={question.preview}
             className="mt-1.5 block h-24 w-full border border-grid bg-white"
           />
         </figure>
@@ -204,54 +211,54 @@ export function Quiz({ quiz, slug }: { quiz: QuizData; slug: string }) {
 
       {/* Two answers per row on wider screens, so a question fits without scrolling. */}
       <ul ref={answersRef} className="mt-6 grid gap-3 md:grid-cols-2 md:gap-4">
-        {item.choices.map((choice, ci) => {
-          const isAnswer = choice === item.answer;
+        {question.choices.map((choice, ci) => {
+          const isAnswer = !!current && choice === current.answer;
           const isPick = choice === picked;
           let look = "border-violet/60 hover:border-accent hover:bg-violet/10";
-          if (answered) {
-            look = isAnswer
-              ? "border-accent bg-accent/15"
-              : isPick
-                ? "border-[#ffb38a] bg-[#ffb38a]/10"
-                : "border-grid opacity-60";
+          if (current) {
+            look = isAnswer ? "border-accent bg-accent/15" : isPick ? "border-[#ffb38a] bg-[#ffb38a]/10" : "border-grid opacity-60";
           }
           return (
             <li key={choice} className="flex">
               <button
                 type="button"
-                disabled={answered}
+                disabled={!!current || busy}
                 onClick={() => pick(choice)}
-                className={`flex w-full items-start gap-4 border px-5 py-4 text-left ${look}`}
+                className={`flex w-full items-start gap-4 border px-5 py-4 text-left disabled:cursor-default ${look}`}
               >
                 <span className="font-mono text-base text-accent sm:text-lg">{LETTERS[ci]}</span>
                 <span className="font-mono text-base whitespace-pre-wrap sm:text-lg">{choice}</span>
-                {answered && isAnswer && <span className="sr-only">(correct answer)</span>}
-                {answered && isPick && !isAnswer && <span className="sr-only">(your answer)</span>}
+                {isAnswer && <span className="sr-only">(correct answer)</span>}
+                {isPick && !isAnswer && <span className="sr-only">(your answer)</span>}
               </button>
             </li>
           );
         })}
       </ul>
 
+      {error && (
+        <p role="alert" className="mt-4 border border-[#ffb38a] px-3.5 py-3">
+          {error}
+        </p>
+      )}
+
       {/* Room under the answers so the feedback bar never covers them; sized to the bar below. */}
-      {answered && <div ref={spacerRef} aria-hidden="true" className="h-40 sm:h-28" />}
+      {current && <div ref={spacerRef} aria-hidden="true" className="h-40 sm:h-28" />}
 
       {/* Feedback slides up from the bottom of the screen, so Next is always in view. */}
       <div aria-live="polite">
-        {answered && (
+        {current && (
           <div
             ref={barRef}
             className="quiz-bar fixed inset-x-0 bottom-0 z-30 border-t-4 bg-bg"
-            style={{ borderTopColor: picked === item.answer ? "var(--color-accent)" : "#ffb38a" }}
+            style={{ borderTopColor: current.correct ? "var(--color-accent)" : "#ffb38a" }}
           >
             <div className="mx-auto flex max-w-5xl flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:px-12">
               <div>
-                <p
-                  className={`font-display text-2xl font-semibold ${picked === item.answer ? "text-accent" : "text-[#ffb38a]"}`}
-                >
-                  {picked === item.answer ? "Correct!" : "Not quite."}
+                <p className={`font-display text-2xl font-semibold ${current.correct ? "text-accent" : "text-[#ffb38a]"}`}>
+                  {current.correct ? "Correct!" : "Not quite."}
                 </p>
-                <p className="mt-1 text-lg text-dim">{item.question.explain}</p>
+                <p className="mt-1 text-lg text-dim">{current.explain}</p>
               </div>
               <button ref={nextRef} type="button" onClick={next} className="cta cta--lg shrink-0">
                 {index + 1 === total ? "See my score" : "Next question"}
