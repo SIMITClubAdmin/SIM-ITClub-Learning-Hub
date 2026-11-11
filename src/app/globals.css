@@ -533,3 +533,51 @@ html.cc-on .cc-frame {
     display: none;
   }
 }
+
+/* "Try CSS live" button: a rainbow light keeps running round its border. */
+.pg-cta {
+  position: relative;
+  display: inline-flex;
+  padding: 2px;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.pg-cta::before {
+  content: "";
+  position: absolute;
+  inset: -150%;
+  z-index: -1;
+  background: conic-gradient(from 0deg, #4fd8eb, #6d4aff, #be3caa, #ffd166, #3fbf8f, #4fd8eb);
+  animation: pg-spin 3s linear infinite;
+}
+
+.pg-cta-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  background: var(--color-bg);
+  color: var(--color-accent);
+  font-family: var(--font-jetbrains), monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: background 0.2s, color 0.2s;
+}
+
+.pg-cta:hover .pg-cta-inner,
+.pg-cta:focus-visible .pg-cta-inner {
+  background: transparent;
+  color: var(--color-bg);
+}
+
+@keyframes pg-spin {
+  to { transform: rotate(1turn); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-cta::before {
+    animation: none;
+  }
+}

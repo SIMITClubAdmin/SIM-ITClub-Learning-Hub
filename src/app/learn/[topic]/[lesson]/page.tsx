@@ -72,9 +72,6 @@ export default async function LessonPage(props: PageProps<"/learn/[topic]/[lesso
               {t.name} →
             </Link>
           ))}
-          <Link href="/learn/playground" className="text-dim hover:text-accent">
-            CSS Playground →
-          </Link>
         </div>
       </nav>
 
@@ -86,11 +83,11 @@ export default async function LessonPage(props: PageProps<"/learn/[topic]/[lesso
           <h1 className="text-4xl font-semibold sm:text-6xl">{lesson.title}</h1>
           <p className="text-xl text-dim">{lesson.summary}</p>
           {topic.slug === "css" && (
-            <Link
-              href="/learn/playground"
-              className="self-start border border-accent px-3 py-1.5 font-mono text-xs tracking-wider text-accent uppercase transition-colors hover:bg-accent hover:text-bg"
-            >
-              Try CSS live in the CSS Playground →
+            // A light runs round the border, like the playground's colour wheel.
+            <Link href="/learn/playground" className="pg-cta self-start">
+              <span className="pg-cta-inner">
+                <span aria-hidden="true">✦</span> Try CSS live in the CSS Playground →
+              </span>
             </Link>
           )}
           {intro.length > 0 && (
