@@ -214,7 +214,7 @@ export function PracticeSolarSystem({ modules, best = {} }: { modules: CourseMod
           }}
           aria-hidden="true"
         >
-          PRACTICE
+          CHALLENGE
         </div>
 
         {modules.map((m, i) => (
