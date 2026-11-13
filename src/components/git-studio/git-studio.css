@@ -1,9 +1,32 @@
 /* Git & GitHub track. Every selector is prefixed gs- so nothing here reaches other pages. */
 
-/* ---------- Colour themes (set by the Appearance toolbar) ---------- */
+/* ---------- Colours: follow the site palette chosen under Appearance (data-palette on <html>) ---------- */
 
-/* Purple & Black, the default. */
+/* Cyber Navy, the site's default. */
 .gs-theme {
+  --bg-base: #070b1f;
+  --bg-surface: #0b1129;
+  --bg-panel: #0f1735;
+  --text-main: #e6f1ff;
+  --text-muted: #a9b5d6;
+  --text-faint: #6f7ba0;
+  --accent-primary: #4fd8eb;
+  --accent-soft: #7ee6f3;
+  --border-subtle: #1f2a55;
+  --on-accent: #070b1f;
+  --code-bg: #05081a;
+  --code-text: #e2e8f0;
+  --git-local: #10b981;
+  --git-modified: #f59e0b;
+  --git-remote: #a78bfa;
+  --git-danger: #f87171;
+  --lane-2: #60a5fa;
+  --lane-3: #f472b6;
+  --glow: rgb(79 216 235 / 0.1);
+  color-scheme: dark;
+}
+
+html[data-palette="purple-dark"] .gs-theme {
   --bg-base: #07060e;
   --bg-surface: #0e0c1a;
   --bg-panel: #131024;
@@ -15,18 +38,11 @@
   --border-subtle: #261e40;
   --on-accent: #07060e;
   --code-bg: #09080f;
-  --code-text: #e2e8f0;
-  --git-local: #10b981;
-  --git-modified: #f59e0b;
   --git-remote: #c084fc;
-  --git-danger: #f87171;
-  --lane-2: #60a5fa;
-  --lane-3: #f472b6;
   --glow: rgb(168 85 247 / 0.14);
-  color-scheme: dark;
 }
 
-.gs-theme[data-gs-theme="red-dark"] {
+html[data-palette="red-dark"] .gs-theme {
   --bg-base: #080506;
   --bg-surface: #11090b;
   --bg-panel: #180c10;
@@ -42,11 +58,10 @@
   --git-remote: #a855f7;
   --git-danger: #fb7185;
   --glow: rgb(239 68 68 / 0.12);
-  color-scheme: dark;
 }
 
 /* Purple & White: every colour is darkened so nothing is white-on-white. */
-.gs-theme[data-gs-theme="purple-light"] {
+html[data-palette="purple-light"] .gs-theme {
   --bg-base: #f8f7fc;
   --bg-surface: #ffffff;
   --bg-panel: #f1effa;
@@ -69,38 +84,19 @@
   color-scheme: light;
 }
 
-/* ---------- Fonts (set by the Appearance toolbar) ---------- */
-
-/* Site default: exactly what the HTML, CSS and JavaScript lessons use. */
+/* ---------- Fonts: follow the site font chosen under Appearance ---------- */
+/* Headings and text use the site's own variables, which Appearance overrides; labels stay
+   monospace like the rest of the site, and code is always JetBrains Mono so it lines up. */
 .gs-theme {
-  --user-font-family: var(--font-grotesk), system-ui, sans-serif;
-  --gs-font-heading: var(--font-chakra), system-ui, sans-serif;
-  --gs-font-ui: var(--font-jetbrains), ui-monospace, Menlo, monospace;
-  /* Code always stays monospace so indentation lines up, whatever the reading font. */
+  --gs-font-heading: var(--font-display);
+  --gs-font-ui: var(--font-mono);
   --gs-font-code: var(--font-jetbrains), ui-monospace, Menlo, monospace;
-}
-.gs-theme[data-gs-font="jetbrains"] {
-  --user-font-family: var(--font-jetbrains), ui-monospace, monospace;
-}
-.gs-theme[data-gs-font="jakarta"] {
-  --user-font-family: var(--font-jakarta), "Inter", system-ui, sans-serif;
-}
-.gs-theme[data-gs-font="comic"] {
-  --user-font-family: "Comic Sans MS", "Comic Sans", var(--font-comic-neue), cursive;
-}
-.gs-theme[data-gs-font="times"] {
-  --user-font-family: "Times New Roman", Times, serif;
-}
-.gs-theme:not([data-gs-font="site"]) {
-  --gs-font-heading: var(--user-font-family);
-  --gs-font-ui: var(--user-font-family);
 }
 
 /* ---------- Page ---------- */
 
 .gs-theme {
   color: var(--text-main);
-  font-family: var(--user-font-family);
   background-color: var(--bg-base);
   background-image:
     radial-gradient(60rem 34rem at 10% 0%, var(--glow), transparent 70%),
@@ -231,6 +227,25 @@
     pointer-events: none;
   }
 
+  /* "■ Stop Server": red so it stands out while the dev server runs. */
+  .gs-stop {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border: 1px solid var(--git-danger);
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--git-danger) 16%, var(--bg-surface));
+    color: var(--git-danger);
+    padding: 0.3rem 0.65rem;
+    font-family: var(--gs-font-ui);
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .gs-stop:hover {
+    background: color-mix(in srgb, var(--git-danger) 26%, var(--bg-surface));
+  }
+
   /* Small file badges: [M] modified, [S] staged, [!] conflict. */
   .gs-badge {
     display: inline-flex;
@@ -265,9 +280,37 @@
   --gs-speed: 2;
 }
 
-.gs-root:fullscreen {
+/* "Expand studio" is a fixed overlay, not the browser's fullscreen mode: the site cursor
+   (z-index 99999) stays above it, so the pointer never disappears. */
+.gs-root.gs-expanded {
+  position: fixed;
+  inset: 0;
+  z-index: 9990;
   overflow: auto;
+  border-radius: 0;
   background: var(--bg-base);
+}
+html:has(.gs-expanded) {
+  overflow: hidden;
+}
+
+/* The live preview's theater view sits above the studio but below the cursor. */
+.gs-theater {
+  position: fixed;
+  inset: 8vh 4vw;
+  z-index: 9995;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--accent-primary);
+  border-radius: 6px;
+  background: var(--bg-surface);
+  box-shadow: 0 30px 120px -20px rgb(0 0 0 / 0.7);
+}
+.gs-theater-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9994;
+  background: rgb(0 0 0 / 0.55);
 }
 
 /* Status dot */

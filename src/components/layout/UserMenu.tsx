@@ -38,6 +38,7 @@ export function UserMenu() {
         items={[
           { label: "Log in", href: "/login" },
           { label: "Create an account", href: "/register" },
+          { label: "Appearance", href: "/appearance" },
           { label: "Leave guest mode", onSelect: leaveGuest },
         ]}
       />
@@ -60,6 +61,7 @@ export function UserMenu() {
       align="right"
       items={[
         { label: "Profile", href: "/account" },
+        { label: "Appearance", href: "/account#appearance" },
         { label: "Log out", onSelect: logOut },
       ]}
     />

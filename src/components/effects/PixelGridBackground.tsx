@@ -12,36 +12,81 @@ const LEVELS = 5;
 const HUE_STEPS = 16;
 const HEADER_CLEARANCE = 112;
 
-const SPACE: [number, number, number] = [7, 11, 31];
-const NEBULA: [number, number, number][] = [
-  [38, 76, 214], // blue
-  [109, 74, 255], // violet
-  [190, 60, 170], // magenta
-  [24, 150, 180], // teal
-];
-const STAR = "rgba(230, 241, 255, 0.75)";
-const GRID_LINE = "rgba(148, 170, 255, 0.07)";
+type Rgb = [number, number, number];
+type GridPalette = { space: Rgb; nebula: Rgb[]; star: string; grid: string };
 
-function rgb(a: [number, number, number], b: [number, number, number], t: number) {
+/** One set of colours per Appearance palette; "navy" is the original design. */
+const GRID_PALETTES: Record<string, GridPalette> = {
+  navy: {
+    space: [7, 11, 31],
+    nebula: [
+      [38, 76, 214], // blue
+      [109, 74, 255], // violet
+      [190, 60, 170], // magenta
+      [24, 150, 180], // teal
+    ],
+    star: "rgba(230, 241, 255, 0.75)",
+    grid: "rgba(148, 170, 255, 0.07)",
+  },
+  "purple-dark": {
+    space: [7, 6, 14],
+    nebula: [
+      [124, 58, 237],
+      [168, 85, 247],
+      [192, 38, 211],
+      [76, 29, 149],
+    ],
+    star: "rgba(248, 250, 252, 0.7)",
+    grid: "rgba(192, 132, 252, 0.06)",
+  },
+  "red-dark": {
+    space: [8, 5, 6],
+    nebula: [
+      [185, 28, 28],
+      [239, 68, 68],
+      [159, 18, 57],
+      [124, 45, 18],
+    ],
+    star: "rgba(254, 242, 242, 0.7)",
+    grid: "rgba(248, 113, 113, 0.06)",
+  },
+  "purple-light": {
+    space: [248, 247, 252],
+    nebula: [
+      [196, 181, 253],
+      [221, 214, 254],
+      [240, 171, 252],
+      [165, 180, 252],
+    ],
+    star: "rgba(124, 58, 237, 0.35)",
+    grid: "rgba(124, 58, 237, 0.07)",
+  },
+};
+
+function currentGridPalette() {
+  return GRID_PALETTES[document.documentElement.dataset.palette ?? "navy"] ?? GRID_PALETTES.navy;
+}
+
+function rgb(a: Rgb, b: Rgb, t: number) {
   const m = (i: number) => Math.round(a[i] + (b[i] - a[i]) * t);
   return `rgb(${m(0)}, ${m(1)}, ${m(2)})`;
 }
 
 /** Precomputed colors, indexed by hue step then brightness level. Kept dark so text stays readable. */
-function buildPalette() {
+function buildPalette({ space, nebula }: GridPalette) {
   const table: string[][] = [];
   for (let h = 0; h < HUE_STEPS; h++) {
-    const pos = (h / HUE_STEPS) * NEBULA.length;
-    const a = NEBULA[Math.floor(pos)];
-    const b = NEBULA[(Math.floor(pos) + 1) % NEBULA.length];
+    const pos = (h / HUE_STEPS) * nebula.length;
+    const a = nebula[Math.floor(pos)];
+    const b = nebula[(Math.floor(pos) + 1) % nebula.length];
     const f = pos - Math.floor(pos);
-    const hue: [number, number, number] = [
+    const hue: Rgb = [
       a[0] + (b[0] - a[0]) * f,
       a[1] + (b[1] - a[1]) * f,
       a[2] + (b[2] - a[2]) * f,
     ];
     const row: string[] = [];
-    for (let l = 0; l < LEVELS; l++) row.push(rgb(SPACE, hue, 0.12 + (l / (LEVELS - 1)) * 0.5));
+    for (let l = 0; l < LEVELS; l++) row.push(rgb(space, hue, 0.12 + (l / (LEVELS - 1)) * 0.5));
     table.push(row);
   }
   return table;
@@ -89,7 +134,8 @@ export function PixelGridBackground() {
 
     const reduce = matchMedia("(prefers-reduced-motion: reduce)");
     const touch = matchMedia("(hover: none), (pointer: coarse)");
-    const palette = buildPalette();
+    let colors = currentGridPalette();
+    let palette = buildPalette(colors);
 
     let W = 0;
     let H = 0;
@@ -106,7 +152,7 @@ export function PixelGridBackground() {
 
     function draw() {
       const c = ctx!;
-      c.fillStyle = `rgb(${SPACE.join(", ")})`;
+      c.fillStyle = `rgb(${colors.space.join(", ")})`;
       c.fillRect(0, 0, W, H);
       const twinkle = Math.floor(time * 12);
       for (let j = 0; j < rows; j++) {
@@ -134,13 +180,13 @@ export function PixelGridBackground() {
             const on = hash3(i, j, Math.floor(twinkle / 24 + seed * 100)) > 0.35;
             if (on) {
               const size = seed > 0.996 ? 4 : 2;
-              c.fillStyle = STAR;
+              c.fillStyle = colors.star;
               c.fillRect(x + TILE / 2 - size / 2, y + TILE / 2 - size / 2, size, size);
             }
           }
         }
       }
-      c.fillStyle = GRID_LINE;
+      c.fillStyle = colors.grid;
       for (let i = 1; i <= cols; i++) c.fillRect(i * TILE - 1, 0, 1, H);
       for (let j = 1; j <= rows; j++) c.fillRect(0, j * TILE - 1, W, 1);
     }
@@ -198,6 +244,14 @@ export function PixelGridBackground() {
       else start();
     }
 
+    // Recolour straight away when the Appearance palette changes.
+    const paletteWatch = new MutationObserver(() => {
+      colors = currentGridPalette();
+      palette = buildPalette(colors);
+      draw();
+    });
+    paletteWatch.observe(document.documentElement, { attributes: true, attributeFilter: ["data-palette"] });
+
     resize();
     applyMode();
     window.addEventListener("pointermove", onMove, { passive: true });
@@ -209,6 +263,7 @@ export function PixelGridBackground() {
 
     return () => {
       stop();
+      paletteWatch.disconnect();
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("resize", resize);
       document.removeEventListener("mouseleave", onLeave);

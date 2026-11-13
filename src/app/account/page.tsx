@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { GroupPicker } from "@/components/account/GroupPicker";
+import { AppearanceSettings } from "@/components/appearance/AppearanceSettings";
 import { AccountForm } from "@/components/auth/AccountForm";
 import { bestScores } from "@/lib/progress";
 import { MAX_ATTEMPTS, QUESTIONS_PER_QUIZ, QUIZ_TITLES } from "@/lib/quiz-meta";
@@ -120,6 +121,8 @@ export default async function AccountPage() {
         // Guests and admins are kept off the leaderboard.
         onLeaderboard={!isAdmin && !isGuestAccount}
       />
+
+      <AppearanceSettings signedIn />
     </main>
   );
 }

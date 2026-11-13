@@ -28,15 +28,19 @@ export type RepoState = {
   head: string;
   detached: string | null;
   branches: Record<string, string>;
-  /** origin/<branch> -> commit id. */
+  /** origin/<branch> as GitHub has it right now (teammates can move it). */
   remote: Record<string, string>;
+  /** origin/<branch> as this machine last saw it: moves on clone, push, fetch and pull. */
+  tracking: Record<string, string>;
   commits: Record<string, Commit>;
   order: string[];
   index: Files;
   merging: { theirs: string; branch: string; unresolved: string[] } | null;
   next: number;
+  /** "" until a remote is added or the repo was cloned. */
   remoteUrl: string;
   user: { name: string; email: string };
+  stash: { message: string; head: string | null; work: Files }[];
 };
 
 export type GitIo = {
@@ -269,6 +273,7 @@ export function createMiniGit() {
       detached: null,
       branches: { main: "C0" },
       remote: { main: "C0" },
+      tracking: { main: "C0" },
       commits: { C0: c0 },
       order: ["C0"],
       index: { ...tree },
@@ -276,7 +281,95 @@ export function createMiniGit() {
       next: 1,
       remoteUrl: REMOTE_URL,
       user,
+      stash: [],
     };
+  }
+
+  /** What `git init` makes: an unborn main branch, no commits, no remote. */
+  function emptyState(user?: { name: string; email: string }): RepoState {
+    return {
+      v: 1,
+      head: "main",
+      detached: null,
+      branches: {},
+      remote: {},
+      tracking: {},
+      commits: {},
+      order: [],
+      index: {},
+      merging: null,
+      next: 0,
+      remoteUrl: "",
+      user: user ?? { name: "ITCamp Student", email: "student@itclub.dev" },
+      stash: [],
+    };
+  }
+
+  /** A fresh clone: history oldest first, all on main, with origin/main at the tip. */
+  function clonedState(
+    history: { message: string; files: Files; author?: string; time?: number; sha?: string }[],
+    remoteUrl: string,
+    now: number,
+    user?: { name: string; email: string },
+  ): RepoState {
+    const s = emptyState(user);
+    s.remoteUrl = remoteUrl;
+    let parent = "";
+    for (let i = 0; i < history.length; i++) {
+      const h = history[i];
+      const id = `C${i}`;
+      s.commits[id] = {
+        id,
+        sha: h.sha ?? makeSha(`${id}\n${h.message}\n${JSON.stringify(h.files)}`),
+        message: h.message,
+        parents: parent ? [parent] : [],
+        branch: "main",
+        time: h.time ?? now - (history.length - i) * 3600000,
+        author: h.author ?? "ITClub Team <team@itclub.dev>",
+        files: { ...h.files },
+      };
+      s.order.push(id);
+      parent = id;
+    }
+    s.next = history.length;
+    if (parent) {
+      s.branches.main = parent;
+      s.remote.main = parent;
+      s.tracking.main = parent;
+      s.index = { ...s.commits[parent].files };
+    }
+    return s;
+  }
+
+  /** Remote-tracking refs (older saved states had none, so fall back to the remote). */
+  function trk(s: RepoState): Record<string, string> {
+    return s.tracking ?? s.remote;
+  }
+
+  /** Three-way file merge used by revert, cherry-pick, rebase and stash pop. */
+  function threeWay(base: Files, ours: Files, theirs: Files, label: string) {
+    const result: Files = {};
+    const conflicts: string[] = [];
+    for (const path of sortedKeys(base, ours, theirs)) {
+      const b = base[path];
+      const o = ours[path];
+      const t = theirs[path];
+      if (o === t) {
+        if (o !== undefined) result[path] = o;
+      } else if (b === o) {
+        if (t !== undefined) result[path] = t;
+      } else if (b === t) {
+        if (o !== undefined) result[path] = o;
+      } else if (o === undefined || t === undefined) {
+        result[path] = (o ?? t)!;
+        conflicts.push(path);
+      } else {
+        const merged = mergeText(b ?? "", o, t, label);
+        result[path] = merged.text;
+        if (merged.conflict) conflicts.push(path);
+      }
+    }
+    return { result, conflicts };
   }
 
   function headId(s: RepoState) {
@@ -367,7 +460,7 @@ export function createMiniGit() {
     let id: string | null = null;
     if (name === "HEAD" || name === "@") id = headId(s);
     else if (s.branches[name]) id = s.branches[name];
-    else if (name.startsWith("origin/") && s.remote[name.slice(7)]) id = s.remote[name.slice(7)];
+    else if (name.startsWith("origin/") && trk(s)[name.slice(7)]) id = trk(s)[name.slice(7)];
     else if (/^c\d+$/i.test(name) && s.commits[name.toUpperCase()]) id = name.toUpperCase();
     else if (/^[0-9a-f]{4,40}$/i.test(name)) {
       const found = s.order.filter((c) => s.commits[c].sha.startsWith(name.toLowerCase()));
@@ -401,7 +494,7 @@ export function createMiniGit() {
       if (!s.detached && s.head === name) parts.unshift(`${BOLD}${CYAN}HEAD -> ${GREEN}${name}${RESET}`);
       else parts.push(`${BOLD}${GREEN}${name}${RESET}`);
     }
-    for (const [name, tip] of Object.entries(s.remote)) {
+    for (const [name, tip] of Object.entries(trk(s))) {
       if (tip === id) parts.push(`${BOLD}${RED}origin/${name}${RESET}`);
     }
     return parts.length ? ` ${YELLOW}(${RESET}${parts.join(`${YELLOW}, ${RESET}`)}${YELLOW})${RESET}` : "";
@@ -446,6 +539,8 @@ export function createMiniGit() {
     `${BOLD}usage:${RESET} git <command> [<args>]`,
     "",
     `${CYAN}Start a working area${RESET}`,
+    "   init       Turn this folder into a new repository",
+    "   clone      Copy a repository from GitHub:  git clone <url>",
     "   status     Show the working tree status",
     "   add        Add file contents to the staging area (index)",
     "   restore    Restore working tree files, or unstage with --staged",
@@ -457,6 +552,10 @@ export function createMiniGit() {
     "   checkout   Switch branches (-b creates one), or restore a file",
     "   switch     Switch branches (-c creates one)",
     "   merge      Join another branch into the current one",
+    "   stash      Shelve uncommitted work (stash list / pop / apply / drop)",
+    "   revert     Undo a commit with a new commit:  git revert <commit>",
+    "   cherry-pick  Copy one commit onto this branch",
+    "   rebase     Replay this branch on top of another",
     "",
     `${CYAN}Look around${RESET}`,
     "   log        Show commit history (--oneline, --all)",
@@ -465,8 +564,12 @@ export function createMiniGit() {
     "",
     `${CYAN}Collaborate (origin = GitHub)${RESET}`,
     "   push       Upload your commits:  git push origin main",
+    "   fetch      Download what changed on GitHub (no merge)",
     "   pull       Fetch and merge from origin",
-    "   remote     Show the remote:  git remote -v",
+    "   remote     Show or add the remote:  git remote add origin <url>",
+    "",
+    `${CYAN}Practice${RESET}`,
+    "   fakeTeamwork [branch] [n]   Pretend teammates pushed n commits to GitHub",
     "",
   ].join("\n");
 
@@ -509,7 +612,7 @@ export function createMiniGit() {
         return done();
 
       case "clone":
-        fail(`fatal: this sandbox is already a clone of ${s.remoteUrl}`, 128);
+        fail("fatal: run git clone from the folder you want the copy in (outside this repository).", 128);
         return done();
 
       case "config": {
@@ -517,7 +620,7 @@ export function createMiniGit() {
         if (flags.has("--list") || flags.has("-l")) {
           print(`user.name=${s.user.name}`);
           print(`user.email=${s.user.email}`);
-          print(`remote.origin.url=${s.remoteUrl}`);
+          if (s.remoteUrl) print(`remote.origin.url=${s.remoteUrl}`);
           return done();
         }
         if (key !== "user.name" && key !== "user.email") {
@@ -552,8 +655,8 @@ export function createMiniGit() {
         if (s.detached) print(`${RED}HEAD detached at ${short(s, s.detached)}${RESET}`);
         else {
           print(`On branch ${s.head}`);
-          const remoteTip = s.remote[s.head];
-          if (remoteTip) {
+          const remoteTip = trk(s)[s.head];
+          if (remoteTip && headId(s)) {
             const ahead = missing(s, s.branches[s.head], remoteTip).length;
             const behind = missing(s, remoteTip, s.branches[s.head]).length;
             if (ahead && behind) print(`Your branch and 'origin/${s.head}' have diverged.`);
@@ -565,6 +668,10 @@ export function createMiniGit() {
           }
         }
         print();
+        if (!headId(s)) {
+          print("No commits yet");
+          print();
+        }
         if (st.conflicted.length) {
           print("You have unmerged paths.");
           print('  (fix conflicts and run "git commit")');
@@ -727,7 +834,7 @@ export function createMiniGit() {
         const all = flags.has("--all");
         const starts: string[] = [];
         if (all) {
-          starts.push(...Object.values(s.branches), ...Object.values(s.remote));
+          starts.push(...Object.values(s.branches), ...Object.values(trk(s)));
           const head = headId(s);
           if (head) starts.push(head);
         } else if (positional[0]) {
@@ -740,6 +847,10 @@ export function createMiniGit() {
         } else {
           const head = headId(s);
           if (head) starts.push(head);
+        }
+        if (!starts.length) {
+          fail(`fatal: your current branch '${s.head}' does not have any commits yet`, 128);
+          return done();
         }
         const show = new Set<string>();
         for (const start of starts) for (const id of reachable(s, start)) show.add(id);
@@ -874,7 +985,7 @@ export function createMiniGit() {
               return done();
             }
             if (!s.detached && s.head === name) {
-              fail(`error: Cannot delete branch '${name}' checked out at '/home/portal'`);
+              fail(`error: Cannot delete branch '${name}' because you are on it. Switch to another branch first.`);
               return done();
             }
             if (!force && !reachable(s, headId(s)).has(tip)) {
@@ -892,7 +1003,7 @@ export function createMiniGit() {
           const [a, b] = positional;
           const from = b ? a : s.head;
           const to = b ?? a;
-          if (!to || !s.branches[from]) {
+          if (!to || (!s.branches[from] && from !== s.head)) {
             fail("fatal: branch rename needs a new name");
             return done();
           }
@@ -900,8 +1011,10 @@ export function createMiniGit() {
             fail(`fatal: '${to}' is not a valid branch name`, 128);
             return done();
           }
-          s.branches[to] = s.branches[from];
-          delete s.branches[from];
+          if (s.branches[from]) {
+            s.branches[to] = s.branches[from];
+            delete s.branches[from];
+          }
           if (s.head === from) s.head = to;
           changed = true;
           return done();
@@ -918,7 +1031,7 @@ export function createMiniGit() {
           }
           const at = start ? resolveRev(s, start) : headId(s);
           if (!at) {
-            fail(`fatal: not a valid object name: '${start}'`, 128);
+            fail(`fatal: not a valid object name: '${start ?? s.head}'`, 128);
             return done();
           }
           s.branches[name] = at;
@@ -931,7 +1044,7 @@ export function createMiniGit() {
           else print(`  ${name}`);
         }
         if (flags.has("-a") || flags.has("-r")) {
-          for (const name of Object.keys(s.remote).sort()) print(`  ${RED}remotes/origin/${name}${RESET}`);
+          for (const name of Object.keys(trk(s)).sort()) print(`  ${RED}remotes/origin/${name}${RESET}`);
         }
         return done();
       }
@@ -970,6 +1083,13 @@ export function createMiniGit() {
             fail(`fatal: a branch named '${name}' already exists`, 128);
             return done();
           }
+          if (!positional[1] && !headId(s)) {
+            // No commits yet: just rename the unborn branch, like real Git.
+            s.head = name;
+            changed = true;
+            print(`Switched to a new branch '${name}'`);
+            return done();
+          }
           const at = positional[1] ? resolveRev(s, positional[1]) : headId(s);
           if (!at) {
             fail(`fatal: '${positional[1]}' is not a commit`, 128);
@@ -992,9 +1112,9 @@ export function createMiniGit() {
         let branch = s.branches[name] ? name : null;
         let target = branch ? s.branches[name] : null;
         let tracking = false;
-        if (!branch && s.remote[name]) {
+        if (!branch && trk(s)[name]) {
           branch = name;
-          target = s.remote[name];
+          target = trk(s)[name];
           tracking = true;
         }
         if (!branch && command === "checkout" && name in s.index && !resolveRev(s, name)) {
@@ -1089,34 +1209,332 @@ export function createMiniGit() {
       }
 
       case "pull": {
+        if (!s.remoteUrl) {
+          fail("fatal: 'origin' does not appear to be a git repository\nfatal: Could not read from remote repository.", 128);
+          return done();
+        }
         if (s.detached) {
           fail("You are not currently on a branch.");
           return done();
         }
         const branch = positional[1] ?? s.head;
-        const theirs = s.remote[branch];
-        print(`From ${s.remoteUrl.replace(/\.git$/, "")}`);
+        fetchAll();
+        const theirs = trk(s)[branch];
         if (!theirs) {
           fail(`fatal: couldn't find remote ref ${branch}`, 128);
           return done();
         }
-        print(` * branch            ${branch}       -> FETCH_HEAD`);
-        return mergeInto(`origin/${branch}`, theirs, headId(s)!);
+        const ours = headId(s);
+        if (!ours) {
+          moveTree(s, io, {}, treeOf(s, theirs));
+          s.branches[s.head] = theirs;
+          return done();
+        }
+        return mergeInto(`origin/${branch}`, theirs, ours);
       }
 
       case "fetch":
+        if (!s.remoteUrl) {
+          fail("fatal: 'origin' does not appear to be a git repository\nfatal: Could not read from remote repository.", 128);
+          return done();
+        }
+        if (!fetchAll()) print(`${DIM}(nothing new on GitHub)${RESET}`);
         return done();
 
-      case "remote":
+      case "remote": {
+        if (positional[0] === "add") {
+          const [, name, url] = positional;
+          if (s.remoteUrl) {
+            fail("error: remote origin already exists.", 3);
+            return done();
+          }
+          if (name !== "origin" || !url) {
+            fail("usage: git remote add origin <url>", 129);
+            return done();
+          }
+          s.remoteUrl = url;
+          changed = true;
+          return done();
+        }
+        if (positional[0] === "remove" || positional[0] === "rm") {
+          s.remoteUrl = "";
+          s.remote = {};
+          s.tracking = {};
+          changed = true;
+          return done();
+        }
+        if (!s.remoteUrl) return done();
         if (flags.has("-v") || flags.has("--verbose")) {
           print(`origin\t${s.remoteUrl} (fetch)`);
           print(`origin\t${s.remoteUrl} (push)`);
-        } else if (positional[0] === "add") {
-          fail("error: remote origin already exists.", 3);
         } else print("origin");
         return done();
+      }
+
+      case "fakeTeamwork": {
+        if (!s.remoteUrl) {
+          fail("fatal: no GitHub remote to fake teamwork on. Clone a repository first.", 128);
+          return done();
+        }
+        const branch = positional.find((p) => !/^\d+$/.test(p)) ?? "main";
+        const n = Math.min(10, Math.max(1, Number(positional.find((p) => /^\d+$/.test(p)) ?? 1)));
+        let tip = s.remote[branch];
+        if (!tip) {
+          fail(`fatal: GitHub has no branch '${branch}' yet.`, 128);
+          return done();
+        }
+        const made: string[] = [];
+        for (let i = 0; i < n; i++) {
+          const parentFiles = treeOf(s, tip);
+          const id = `C${s.next}`;
+          s.next++;
+          const time = io.now();
+          const message = `Teammate update ${i + 1}`;
+          const files = { ...parentFiles, "teamwork.txt": `${parentFiles["teamwork.txt"] ?? ""}Teammate change ${id}\n` };
+          s.commits[id] = {
+            id,
+            sha: makeSha(`${id}\n${message}\n${tip}\n${time}`),
+            message,
+            parents: [tip],
+            branch,
+            time,
+            author: "Teammate <teammate@itclub.dev>",
+            files,
+          };
+          s.order.push(id);
+          made.push(id);
+          tip = id;
+        }
+        s.remote[branch] = tip;
+        changed = true;
+        print(`${MAGENTA}Simulated ${plural(n, "teammate commit")} pushed to GitHub's ${branch}: ${made.join(", ")}${RESET}`);
+        print(`${DIM}  Your origin/${branch} has not seen them yet. Run git pull (or git fetch) to bring them down.${RESET}`);
+        return done();
+      }
+
+      case "stash": {
+        s.stash = s.stash ?? [];
+        const sub = positional[0] ?? "push";
+        const head = headId(s);
+        const headTree = treeOf(s, head);
+        if (sub === "push" || sub === "save") {
+          const work = readWork(io);
+          const st = status(s, work);
+          if (!st.staged.length && !st.unstaged.length) {
+            print("No local changes to save");
+            return done();
+          }
+          const snapshot: Files = {};
+          for (const path of sortedKeys(s.index, headTree)) if (path in work) snapshot[path] = work[path];
+          const m = args.indexOf("-m");
+          const label = m > -1 && args[m + 1] ? args[m + 1] : head ? `${short(s, head)} ${s.commits[head].message.split("\n")[0]}` : "(no commits)";
+          const message = `WIP on ${s.detached ? "(no branch)" : s.head}: ${label}`;
+          s.stash.unshift({ message, head, work: snapshot });
+          for (const path of sortedKeys(s.index, headTree)) {
+            if (path in headTree) {
+              if (work[path] !== headTree[path]) io.write(path, headTree[path]);
+            } else io.remove(path);
+          }
+          s.index = { ...headTree };
+          changed = true;
+          print(`Saved working directory and index state ${message}`);
+          return done();
+        }
+        if (sub === "list") {
+          s.stash.forEach((entry, i) => print(`stash@{${i}}: ${entry.message}`));
+          return done();
+        }
+        if (sub === "drop" || sub === "clear") {
+          if (!s.stash.length) {
+            fail("error: No stash entries found.");
+            return done();
+          }
+          if (sub === "clear") s.stash = [];
+          else print(`Dropped refs/stash@{0} (${s.stash.shift()!.message})`);
+          changed = true;
+          return done();
+        }
+        if (sub === "pop" || sub === "apply") {
+          const entry = s.stash[0];
+          if (!entry) {
+            fail("error: No stash entries found.");
+            return done();
+          }
+          const base = treeOf(s, entry.head);
+          const work = readWork(io);
+          const touched = sortedKeys(base, entry.work).filter((p) => base[p] !== entry.work[p]);
+          const blocked = touched.filter((p) => work[p] !== headTree[p]);
+          if (blocked.length) {
+            fail(
+              `error: Your local changes to the following files would be overwritten by stash:\n${blocked.map((p) => `\t${p}`).join("\n")}\nPlease commit your changes or stash them before you continue.\nAborting`,
+            );
+            return done();
+          }
+          const merged = threeWay(base, headTree, entry.work, "stash");
+          for (const path of touched) {
+            if (path in merged.result) io.write(path, merged.result[path]);
+            else io.remove(path);
+            if (!(path in base) && path in entry.work) s.index[path] = entry.work[path];
+          }
+          changed = true;
+          print(`On branch ${s.head}`);
+          print("Changes not staged for commit:");
+          for (const path of touched) print(`\t${RED}modified:   ${path}${RESET}`);
+          if (merged.conflicts.length) {
+            for (const path of merged.conflicts) print(`${RED}CONFLICT (content): Merge conflict in ${path}${RESET}`);
+            print("The stash entry is kept in case you need it again.");
+          } else if (sub === "pop") {
+            s.stash.shift();
+            print(`Dropped refs/stash@{0} (${entry.message})`);
+          }
+          return done();
+        }
+        fail(`error: unknown subcommand: ${sub}`, 129);
+        return done();
+      }
+
+      case "revert":
+      case "cherry-pick": {
+        const rev = positional[0];
+        const id = rev ? resolveRev(s, rev) : null;
+        if (!id) {
+          fail(`fatal: bad revision '${rev ?? ""}'`, 128);
+          return done();
+        }
+        const c = s.commits[id];
+        if (c.parents.length > 1) {
+          fail(`error: commit ${short(s, id)} is a merge but no -m option was given.\nfatal: ${command} failed`, 128);
+          return done();
+        }
+        const head = headId(s);
+        if (!head) {
+          fail("fatal: your current branch does not have any commits yet", 128);
+          return done();
+        }
+        const work = readWork(io);
+        const st = status(s, work);
+        if (st.staged.length || st.unstaged.length || st.conflicted.length) {
+          fail(`error: your local changes would be overwritten by ${command}.\nhint: commit your changes or stash them to proceed.\nfatal: ${command} failed`, 128);
+          return done();
+        }
+        const headTree = treeOf(s, head);
+        const parentTree = treeOf(s, c.parents[0] ?? null);
+        const firstLine = c.message.split("\n")[0];
+        const step =
+          command === "revert"
+            ? threeWay(c.files, headTree, parentTree, `parent of ${short(s, id)}`)
+            : threeWay(parentTree, headTree, c.files, `${short(s, id)} (${firstLine})`);
+        if (step.conflicts.length) {
+          fail(
+            `error: could not ${command} ${short(s, id)}... ${firstLine}\nhint: it conflicts with this branch in ${step.conflicts.join(", ")}.\nhint: this sandbox leaves your files as they were; try git merge instead.`,
+          );
+          return done();
+        }
+        if (sameTree(step.result, headTree)) {
+          fail(command === "revert" ? "nothing to commit: those changes are already gone" : "The cherry-pick is empty: this branch already has that change.");
+          return done();
+        }
+        moveTree(s, io, headTree, step.result);
+        const message = command === "revert" ? `Revert "${firstLine}"\n\nThis reverts commit ${c.sha}.` : c.message;
+        const newId = commitTree(message, step.result, [head], command === "revert" ? undefined : c.author);
+        print(`[${s.detached ? "detached HEAD" : s.head} ${short(s, newId)}] ${message.split("\n")[0]}`);
+        print(changeSummary(headTree, step.result));
+        print(`${DIM}  -> ${command === "revert" ? `${newId} undoes ${id}` : `${newId} is a copy of ${id}`}${RESET}`);
+        return done();
+      }
+
+      case "rebase": {
+        if (flags.has("--abort") || flags.has("--continue")) {
+          fail("fatal: No rebase in progress?", 128);
+          return done();
+        }
+        const head = headId(s);
+        if (s.detached || !head) {
+          fail("fatal: rebase needs a branch with commits", 128);
+          return done();
+        }
+        const up = positional[0] ? resolveRev(s, positional[0]) : (trk(s)[s.head] ?? null);
+        if (!up) {
+          fail(`fatal: invalid upstream '${positional[0] ?? ""}'`, 128);
+          return done();
+        }
+        const st = status(s, readWork(io));
+        if (st.staged.length || st.unstaged.length) {
+          fail("error: cannot rebase: You have unstaged changes.\nerror: Please commit or stash them.");
+          return done();
+        }
+        const mine = reachable(s, head);
+        if (mine.has(up)) {
+          print(`Current branch ${s.head} is up to date.`);
+          return done();
+        }
+        const headTree = treeOf(s, head);
+        const upSet = reachable(s, up);
+        if (upSet.has(head)) {
+          moveTree(s, io, headTree, treeOf(s, up));
+          s.branches[s.head] = up;
+          changed = true;
+          print(`Successfully rebased and updated refs/heads/${s.head}.`);
+          print(`${DIM}  -> fast-forwarded to ${up}${RESET}`);
+          return done();
+        }
+        const replay = s.order.filter((id) => mine.has(id) && !upSet.has(id) && s.commits[id].parents.length === 1);
+        let tree = treeOf(s, up);
+        const planned: { from: string; files: Files }[] = [];
+        const skipped: string[] = [];
+        for (const id of replay) {
+          const c = s.commits[id];
+          const step = threeWay(treeOf(s, c.parents[0]), tree, c.files, short(s, id));
+          if (step.conflicts.length) {
+            fail(
+              `error: could not apply ${short(s, id)}... ${c.message.split("\n")[0]}\nhint: it conflicts in ${step.conflicts.join(", ")}. This sandbox stops and leaves your branch as it was.\nhint: use git merge for branches that conflict.`,
+            );
+            return done();
+          }
+          // Like real Git, a commit whose change is already there is dropped.
+          if (sameTree(step.result, tree)) {
+            skipped.push(id);
+            continue;
+          }
+          tree = step.result;
+          planned.push({ from: id, files: tree });
+        }
+        let tip = up;
+        const created: string[] = [];
+        for (const p of planned) {
+          const c = s.commits[p.from];
+          const id = `C${s.next}`;
+          s.next++;
+          s.commits[id] = {
+            ...c,
+            id,
+            sha: makeSha(`${id}\n${c.message}\n${tip}\n${c.time}\n${JSON.stringify(p.files)}`),
+            parents: [tip],
+            branch: s.head,
+            files: { ...p.files },
+          };
+          s.order.push(id);
+          created.push(id);
+          tip = id;
+        }
+        moveTree(s, io, headTree, tree);
+        s.branches[s.head] = tip;
+        s.index = { ...tree };
+        changed = true;
+        print(`Successfully rebased and updated refs/heads/${s.head}.`);
+        print(`${DIM}  -> replayed ${planned.map((p) => p.from).join(", ") || "nothing"} on top of ${up}${created.length ? ` as ${created.join(", ")}` : ""}${RESET}`);
+        if (skipped.length) print(`${DIM}  -> dropped ${skipped.join(", ")}: already applied upstream${RESET}`);
+        return done();
+      }
 
       case "push": {
+        if (!s.remoteUrl) {
+          fail(
+            `fatal: No configured push destination.\nEither specify the URL from the command-line or configure a remote repository using\n\n    git remote add origin <url>\n\nand then push using the remote name\n\n    git push origin ${s.head || "main"}`,
+            128,
+          );
+          return done();
+        }
         const force = flags.has("-f") || flags.has("--force");
         const [remoteName, refspec] = positional;
         if (remoteName && remoteName !== "origin") {
@@ -1139,9 +1557,16 @@ export function createMiniGit() {
           return done();
         }
         if (before && !reachable(s, local).has(before) && !force) {
+          const teammates = !reachable(s, trk(s)[branch]).has(before);
           print(`To ${s.remoteUrl}`);
-          print(` ${RED}! [rejected]${RESET}        ${branch} -> ${branch} (non-fast-forward)`);
-          fail(`error: failed to push some refs to '${s.remoteUrl}'\n${YELLOW}hint: Updates were rejected because the tip of your current branch is behind\nhint: its remote counterpart. Use 'git pull' before pushing again.${RESET}`);
+          print(` ${RED}! [rejected]${RESET}        ${branch} -> ${branch} (${teammates ? "fetch first" : "non-fast-forward"})`);
+          fail(
+            `error: failed to push some refs to '${s.remoteUrl}'\n${YELLOW}` +
+              (teammates
+                ? "hint: Updates were rejected because the remote contains work that you do not\nhint: have locally. This is usually caused by another person pushing to the same\nhint: branch. Run 'git pull' first, then push again."
+                : "hint: Updates were rejected because the tip of your current branch is behind\nhint: its remote counterpart. Use 'git pull' before pushing again.") +
+              RESET,
+          );
           return done();
         }
         // Only what GitHub lacks on any branch travels; a new branch of old commits sends nothing.
@@ -1178,6 +1603,7 @@ export function createMiniGit() {
             : `${DIM}  -> GitHub already had every commit; only the branch pointer moved${RESET}`,
         );
         s.remote[branch] = local;
+        s.tracking = { ...trk(s), [branch]: local };
         changed = true;
         return done();
       }
@@ -1185,6 +1611,50 @@ export function createMiniGit() {
       default:
         fail(`git: '${command}' is not a git command. See 'git help'.`);
         return done();
+    }
+
+    /** Records a commit of `files` on the current branch (used by revert and cherry-pick). */
+    function commitTree(message: string, files: Files, parents: string[], author?: string) {
+      const id = `C${s.next}`;
+      s.next++;
+      const time = io.now();
+      s.commits[id] = {
+        id,
+        sha: makeSha(`${id}\n${message}\n${parents.join(",")}\n${time}\n${JSON.stringify(files)}`),
+        message,
+        parents,
+        branch: s.detached ? "(detached)" : s.head,
+        time,
+        author: author ?? `${s.user.name} <${s.user.email}>`,
+        files: { ...files },
+      };
+      s.order.push(id);
+      if (s.detached) s.detached = id;
+      else s.branches[s.head] = id;
+      s.index = { ...files };
+      changed = true;
+      return id;
+    }
+
+    /** Brings origin/* up to date with GitHub and prints what moved. Returns how many refs moved. */
+    function fetchAll() {
+      const seen = trk(s);
+      const moved: string[] = [];
+      for (const [name, tip] of Object.entries(s.remote)) {
+        if (seen[name] === tip) continue;
+        moved.push(
+          seen[name]
+            ? `   ${short(s, seen[name])}..${short(s, tip)}  ${name.padEnd(10)} -> origin/${name}`
+            : ` * [new branch]      ${name.padEnd(10)} -> origin/${name}`,
+        );
+      }
+      if (moved.length) {
+        print(`From ${s.remoteUrl.replace(/\.git$/, "")}`);
+        moved.forEach((line) => print(line));
+      }
+      s.tracking = { ...s.remote };
+      changed = true;
+      return moved.length;
     }
 
     function mergeInto(name: string, theirs: string, ours: string): GitResult {
@@ -1312,6 +1782,9 @@ export function createMiniGit() {
     run,
     status,
     initialState,
+    emptyState,
+    clonedState,
+    trk,
     headId,
     treeOf,
     reachable,

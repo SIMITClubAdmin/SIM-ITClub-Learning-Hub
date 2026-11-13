@@ -1,8 +1,6 @@
-import type { Metadata } from "next";
-import { GitLearningPage } from "@/components/git-studio/GitLearningPage";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "How Git & GitHub work · Git & GitHub · ITCamp Learning Hub" };
-
+/** /learn/git opens the first Git & GitHub lesson. */
 export default function GitTrackPage() {
-  return <GitLearningPage />;
+  redirect("/learn/git/introduction");
 }

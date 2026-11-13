@@ -51,7 +51,7 @@ html.has-cursor :focus-visible {
 /* Reading and quiz backdrop: a dark veil over the homepage's pixel clouds, so they show
    through very faintly without pulling attention from the text. */
 .quiz-backdrop {
-  background-color: rgb(7 11 31 / 0.86);
+  background-color: color-mix(in srgb, var(--color-bg) 86%, transparent);
 }
 
 /* Quiz feedback bar slides up from the bottom of the screen. */
@@ -73,7 +73,7 @@ html.has-cursor :focus-visible {
 /* Same outline as the topic moons: a dark ring, and a cyan ring on hover or focus. */
 .playground-planet > span:first-child {
   animation: playground-bob 4s ease-in-out infinite;
-  box-shadow: 0 0 0 2px rgb(7 11 31 / 0.9);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-bg) 90%, transparent);
   transition:
     scale 200ms ease-out,
     box-shadow 200ms ease-out;
@@ -110,7 +110,8 @@ html.has-cursor * {
   left: 0;
   top: 0;
   pointer-events: none;
-  z-index: 9999;
+  /* Above everything, including the Git studio's expanded overlay and preview theater. */
+  z-index: 99999;
   opacity: 0;
   transition: opacity 150ms ease-out;
 }
@@ -215,7 +216,7 @@ html.cc-on .cc-frame {
 
 /* PracticeOrbit */
 .orbit-node {
-  box-shadow: 0 0 0 2px rgb(7 11 31 / 0.9);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-bg) 90%, transparent);
   transition:
     scale 200ms ease-out,
     box-shadow 200ms ease-out;
@@ -291,7 +292,7 @@ html.cc-on .cc-frame {
 
 /* SolarSystem */
 .solar-planet {
-  box-shadow: 0 0 0 2px rgb(7 11 31 / 0.9);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-bg) 90%, transparent);
   transition: box-shadow 200ms ease-out;
 }
 
@@ -579,5 +580,203 @@ html.cc-on .cc-frame {
 @media (prefers-reduced-motion: reduce) {
   .pg-cta::before {
     animation: none;
+  }
+}
+
+/* ---------- Appearance: palettes, fonts and theme worlds (src/lib/appearance.ts) ---------- */
+/* Each choice is a data attribute on <html>; with none set the site keeps its original look. */
+
+html[data-palette="purple-dark"] {
+  --color-bg: #07060e;
+  --color-ink: #f8fafc;
+  --color-accent: #c084fc;
+  --color-grid: #1d1733;
+  --color-violet: #7c3aed;
+  --color-dim: #b3aecb;
+}
+
+html[data-palette="red-dark"] {
+  --color-bg: #080506;
+  --color-ink: #fef2f2;
+  --color-accent: #f87171;
+  --color-grid: #2a1216;
+  --color-violet: #b91c1c;
+  --color-dim: #c9b8bb;
+}
+
+html[data-palette="purple-light"] {
+  --color-bg: #f8f7fc;
+  --color-ink: #0f172a;
+  --color-accent: #7c3aed;
+  --color-grid: #e4dcfb;
+  --color-violet: #a78bfa;
+  --color-dim: #475569;
+  color-scheme: light;
+}
+
+/* The club logo is white; on the light palette it is flipped dark so it stays visible. */
+html[data-palette="purple-light"] body > header img {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+html[data-font="jetbrains"] {
+  --font-sans: var(--font-jetbrains), ui-monospace, Menlo, monospace;
+  --font-display: var(--font-jetbrains), ui-monospace, Menlo, monospace;
+}
+html[data-font="jakarta"] {
+  --font-sans: var(--font-jakarta), "Inter", system-ui, sans-serif;
+  --font-display: var(--font-jakarta), "Inter", system-ui, sans-serif;
+}
+html[data-font="comic"] {
+  --font-sans: "Comic Sans MS", "Comic Sans", var(--font-comic-neue), cursive;
+  --font-display: "Comic Sans MS", "Comic Sans", var(--font-comic-neue), cursive;
+}
+html[data-font="times"] {
+  --font-sans: "Times New Roman", Times, serif;
+  --font-display: "Times New Roman", Times, serif;
+}
+
+/* Theme-world cursors: the dot becomes an emoji or a terminal block; the focus frame stays. */
+html[data-world] .cc-dot {
+  width: auto;
+  height: auto;
+  margin: -13px 0 0 -13px;
+  background: none;
+}
+html[data-world] .cc-dot::before {
+  display: block;
+  font-size: 24px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.45));
+  transform-origin: 50% 80%;
+}
+html[data-world="cat"] .cc-dot::before {
+  content: "🐱";
+}
+html[data-world="dog"] .cc-dot::before {
+  content: "🐶";
+}
+html[data-world="penguin"] .cc-dot::before {
+  content: "🐧";
+}
+html[data-world="kawaii"] .cc-dot::before {
+  content: "🪄";
+}
+html[data-world="matrix"] .cc-dot {
+  margin: -10px 0 0 -4px;
+}
+html[data-world="matrix"] .cc-dot::before {
+  content: ">_";
+  font-family: var(--font-jetbrains), monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: #22c55e;
+  background: rgb(0 0 0 / 0.75);
+  border: 1px solid #22c55e;
+  padding: 2px 5px;
+  box-shadow: 0 0 12px rgb(34 197 94 / 0.7);
+  filter: none;
+}
+html[data-world="cat"] .cc-frame {
+  --cur: #f9a8d4;
+}
+html[data-world="dog"] .cc-frame {
+  --cur: #fbbf24;
+}
+html[data-world="penguin"] .cc-frame {
+  --cur: #7dd3fc;
+}
+html[data-world="kawaii"] .cc-frame {
+  --cur: #f0abfc;
+}
+html[data-world="matrix"] .cc-frame {
+  --cur: #22c55e;
+}
+
+/* Click animations, one per world. */
+html[data-world="cat"] .cc-dot.cc-click::before {
+  animation: cc-tilt 320ms ease-out;
+}
+html[data-world="dog"] .cc-dot.cc-click::before {
+  animation: cc-bounce 360ms ease-out;
+}
+html[data-world="penguin"] .cc-dot.cc-click::before {
+  animation: cc-slide 380ms ease-out;
+}
+html[data-world="kawaii"] .cc-dot.cc-click::before {
+  animation: cc-tilt 320ms ease-out;
+}
+html[data-world="matrix"] .cc-dot.cc-click::before {
+  animation: cc-glitch 240ms steps(3);
+}
+@keyframes cc-tilt {
+  40% {
+    transform: rotate(-18deg) scale(0.9);
+  }
+}
+@keyframes cc-bounce {
+  35% {
+    transform: translateY(-9px) scale(1.08);
+  }
+  70% {
+    transform: translateY(0) scale(0.92);
+  }
+}
+@keyframes cc-slide {
+  40% {
+    transform: translateX(8px) rotate(14deg);
+  }
+}
+@keyframes cc-glitch {
+  50% {
+    transform: translateX(2px);
+    opacity: 0.6;
+  }
+}
+
+/* Little hearts, snowflakes and sparkles that float off a click. */
+.cc-particle {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 99999;
+  pointer-events: none;
+  font-size: 14px;
+  line-height: 1;
+  animation: cc-float 850ms ease-out forwards;
+}
+@keyframes cc-float {
+  from {
+    opacity: 1;
+    translate: 0 0;
+    scale: 0.6;
+  }
+  to {
+    opacity: 0;
+    translate: var(--dx, 0px) var(--dy, -36px);
+    scale: 1.15;
+  }
+}
+
+/* "Noot Noot!" when a penguin in the background is clicked. */
+.world-tooltip {
+  position: fixed;
+  z-index: 99998;
+  pointer-events: none;
+  padding: 4px 10px;
+  border: 1px solid var(--color-accent);
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  animation: callout-in 150ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-world] .cc-dot.cc-click::before {
+    animation: none;
+  }
+  .cc-particle {
+    display: none;
   }
 }
