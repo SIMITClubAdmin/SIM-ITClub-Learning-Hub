@@ -78,7 +78,7 @@ export function TryIt({ starter, task, js = false }: Props) {
             <button
               type="button"
               onClick={runAgain}
-              className="border border-accent px-3 py-1 text-sm text-accent transition-colors hover:bg-accent hover:text-bg"
+              className="border border-accent px-3 py-1 text-sm text-accent transition-colors hover:bg-(--accent-primary) hover:text-(--accent-on-primary)"
             >
               Run again
             </button>
@@ -86,7 +86,7 @@ export function TryIt({ starter, task, js = false }: Props) {
           <button
             type="button"
             onClick={reset}
-            className="border border-ink px-3 py-1 text-sm transition-colors hover:border-accent hover:bg-accent hover:text-bg"
+            className="border border-ink px-3 py-1 text-sm transition-colors hover:border-accent hover:bg-(--accent-primary) hover:text-(--accent-on-primary)"
           >
             Reset
           </button>

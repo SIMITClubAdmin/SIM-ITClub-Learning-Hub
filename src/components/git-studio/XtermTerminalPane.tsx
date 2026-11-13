@@ -4,10 +4,11 @@ import "@xterm/xterm/css/xterm.css";
 import type { WebContainerProcess } from "@webcontainer/api";
 import type { FitAddon } from "@xterm/addon-fit";
 import type { ITheme, Terminal } from "@xterm/xterm";
-import { SquareTerminal } from "lucide-react";
+import { Square, SquareTerminal } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useAppearance, type ThemeId } from "./appearance";
-import { useStudio } from "./WebContainerProvider";
+import { useAppearance } from "@/lib/appearance";
+import type { PaletteId } from "@/lib/appearance-config";
+import { quoteMessage, stripAnsi, useStudio } from "./WebContainerProvider";
 
 const DARK_ANSI = {
   foreground: "#e2e8f0",
@@ -29,22 +30,12 @@ const DARK_ANSI = {
   brightWhite: "#f8fafc",
 };
 
-/** xterm.js draws its own colours, so each page theme gets a matching terminal palette. */
-const TERMINAL_THEMES: Record<ThemeId, ITheme> = {
-  "purple-dark": {
-    ...DARK_ANSI,
-    background: "#09080f",
-    cursor: "#a855f7",
-    cursorAccent: "#09080f",
-    selectionBackground: "#3b2a63",
-  },
-  "red-dark": {
-    ...DARK_ANSI,
-    background: "#0a0607",
-    cursor: "#ef4444",
-    cursorAccent: "#0a0607",
-    selectionBackground: "#4c1d24",
-  },
+/** xterm.js draws its own colours, so each site palette gets a matching terminal palette. */
+const TERMINAL_THEMES: Record<PaletteId, ITheme> = {
+  navy: { ...DARK_ANSI, background: "#05081a", cursor: "#4fd8eb", cursorAccent: "#05081a", selectionBackground: "#1e3a5f" },
+  matrix: { ...DARK_ANSI, foreground: "#dcfce7", background: "#020503", cursor: "#22c55e", cursorAccent: "#020503", selectionBackground: "#14532d" },
+  "purple-dark": { ...DARK_ANSI, background: "#09080f", cursor: "#a855f7", cursorAccent: "#09080f", selectionBackground: "#3b2a63" },
+  "red-dark": { ...DARK_ANSI, background: "#0a0607", cursor: "#ef4444", cursorAccent: "#0a0607", selectionBackground: "#4c1d24" },
   // Light: every ANSI colour is darkened, and "white" text becomes slate, so nothing vanishes.
   "purple-light": {
     background: "#fcfbff",
@@ -72,31 +63,27 @@ const TERMINAL_THEMES: Record<ThemeId, ITheme> = {
 };
 
 /** Private OSC id the mounted `git` command prints after every run. */
-const SYNC_OSC = 7777;
+const STUDIO_OSC = 7777;
 
 export function XtermTerminalPane() {
   const studio = useStudio();
-  const { mode, wc, bootId, bootMessage, repo, runCommand, startDevServer } = studio;
-  const { theme } = useAppearance();
-  const themeRef = useRef(theme);
+  const { mode, wc, session, bootMessage, repo, cwd, workspace, commitMessage, runCommand, startDevServer, stopDevServer, serverUrl, devRunning } = studio;
+  const { palette } = useAppearance();
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const [ready, setReady] = useState(false);
-  const branch = repo.detached ? "main" : repo.head || "main";
-  const branchRef = useRef(branch);
-  const studioRef = useRef(studio);
+  const branch = repo ? (repo.detached ? "detached" : repo.head) : "";
+  const live = useRef({ studio, palette, branch, cwd });
 
   useEffect(() => {
-    branchRef.current = branch;
-    studioRef.current = studio;
-    themeRef.current = theme;
+    live.current = { studio, palette, branch, cwd };
   });
 
-  // Recolour the terminal when the page theme changes.
+  // Recolour the terminal when the site palette changes.
   useEffect(() => {
-    if (ready && termRef.current) termRef.current.options.theme = TERMINAL_THEMES[theme];
-  }, [ready, theme]);
+    if (ready && termRef.current) termRef.current.options.theme = TERMINAL_THEMES[palette];
+  }, [ready, palette]);
 
   // Create the xterm.js instance once, after the mono font has loaded so cells measure right.
   useEffect(() => {
@@ -116,7 +103,7 @@ export function XtermTerminalPane() {
         fontSize: 13.5,
         lineHeight: 1.25,
         scrollback: 3000,
-        theme: TERMINAL_THEMES[themeRef.current],
+        theme: TERMINAL_THEMES[live.current.palette],
       });
       const fit = new Fit();
       term.loadAddon(fit);
@@ -156,19 +143,34 @@ export function XtermTerminalPane() {
 
     const disposers: { dispose(): void }[] = [];
     let unregister: (() => void) | null = null;
+    disposers.push(
+      term.parser.registerOscHandler(STUDIO_OSC, (data) => {
+        const cut = data.indexOf(";");
+        if (cut > 0) live.current.studio.handleOsc(data.slice(0, cut), data.slice(cut + 1));
+        return true;
+      }),
+    );
 
     if (mode === "container" && wc) {
       let cancelled = false;
       let shell: WebContainerProcess | null = null;
-      disposers.push(
-        term.parser.registerOscHandler(SYNC_OSC, (data) => {
-          if (data === "sync") void studioRef.current.syncFromSandbox();
-          return true;
-        }),
-      );
+      // jsh prints the folder above each prompt; follow it so the editor and graph follow cd.
+      let tail = "";
+      let lastShown = "";
+      const watchPrompt = (chunk: string) => {
+        tail = (tail + stripAnsi(chunk)).slice(-600);
+        const matches = [...tail.matchAll(/(?:^|\n)\s*(~[^\r\n]*?)\s*\r?\n\s*❯/g)];
+        // jsh adds a timing after slow commands ("~/itcamp/my-project 2s"): keep only the path.
+        const shown = matches.length ? matches[matches.length - 1][1].trim().split(/\s+/)[0] : "";
+        if (shown && shown !== lastShown) {
+          lastShown = shown;
+          live.current.studio.promptCwd(shown);
+        }
+      };
       (async () => {
         try {
           shell = await wc.spawn("jsh", {
+            cwd: workspace.startDir || undefined,
             terminal: { cols: term.cols, rows: term.rows },
             env: { PATH: `${wc.workdir}/.studio/bin:${wc.path}` },
           });
@@ -176,7 +178,7 @@ export function XtermTerminalPane() {
           term.write(`\x1b[31mCould not start the shell: ${error instanceof Error ? error.message : String(error)}\x1b[0m\r\n`);
           return;
         }
-        // Reset tears the container down under the shell, which rejects its exit promise.
+        // A reset tears the shell down under us, which rejects its exit promise.
         shell.exit.catch(() => {});
         if (cancelled) {
           shell.kill();
@@ -188,14 +190,20 @@ export function XtermTerminalPane() {
             new WritableStream({
               write(chunk) {
                 term.write(chunk);
+                watchPrompt(chunk);
               },
             }),
           )
           .catch(() => {});
         const input = proc.input.getWriter();
-        disposers.push(term.onData((data) => void input.write(data)));
+        disposers.push(
+          term.onData((data) => {
+            if (data.includes("\x03")) live.current.studio.onInterrupt();
+            void input.write(data);
+          }),
+        );
         disposers.push(term.onResize(({ cols, rows }) => proc.resize({ cols, rows })));
-        unregister = studioRef.current.registerTerminal({
+        unregister = live.current.studio.registerTerminal({
           type: (command) => {
             void input.write(`${command}\r`);
             term.focus();
@@ -204,6 +212,7 @@ export function XtermTerminalPane() {
             term.write(`\r\n${text}\r\n`);
             void input.write("\r");
           },
+          interrupt: () => void input.write("\x03"),
         });
       })();
       return () => {
@@ -218,13 +227,17 @@ export function XtermTerminalPane() {
       };
     }
 
-    // Fallback: a small line editor in front of the shared Git engine.
+    // Fallback: a small line editor in front of the built-in shell.
     let line = "";
+    let busy = false;
     const history: string[] = [];
     let cursor = 0;
-    const prompt = () => `\x1b[36m~/portal\x1b[0m \x1b[35m(${branchRef.current})\x1b[0m \x1b[1m$\x1b[0m `;
+    const prompt = () => {
+      const { cwd: here, branch: b } = live.current;
+      return `\x1b[36m~/itcamp${here ? `/${here}` : ""}\x1b[0m${b ? ` \x1b[35m(${b})\x1b[0m` : ""} \x1b[1m$\x1b[0m `;
+    };
     const redraw = () => term.write(`\x1b[2K\r${prompt()}${line}`);
-    const execute = (input: string) => {
+    const execute = async (input: string) => {
       const trimmed = input.trim();
       if (trimmed) history.push(trimmed);
       cursor = history.length;
@@ -233,16 +246,19 @@ export function XtermTerminalPane() {
         term.write(`\x1b[2K\r${prompt()}`);
         return;
       }
-      const out = studioRef.current.runFallback(trimmed);
+      busy = true;
+      const out = await live.current.studio.runFallback(trimmed);
+      busy = false;
       if (out) term.write(out);
+      // Let React apply the new folder or branch before the prompt is drawn.
+      await new Promise((r) => setTimeout(r, 30));
       term.write(prompt());
     };
-    term.write(
-      "\x1b[35m● Built-in Git engine\x1b[0m \x1b[2m(WebContainer unavailable here). git, ls, cat and npm run dev all work.\x1b[0m\r\n",
-    );
+    term.write("\x1b[35m● Built-in Git engine\x1b[0m \x1b[2m(WebContainer unavailable here). Type help for the commands it knows.\x1b[0m\r\n");
     term.write(prompt());
     disposers.push(
       term.onData((data) => {
+        if (busy) return;
         if (data === "\x1b[A" || data === "\x1b[B") {
           if (!history.length) return;
           cursor = Math.max(0, Math.min(history.length, cursor + (data === "\x1b[A" ? -1 : 1)));
@@ -251,6 +267,7 @@ export function XtermTerminalPane() {
           return;
         }
         if (data === "\x03") {
+          live.current.studio.onInterrupt();
           term.write("^C\r\n");
           line = "";
           term.write(prompt());
@@ -267,7 +284,8 @@ export function XtermTerminalPane() {
             term.write("\r\n");
             const current = line;
             line = "";
-            execute(current);
+            void execute(current);
+            return;
           } else if (ch === "\x7f" || ch === "\b") {
             if (line) {
               line = line.slice(0, -1);
@@ -280,49 +298,65 @@ export function XtermTerminalPane() {
         }
       }),
     );
-    unregister = studioRef.current.registerTerminal({
+    unregister = live.current.studio.registerTerminal({
       type: (command) => {
+        if (busy) return;
         term.write(`\x1b[2K\r${prompt()}${command}\r\n`);
         line = "";
-        execute(command);
+        void execute(command);
         term.focus();
       },
       note: (text) => {
         term.write(`\x1b[2K\r${text}\r\n${prompt()}${line}`);
       },
+      interrupt: () => {},
     });
     return () => {
       disposers.forEach((d) => d.dispose());
       unregister?.();
     };
-  }, [ready, mode, wc, bootId]);
+  }, [ready, mode, wc, session, workspace.startDir]);
 
-  // Only helpers the four goal steps do not already offer.
+  const on = mode !== "booting";
+  const serverOn = Boolean(serverUrl) || devRunning;
   const helpers: { label: string; run: () => void }[] = [
     { label: "git status", run: () => void runCommand("git status") },
-    { label: "git checkout -b feat-ui", run: () => void runCommand("git checkout -b feat-ui") },
-    { label: "npm run dev", run: () => void startDevServer() },
+    { label: "git add .", run: () => void runCommand("git add .") },
+    { label: "git commit", run: () => void runCommand(`git commit -m ${quoteMessage(commitMessage)}`) },
+    { label: "git push", run: () => void runCommand(branch && branch !== "detached" ? `git push origin ${branch}` : "git push") },
+    { label: "git switch -c feat-ui", run: () => void runCommand("git switch -c feat-ui") },
   ];
-
-  const live = mode !== "booting";
 
   return (
     <div className="flex min-h-0 flex-col border-t border-(--border-subtle)">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-(--border-subtle) bg-(--bg-panel) px-4 py-2.5">
         <p className="gs-ui flex items-center gap-2 text-[13px] text-(--text-muted)">
-          <SquareTerminal className="size-4 text-(--accent-soft)" aria-hidden="true" />
+          <SquareTerminal className="size-4 text-(--accent-text)" aria-hidden="true" />
           Terminal
-          <span className="text-(--text-faint)">· {mode === "fallback" ? "built-in shell" : "~/portal"}</span>
+          <span className="text-(--text-faint)">
+            · ~/itcamp{cwd ? `/${cwd}` : ""}
+            {mode === "fallback" ? " · built-in shell" : ""}
+          </span>
         </p>
         <div className="flex flex-wrap gap-2" role="toolbar" aria-label="Helper commands">
           {helpers.map((h) => (
-            <button key={h.label} type="button" disabled={!live} onClick={h.run} className="gs-cmd">
+            <button key={h.label} type="button" disabled={!on} onClick={h.run} className="gs-cmd">
               {h.label}
             </button>
           ))}
+          {workspace.allowDev &&
+            (serverOn ? (
+              <button type="button" onClick={stopDevServer} className="gs-stop" title="Terminate npm run dev">
+                <Square className="size-3.5 fill-current" aria-hidden="true" /> Stop Server
+              </button>
+            ) : (
+              <button type="button" disabled={!on} onClick={() => void startDevServer()} className="gs-cmd">
+                npm run dev
+              </button>
+            ))}
         </div>
       </div>
-      <div className="gs-term relative h-[300px] bg-(--code-bg) px-3 py-2">
+      <div className="gs-term relative h-[320px] bg-(--code-bg) px-3 py-2">
         <div ref={hostRef} className="h-full w-full" />
         {mode === "booting" && (
           <div className="gs-ui absolute inset-0 flex flex-col items-center justify-center gap-3 bg-(--code-bg) text-sm text-(--text-muted)">

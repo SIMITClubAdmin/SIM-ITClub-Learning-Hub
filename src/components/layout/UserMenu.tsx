@@ -8,7 +8,7 @@ import { useSession } from "@/lib/use-session";
 import { NavDropdown } from "./NavDropdown";
 
 const BUTTON =
-  "border border-ink px-3 py-1.5 text-sm transition-colors duration-200 hover:border-accent hover:bg-accent hover:text-bg";
+  "border border-ink px-3 py-1.5 text-sm transition-colors duration-200 hover:border-accent hover:bg-(--accent-primary) hover:text-(--accent-on-primary)";
 
 /** Log in for visitors, a Guest menu in guest mode, or a menu under the display name for members. */
 export function UserMenu() {
@@ -38,6 +38,7 @@ export function UserMenu() {
         items={[
           { label: "Log in", href: "/login" },
           { label: "Create an account", href: "/register" },
+          { label: "Appearance", href: "/appearance" },
           { label: "Leave guest mode", onSelect: leaveGuest },
         ]}
       />
@@ -60,6 +61,7 @@ export function UserMenu() {
       align="right"
       items={[
         { label: "Profile", href: "/account" },
+        { label: "Appearance", href: "/account#appearance" },
         { label: "Log out", onSelect: logOut },
       ]}
     />

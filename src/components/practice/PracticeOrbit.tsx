@@ -235,16 +235,16 @@ export function PracticeOrbit({ topics, palette, showRocket = true, mode = "prac
           <radialGradient id={ids.shade} cx="32%" cy="28%" r="80%">
             <stop offset="0%" stopColor="#ffffff" stopOpacity="0.22" />
             <stop offset="45%" stopColor="#ffffff" stopOpacity="0" />
-            <stop offset="80%" stopColor="#070b1f" stopOpacity="0.55" />
-            <stop offset="100%" stopColor="#070b1f" stopOpacity="0.85" />
+            <stop offset="80%" style={{ stopColor: "var(--color-bg)" }} stopOpacity="0.55" />
+            <stop offset="100%" style={{ stopColor: "var(--color-bg)" }} stopOpacity="0.85" />
           </radialGradient>
           <radialGradient id={ids.glow}>
             <stop offset="80%" stopColor={palette.glow} stopOpacity="0.35" />
             <stop offset="100%" stopColor={palette.glow} stopOpacity="0" />
           </radialGradient>
           <radialGradient id={ids.halo}>
-            <stop offset="45%" stopColor="#070b1f" stopOpacity="0.9" />
-            <stop offset="100%" stopColor="#070b1f" stopOpacity="0" />
+            <stop offset="45%" style={{ stopColor: "var(--color-bg)" }} stopOpacity="0.9" />
+            <stop offset="100%" style={{ stopColor: "var(--color-bg)" }} stopOpacity="0" />
           </radialGradient>
         </defs>
         {/* Dark halo fades the background clouds near the planet, like a spotlight. */}

@@ -39,7 +39,7 @@ function Arrow({ flip }: { flip?: boolean }) {
 }
 
 const NAV_BUTTON =
-  "flex size-11 items-center justify-center border border-ink bg-bg/80 transition-colors hover:border-accent hover:bg-accent hover:text-bg";
+  "flex size-11 items-center justify-center border border-ink bg-bg/80 transition-colors hover:border-accent hover:bg-(--accent-primary) hover:text-(--accent-on-primary)";
 
 /** One planet per lesson, on a wheel that rotates the chosen planet to the front. */
 export function PracticeGalaxy({

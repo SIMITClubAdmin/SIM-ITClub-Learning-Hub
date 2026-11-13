@@ -12,7 +12,7 @@ function Text({ children }: { children: string }) {
     <>
       {parts.map((part, i) =>
         i % 2 === 1 ? (
-          <code key={i} className="bg-grid/70 px-1.5 py-0.5 font-mono text-[0.9em] text-accent">
+          <code key={i} className="border border-(--border-accent)/40 bg-(--accent-soft) px-1.5 py-0.5 font-mono text-[0.9em] text-(--accent-text)">
             {part}
           </code>
         ) : (

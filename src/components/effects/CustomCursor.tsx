@@ -113,7 +113,31 @@ export function CustomCursor() {
       kick();
     }
 
+    // The Code theme swaps the dot for a [ >_ ] terminal block, and a click glitches it and
+    // puffs a few 0s and 1s in the theme's accent colour.
+    function spawn(x: number, y: number, glyph: string) {
+      const el = document.createElement("span");
+      el.className = "cc-particle";
+      el.textContent = glyph;
+      el.setAttribute("aria-hidden", "true");
+      el.style.left = `${x - 7}px`;
+      el.style.top = `${y - 7}px`;
+      el.style.setProperty("--dx", `${(Math.random() - 0.5) * 60}px`);
+      el.style.setProperty("--dy", `${-24 - Math.random() * 24}px`);
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 900);
+    }
+    function onDown(e: PointerEvent) {
+      if (e.pointerType === "touch" || root.dataset.world !== "matrix") return;
+      dot!.classList.remove("cc-click");
+      void dot!.offsetWidth;
+      dot!.classList.add("cc-click");
+      if (reduce.matches) return;
+      for (const glyph of ["0", "1", "1", "0"]) spawn(e.clientX, e.clientY, glyph);
+    }
+
     window.addEventListener("pointermove", onMove, { passive: true });
+    window.addEventListener("pointerdown", onDown, { passive: true });
     window.addEventListener("scroll", kick, { passive: true });
     document.addEventListener("mouseleave", onLeave);
     document.addEventListener("mouseenter", onEnter);
@@ -125,6 +149,7 @@ export function CustomCursor() {
       cancelAnimationFrame(raf);
       root.classList.remove("has-cursor", "cc-on", "cc-light");
       window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerdown", onDown);
       window.removeEventListener("scroll", kick);
       document.removeEventListener("mouseleave", onLeave);
       document.removeEventListener("mouseenter", onEnter);
@@ -135,14 +160,14 @@ export function CustomCursor() {
   }, []);
 
   return (
-    <>
-      <div ref={dotRef} className="cc-dot" aria-hidden="true" />
-      <div ref={frameRef} className="cc-frame" aria-hidden="true">
+    <div className="cc-layer" aria-hidden="true">
+      <div ref={dotRef} className="cc-dot" />
+      <div ref={frameRef} className="cc-frame">
         <i />
         <i />
         <i />
         <i />
       </div>
-    </>
+    </div>
   );
 }

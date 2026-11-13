@@ -9,9 +9,18 @@ export const metadata: Metadata = { title: "Learn · ITCamp Learning Hub" };
 // The Git planet opens the Git & GitHub studio, so it is open here even though it stays
 // locked in Challenge (no Git quizzes yet). Each moon jumps to its part of the page.
 const GIT_MOON_LESSONS: Record<string, { title: string; href: string }[]> = {
-  "git-basics": [{ title: "Inside a Git repository", href: "/learn/git#inside-a-repository" }],
-  branches: [{ title: "Interactive Git playground", href: "/learn/git#playground" }],
-  github: [{ title: "How do we push code to GitHub?", href: "/learn/git#pushing-to-github" }],
+  "git-basics": [
+    { title: "Introduction to Git & GitHub", href: "/learn/git/introduction" },
+    { title: "The core workflow", href: "/learn/git/core-workflow" },
+  ],
+  branches: [
+    { title: "Branching & merging", href: "/learn/git/branching" },
+    { title: "Pull requests & merge conflicts", href: "/learn/git/pull-requests-conflicts" },
+  ],
+  github: [
+    { title: "Working with GitHub", href: "/learn/git/working-with-github" },
+    { title: "Tips & cheatsheet", href: "/learn/git/tips-cheatsheet" },
+  ],
 };
 
 // Learn is for reference during class, so topics are never locked here; locks only apply in Practice.

@@ -288,7 +288,7 @@ export function PracticeSolarSystem({ modules, best = {} }: { modules: CourseMod
                   </span>
                 </div>
                 <div className="mt-1.5 h-1.5 bg-grid">
-                  <div className="h-full bg-accent" style={{ width: `${(cleared / lesson.topics.length) * 100}%` }} />
+                  <div className="h-full bg-(--accent-primary)" style={{ width: `${(cleared / lesson.topics.length) * 100}%` }} />
                 </div>
               </div>
             );

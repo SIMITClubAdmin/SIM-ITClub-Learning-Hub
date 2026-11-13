@@ -36,7 +36,7 @@ export function SiteHeader() {
               className="relative px-0.5 py-1.5"
             >
               {label}
-              {isActive(href) && <span className="absolute -bottom-1 left-1/2 size-1.5 -translate-x-1/2 bg-accent" />}
+              {isActive(href) && <span className="absolute -bottom-1 left-1/2 size-1.5 -translate-x-1/2 bg-(--accent-primary)" />}
             </Link>
           ))}
         <UserMenu />

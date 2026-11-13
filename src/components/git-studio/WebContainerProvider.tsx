@@ -2,27 +2,45 @@
 
 import type { FileSystemTree, WebContainer, WebContainerProcess } from "@webcontainer/api";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { buildGitCli } from "./engine/git-cli";
 import { createMiniGit, type Files, type RepoState, type RepoStatus } from "./engine/mini-git";
-import { buildGitCli, DEV_PORT, IGNORED_DIRS, STARTER_FILES } from "./engine/sandbox-files";
+import { DEV_PORT, IGNORED_DIRS } from "./engine/sandbox-files";
+import { buildWorkspace, resolveClone, type StudioVariant, type Workspace } from "./engine/workspaces";
+import { MemBox, runFallbackLine, type Box } from "./fallback-shell";
 
-/** One engine for the whole page: the browser uses it for status and the fallback shell. */
+/** One engine for the whole page: the browser uses it for status, the graph and the fallback shell. */
 export const gitEngine = createMiniGit();
 
 export type StudioMode = "booting" | "container" | "fallback";
 export type Speed = 1 | 0.5;
-export type PushEvent = { id: number; branch: string; commits: string[]; prevRemote: Record<string, string> };
+/** A push (commits travel down to GitHub) or a fetch/pull (they travel up to your machine). */
+export type PushEvent = { id: number; direction: "down" | "up"; branch: string; commits: string[]; prev: RepoState };
 /** What the terminal pane lets the rest of the studio do to it. */
-export type TerminalApi = { type(command: string): void; note(text: string): void };
+export type TerminalApi = { type(command: string): void; note(text: string): void; interrupt(): void };
+export type CommandEvent = { cmd: string; args: string[]; code: number; root: string | null; at: number };
+
+const WORKDIR_NAME = "itcamp";
+const MAX_FILES = 120;
+const MAX_FILE_BYTES = 200_000;
 
 type StudioContextValue = {
+  variant: StudioVariant;
+  workspace: Workspace;
   mode: StudioMode;
   bootMessage: string;
   fallbackReason: string | null;
   wc: WebContainer | null;
-  bootId: number;
+  session: number;
+  cwd: string;
+  repoRoot: string | null;
+  folder: string;
+  repo: RepoState | null;
   files: Files;
-  repo: RepoState;
-  status: RepoStatus;
+  dirs: string[];
+  status: RepoStatus | null;
+  commands: CommandEvent[];
+  /** First time each milestone was seen ("repo:my-project", "branchcommit:game"...), for checklists. */
+  facts: ReadonlyMap<string, number>;
   pushEvent: PushEvent | null;
   finishPush: (id: number) => void;
   serverUrl: string | null;
@@ -33,14 +51,21 @@ type StudioContextValue = {
   setCommitMessage: (message: string) => void;
   speed: Speed;
   setSpeed: (speed: Speed) => void;
-  updateFile: (path: string, content: string) => void;
+  updateFile: (name: string, content: string) => void;
+  createFile: (name: string) => Promise<string | null>;
+  /** Writes a file now (Ctrl+S or the Save button); edits also save themselves shortly after typing. */
+  saveFile: (name: string) => Promise<void>;
   flushWrites: () => Promise<void>;
-  syncFromSandbox: () => Promise<void>;
+  refresh: () => Promise<void>;
   runCommand: (command: string) => Promise<void>;
   registerTerminal: (api: TerminalApi) => () => void;
   startDevServer: () => Promise<void>;
+  stopDevServer: () => void;
   reloadPreview: () => void;
-  runFallback: (line: string) => string;
+  runFallback: (line: string) => Promise<string>;
+  promptCwd: (shown: string) => void;
+  handleOsc: (kind: string, payload: string) => void;
+  onInterrupt: () => void;
   reset: () => void;
 };
 
@@ -55,11 +80,8 @@ export function useStudio() {
 type BootGlobal = typeof globalThis & { __gitStudioBoot?: Promise<WebContainer> | null };
 
 const ANSI = /\x1b\[[0-9;?]*[A-Za-z]|\x1b\][^\x07]*\x07/g;
-const stripAnsi = (text: string) => text.replace(ANSI, "");
-
-function freshRepo() {
-  return gitEngine.initialState(STARTER_FILES, Date.now());
-}
+export const stripAnsi = (text: string) => text.replace(ANSI, "");
+export const joinPath = (a: string, b: string) => (a ? (b ? `${a}/${b}` : a) : b);
 
 function sameFiles(a: Files, b: Files) {
   const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
@@ -67,25 +89,30 @@ function sameFiles(a: Files, b: Files) {
   return true;
 }
 
-/** Commits GitHub did not have before, for every remote branch that moved. */
-function detectPush(prev: RepoState, next: RepoState) {
-  const had = new Set<string>();
-  for (const tip of Object.values(prev.remote)) for (const id of gitEngine.reachable(next, tip)) had.add(id);
-  const sent = new Set<string>();
-  let branch = "";
-  for (const [name, tip] of Object.entries(next.remote)) {
-    if (prev.remote[name] === tip) continue;
-    for (const id of gitEngine.reachable(next, tip)) {
-      if (!had.has(id)) {
-        sent.add(id);
-        branch = name;
-      }
-    }
-  }
-  return { branch, commits: next.order.filter((id) => sent.has(id)) };
+function reachAll(state: RepoState, tips: string[]) {
+  const out = new Set<string>();
+  for (const tip of tips) for (const id of gitEngine.reachable(state, tip)) out.add(id);
+  return out;
 }
 
-function buildTree(files: Files, state: RepoState): FileSystemTree {
+/** Spots a push (new commits on GitHub that came from this machine) or a fetch/pull (the reverse). */
+function detectTransfer(prev: RepoState, next: RepoState): Omit<PushEvent, "id"> | null {
+  const remoteBefore = reachAll(next, Object.values(prev.remote));
+  const remoteNow = reachAll(next, Object.values(next.remote));
+  const localNow = reachAll(next, Object.values(next.branches));
+  const pushed = next.order.filter((id) => remoteNow.has(id) && !remoteBefore.has(id) && localNow.has(id));
+  if (pushed.length) {
+    const branch = Object.keys(next.remote).find((b) => prev.remote[b] !== next.remote[b]) ?? next.head;
+    return { direction: "down", branch, commits: pushed, prev };
+  }
+  const seenBefore = reachAll(next, [...Object.values(prev.branches), ...Object.values(gitEngine.trk(prev))]);
+  const seenNow = reachAll(next, [...Object.values(next.branches), ...Object.values(gitEngine.trk(next))]);
+  const fetched = next.order.filter((id) => seenNow.has(id) && !seenBefore.has(id) && remoteBefore.has(id) && next.commits[id].author.startsWith("Teammate"));
+  if (fetched.length) return { direction: "up", branch: next.head, commits: fetched, prev };
+  return null;
+}
+
+function toTree(files: Files): FileSystemTree {
   const tree: FileSystemTree = {};
   for (const [path, contents] of Object.entries(files)) {
     const parts = path.split("/");
@@ -96,25 +123,72 @@ function buildTree(files: Files, state: RepoState): FileSystemTree {
     }
     dir[parts[parts.length - 1]] = { file: { contents } };
   }
-  tree[".git"] = { directory: { "studio.json": { file: { contents: JSON.stringify(state) } } } };
-  tree[".studio"] = {
-    directory: { bin: { directory: { git: { file: { contents: buildGitCli(createMiniGit.toString()) } } } } },
-  };
   return tree;
 }
 
-async function readSandboxFiles(box: WebContainer) {
-  const out: Files = {};
+/** The WebContainer's file system behind the same small interface as the in-memory fallback. */
+function containerBox(box: WebContainer): Box {
+  return {
+    async read(path) {
+      try {
+        return await box.fs.readFile(path, "utf-8");
+      } catch {
+        return null;
+      }
+    },
+    async write(path, content) {
+      const dir = path.split("/").slice(0, -1).join("/");
+      if (dir) await box.fs.mkdir(dir, { recursive: true });
+      await box.fs.writeFile(path, content);
+    },
+    async remove(path) {
+      await box.fs.rm(path, { recursive: true, force: true });
+    },
+    async mkdir(path) {
+      await box.fs.mkdir(path, { recursive: true });
+    },
+    async list(dir) {
+      try {
+        const entries = await box.fs.readdir(dir || ".", { withFileTypes: true });
+        return { files: entries.filter((e) => e.isFile()).map((e) => e.name), dirs: entries.filter((e) => e.isDirectory()).map((e) => e.name) };
+      } catch {
+        return { files: [], dirs: [] };
+      }
+    },
+    async exists(path) {
+      try {
+        await box.fs.readFile(path);
+        return true;
+      } catch {
+        try {
+          await box.fs.readdir(path);
+          return true;
+        } catch {
+          return false;
+        }
+      }
+    },
+  };
+}
+
+/** Text files under `folder`, skipping Git's own folders and nested repositories. */
+async function collectFiles(box: Box, folder: string, recursive: boolean) {
+  const out: string[] = [];
   async function walk(dir: string, prefix: string) {
-    const entries = await box.fs.readdir(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (IGNORED_DIRS.includes(entry.name)) continue;
-      const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
-      if (entry.isDirectory()) await walk(rel, rel);
-      else if (entry.isFile()) out[rel] = await box.fs.readFile(rel, "utf-8");
+    const { files, dirs } = await box.list(dir);
+    for (const f of files.sort()) {
+      if (out.length >= MAX_FILES) return;
+      out.push(prefix ? `${prefix}/${f}` : f);
+    }
+    if (!recursive) return;
+    for (const d of dirs.sort()) {
+      if (IGNORED_DIRS.includes(d)) continue;
+      const full = joinPath(dir, d);
+      if (await box.exists(`${full}/.git`)) continue;
+      await walk(full, prefix ? `${prefix}/${d}` : d);
     }
   }
-  await walk(".", "");
+  await walk(folder, "");
   return out;
 }
 
@@ -134,21 +208,20 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string) {
   });
 }
 
-const FALLBACK_HELP = [
-  "This lightweight shell understands:",
-  "  git <command>    the full studio Git (try: git help)",
-  "  ls, cat <file>, pwd, echo, clear",
-  "  npm install, npm run dev",
-].join("\n");
-
-export function WebContainerProvider({ children }: { children: ReactNode }) {
+export function WebContainerProvider({ variant, children }: { variant: StudioVariant; children: ReactNode }) {
+  const [workspace, setWorkspace] = useState<Workspace>(() => buildWorkspace(variant));
   const [mode, setMode] = useState<StudioMode>("booting");
   const [bootMessage, setBootMessage] = useState("Booting WebContainer…");
   const [fallbackReason, setFallbackReason] = useState<string | null>(null);
   const [wc, setWc] = useState<WebContainer | null>(null);
-  const [bootId, setBootId] = useState(0);
-  const [files, setFilesState] = useState<Files>(() => ({ ...STARTER_FILES }));
-  const [repo, setRepoState] = useState<RepoState>(freshRepo);
+  const [session, setSession] = useState(0);
+  const [cwd, setCwdState] = useState(workspace.startDir);
+  const [repoRoot, setRepoRoot] = useState<string | null>(null);
+  const [repo, setRepoState] = useState<RepoState | null>(null);
+  const [files, setFilesState] = useState<Files>({});
+  const [dirs, setDirs] = useState<string[]>([]);
+  const [commands, setCommands] = useState<CommandEvent[]>([]);
+  const [facts, setFacts] = useState<ReadonlyMap<string, number>>(new Map());
   const [pushEvent, setPushEvent] = useState<PushEvent | null>(null);
   const [serverUrl, setServerUrl] = useState<string | null>(null);
   const [devLog, setDevLog] = useState("");
@@ -157,61 +230,175 @@ export function WebContainerProvider({ children }: { children: ReactNode }) {
   const [commitMessage, setCommitMessage] = useState("feat: update portal UI");
   const [speed, setSpeed] = useState<Speed>(1);
 
-  const filesRef = useRef(files);
-  const repoRef = useRef(repo);
-  const modeRef = useRef<StudioMode>("booting");
+  const boxRef = useRef<Box | null>(null);
+  const memRef = useRef<MemBox | null>(null);
   const wcRef = useRef<WebContainer | null>(null);
+  const modeRef = useRef<StudioMode>("booting");
+  const workspaceRef = useRef(workspace);
+  const cwdRef = useRef(workspace.startDir);
+  const repoRef = useRef<RepoState | null>(null);
+  const rootRef = useRef<string | null>(null);
+  const filesRef = useRef<Files>({});
+  const folderRef = useRef(workspace.startDir);
   const terminalRef = useRef<TerminalApi | null>(null);
-  /** Editor changes not yet written into the sandbox: a pending timer, or null while writing. */
+  /** Editor changes not yet written into the sandbox, by full path: a timer, or null while writing. */
   const pendingRef = useRef(new Map<string, ReturnType<typeof setTimeout> | null>());
   const devProcRef = useRef<WebContainerProcess | null>(null);
   const pushCounter = useRef(0);
-  const syncChain = useRef<Promise<void>>(Promise.resolve());
+  const refreshChain = useRef<Promise<void>>(Promise.resolve());
   const previewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const globalConfig = useRef<Record<string, string>>({});
+  const factsRef = useRef(new Map<string, number>());
 
-  const setFiles = useCallback((next: Files) => {
-    filesRef.current = next;
-    setFilesState(next);
+  const toRel = useCallback((abs: string) => {
+    const workdir = wcRef.current?.workdir ?? `/home/${WORKDIR_NAME}`;
+    if (abs === workdir) return "";
+    return abs.startsWith(`${workdir}/`) ? abs.slice(workdir.length + 1) : null;
   }, []);
-
-  const setRepo = useCallback((next: RepoState) => {
-    repoRef.current = next;
-    setRepoState(next);
-  }, []);
-
-  const applyRepo = useCallback(
-    (next: RepoState) => {
-      const prev = repoRef.current;
-      if (JSON.stringify(prev) === JSON.stringify(next)) return;
-      setRepo(next);
-      const push = detectPush(prev, next);
-      if (push.commits.length) {
-        pushCounter.current += 1;
-        setPushEvent({ id: pushCounter.current, branch: push.branch, commits: push.commits, prevRemote: prev.remote });
-      }
-    },
-    [setRepo],
-  );
 
   const reloadPreview = useCallback(() => setPreviewNonce((n) => n + 1), []);
-
   const schedulePreviewReload = useCallback(() => {
     if (previewTimer.current) clearTimeout(previewTimer.current);
     previewTimer.current = setTimeout(reloadPreview, 600);
   }, [reloadPreview]);
 
-  const writeNow = useCallback(
-    async (path: string) => {
-      const pending = pendingRef.current;
-      const timer = pending.get(path);
-      if (timer) clearTimeout(timer);
-      pending.set(path, null);
-      const box = wcRef.current;
-      const content = filesRef.current[path];
+  const applyRepo = useCallback((next: RepoState | null, root: string | null) => {
+    const prev = repoRef.current;
+    const sameRoot = root === rootRef.current;
+    rootRef.current = root;
+    setRepoRoot(root);
+    if (prev && next && sameRoot && JSON.stringify(prev) === JSON.stringify(next)) return;
+    repoRef.current = next;
+    setRepoState(next);
+    if (prev && next && sameRoot) {
+      const transfer = detectTransfer(prev, next);
+      if (transfer) {
+        pushCounter.current += 1;
+        setPushEvent({ id: pushCounter.current, ...transfer });
+      }
+    } else setPushEvent(null);
+  }, []);
+
+  /** Records milestones the first time they are seen; checklists tick from these, so ticks stick. */
+  const noteFacts = useCallback((top: string[], root: string | null, state: RepoState | null, disk: Files) => {
+    const facts = factsRef.current;
+    const before = facts.size;
+    const now = Date.now();
+    const add = (key: string) => {
+      if (!facts.has(key)) facts.set(key, now);
+    };
+    top.forEach((d) => add(`dir:${d}`));
+    if (root !== null && state) {
+      add(`repo:${root}`);
+      for (const [name, content] of Object.entries(disk)) {
+        add(`file:${root}/${name}`);
+        if (content.trim()) add(`filled:${root}/${name}`);
+      }
+      const st = gitEngine.status(state, disk);
+      if (st.staged.length || st.unstaged.length || st.untracked.length) add(`dirty:${root}`);
+      st.staged.forEach((c) => add(`staged:${root}/${c.path}`));
+      if (state.order.length) add(`commit:${root}`);
+      add(`commits:${root}:${state.order.length}`);
+      for (const b of Object.keys(state.branches)) add(`branch:${root}:${b}`);
+      add(`onbranch:${root}:${state.head}`);
+      const main = state.branches.main;
+      const onMain = main ? gitEngine.reachable(state, main) : new Set<string>();
+      if (Object.entries(state.branches).some(([b, tip]) => b !== "main" && !onMain.has(tip))) add(`branchcommit:${root}`);
+      if (main && state.head !== "main" && !state.detached) {
+        const mainTree = state.commits[main].files;
+        if (Object.keys(disk).some((f) => disk[f] !== mainTree[f])) add(`edited-on-branch:${root}`);
+      }
+      if (facts.has(`branchcommit:${root}`) && state.head === "main") add(`returned:${root}`);
+      const mine = `${state.user.name} <${state.user.email}>`;
+      for (const tip of Object.values(state.remote)) {
+        for (const id of gitEngine.reachable(state, tip)) {
+          const author = state.commits[id].author;
+          if (author === mine) add(`pushed:${root}`);
+          if (author.startsWith("Teammate")) add(`teammates:${root}`);
+        }
+      }
+    }
+    if (facts.size !== before) setFacts(new Map(facts));
+  }, []);
+
+  /** Re-reads where the terminal is, which repository that is in, and that folder's files. */
+  const refresh = useCallback(() => {
+    refreshChain.current = refreshChain.current.then(async () => {
+      const box = boxRef.current;
+      if (!box) return;
       try {
-        if (box && content !== undefined) await box.fs.writeFile(path, content);
+        const here = cwdRef.current;
+        const segs = here ? here.split("/") : [];
+        let root: string | null = null;
+        for (let k = segs.length; k >= 0; k--) {
+          const candidate = segs.slice(0, k).join("/");
+          if (await box.exists(joinPath(candidate, ".git/studio.json"))) {
+            root = candidate;
+            break;
+          }
+        }
+        const stateText = root !== null ? await box.read(joinPath(root, ".git/studio.json")) : null;
+        const folder = root ?? here;
+        const names = await collectFiles(box, folder, root !== null);
+        const disk: Files = {};
+        for (const name of names) {
+          const content = await box.read(joinPath(folder, name));
+          if (content !== null && content.length <= MAX_FILE_BYTES) disk[name] = content;
+        }
+        const top = (await box.list("")).dirs.filter((d) => !IGNORED_DIRS.includes(d)).sort();
+        if (box !== boxRef.current) return;
+        const state = stateText ? (JSON.parse(stateText) as RepoState) : null;
+        noteFacts(top, root, state, disk);
+        applyRepo(state, root);
+        // Keep anything typed in the editor that has not reached the sandbox yet.
+        const current = folder === folderRef.current ? filesRef.current : {};
+        const next: Files = {};
+        for (const [name, content] of Object.entries(disk)) next[name] = pendingRef.current.has(joinPath(folder, name)) && name in current ? current[name] : content;
+        folderRef.current = folder;
+        if (!sameFiles(next, filesRef.current)) {
+          filesRef.current = next;
+          setFilesState(next);
+          schedulePreviewReload();
+        }
+        setDirs((d) => (d.join("/") === top.join("/") ? d : top));
+      } catch {
+        // The sandbox may be rebooting; the next command refreshes again.
+      }
+    });
+    return refreshChain.current;
+  }, [applyRepo, noteFacts, schedulePreviewReload]);
+
+  const setCwd = useCallback(
+    (next: string) => {
+      if (next === cwdRef.current) return;
+      cwdRef.current = next;
+      setCwdState(next);
+      void refresh();
+    },
+    [refresh],
+  );
+
+  const promptCwd = useCallback(
+    (shown: string) => {
+      const rel = toRel(shown.replace(/^~/, "/home"));
+      if (rel !== null) setCwd(rel);
+    },
+    [toRel, setCwd],
+  );
+
+  const writeNow = useCallback(
+    async (full: string) => {
+      const pending = pendingRef.current;
+      const timer = pending.get(full);
+      if (timer) clearTimeout(timer);
+      pending.set(full, null);
+      const box = boxRef.current;
+      const name = full.slice(folderRef.current ? folderRef.current.length + 1 : 0);
+      const content = filesRef.current[name];
+      try {
+        if (box && content !== undefined) await box.write(full, content);
       } finally {
-        if (pending.get(path) === null) pending.delete(path);
+        if (pending.get(full) === null) pending.delete(full);
       }
       schedulePreviewReload();
     },
@@ -226,48 +413,53 @@ export function WebContainerProvider({ children }: { children: ReactNode }) {
   }, [writeNow]);
 
   const updateFile = useCallback(
-    (path: string, content: string) => {
-      setFiles({ ...filesRef.current, [path]: content });
-      if (modeRef.current !== "container") {
-        schedulePreviewReload();
-        return;
-      }
+    (name: string, content: string) => {
+      const next = { ...filesRef.current, [name]: content };
+      filesRef.current = next;
+      setFilesState(next);
+      const full = joinPath(folderRef.current, name);
       const pending = pendingRef.current;
-      const timer = pending.get(path);
+      const timer = pending.get(full);
       if (timer) clearTimeout(timer);
       pending.set(
-        path,
-        setTimeout(() => void writeNow(path), 300),
+        full,
+        setTimeout(() => void writeNow(full), modeRef.current === "container" ? 300 : 0),
       );
     },
-    [setFiles, schedulePreviewReload, writeNow],
+    [writeNow],
   );
 
-  const syncFromSandbox = useCallback(() => {
-    syncChain.current = syncChain.current.then(async () => {
-      const box = wcRef.current;
-      if (!box) return;
-      try {
-        const [stateText, disk] = await Promise.all([box.fs.readFile(".git/studio.json", "utf-8"), readSandboxFiles(box)]);
-        if (box !== wcRef.current) return;
-        applyRepo(JSON.parse(stateText) as RepoState);
-        // Keep anything the student typed that has not reached the sandbox yet.
-        const current = filesRef.current;
-        const next: Files = {};
-        for (const [path, content] of Object.entries(disk)) {
-          next[path] = pendingRef.current.has(path) && path in current ? current[path] : content;
-        }
-        for (const path of pendingRef.current.keys()) if (!(path in next) && path in current) next[path] = current[path];
-        if (!sameFiles(next, current)) {
-          setFiles(next);
-          schedulePreviewReload();
-        }
-      } catch {
-        // The sandbox may be rebooting; the next command syncs again.
+  const saveFile = useCallback(
+    async (name: string) => {
+      const folder = folderRef.current;
+      await writeNow(joinPath(folder, name));
+      // "Write ... and SAVE": the Activity checklists tick when a filled file is saved on purpose.
+      if ((filesRef.current[name] ?? "").trim() && !factsRef.current.has(`saved:${folder}/${name}`)) {
+        factsRef.current.set(`saved:${folder}/${name}`, Date.now());
+        setFacts(new Map(factsRef.current));
       }
-    });
-    return syncChain.current;
-  }, [applyRepo, setFiles, schedulePreviewReload]);
+      await refresh();
+    },
+    [writeNow, refresh],
+  );
+
+  const createFile = useCallback(
+    async (raw: string) => {
+      const name = raw.trim().replace(/^\.\//, "");
+      if (!/^[\w.-][\w./ -]*$/.test(name) || name.includes("..") || name.startsWith(".git")) return "Use letters, numbers, dots, dashes or slashes.";
+      if (name in filesRef.current) return "That file already exists.";
+      const box = boxRef.current;
+      if (!box) return "The sandbox is still starting.";
+      await box.write(joinPath(folderRef.current, name), "");
+      await refresh();
+      return null;
+    },
+    [refresh],
+  );
+
+  const recordCommand = useCallback((event: CommandEvent) => {
+    setCommands((list) => [...list.slice(-199), event]);
+  }, []);
 
   const registerTerminal = useCallback((api: TerminalApi) => {
     terminalRef.current = api;
@@ -284,25 +476,50 @@ export function WebContainerProvider({ children }: { children: ReactNode }) {
     [flushWrites],
   );
 
+  const stopDevServer = useCallback(() => {
+    const proc = devProcRef.current;
+    devProcRef.current = null;
+    if (proc) {
+      try {
+        proc.kill();
+      } catch {
+        // Already gone.
+      }
+    } else if (modeRef.current === "container") {
+      // Started by hand in the terminal: interrupt it there.
+      terminalRef.current?.interrupt();
+    }
+    setServerUrl(null);
+    setDevRunning(false);
+    setDevLog("");
+    terminalRef.current?.note("\x1b[31m[stopped]\x1b[0m npm run dev terminated.");
+  }, []);
+
   const startDevServer = useCallback(async () => {
     await flushWrites();
+    const box = boxRef.current;
+    const dir = rootRef.current ?? cwdRef.current;
+    if (!workspaceRef.current.allowDev || !box || !(await box.exists(joinPath(dir, "package.json")))) {
+      terminalRef.current?.note("\x1b[33mnpm run dev needs a folder with a package.json (try the portal project).\x1b[0m");
+      return;
+    }
     if (modeRef.current === "fallback") {
       setServerUrl("fallback");
       setDevRunning(true);
       setDevLog(`> itclub-portal@1.0.0 dev\n> node server.js\n\n  ITClub portal dev server ready (built-in preview)\n  ➜  Local:   http://localhost:${DEV_PORT}/\n`);
-      terminalRef.current?.note("\x1b[2m[background] npm run dev started. Watch it in the Live Preview drawer.\x1b[0m");
+      terminalRef.current?.note("\x1b[2m[background] npm run dev started. Watch it in the Live Preview.\x1b[0m");
       return;
     }
-    const box = wcRef.current;
-    if (!box) return;
-    if (devProcRef.current) {
+    const container = wcRef.current;
+    if (!container) return;
+    if (devProcRef.current || serverUrl) {
       terminalRef.current?.note("\x1b[2m[background] The dev server is already running.\x1b[0m");
       return;
     }
     setDevLog("");
     setDevRunning(true);
-    terminalRef.current?.note("\x1b[2m[background] npm run dev started. Watch it in the Live Preview drawer.\x1b[0m");
-    const proc = await box.spawn("npm", ["run", "dev"]);
+    terminalRef.current?.note("\x1b[2m[background] npm run dev started. Watch it in the Live Preview.\x1b[0m");
+    const proc = await container.spawn("npm", ["run", "dev"], { cwd: dir || undefined });
     devProcRef.current = proc;
     proc.output
       .pipeTo(
@@ -316,68 +533,72 @@ export function WebContainerProvider({ children }: { children: ReactNode }) {
     const stopped = () => {
       if (devProcRef.current === proc) {
         devProcRef.current = null;
+        setServerUrl(null);
         setDevRunning(false);
       }
     };
-    // A reset aborts the process, which rejects instead of resolving.
     proc.exit.then(stopped, stopped);
-  }, [flushWrites]);
+  }, [flushWrites, serverUrl]);
 
-  const runFallback = useCallback(
-    (line: string) => {
-      const args = gitEngine.splitArgs(line);
-      const [command, ...rest] = args;
-      const work = filesRef.current;
-      switch (command) {
-        case undefined:
-          return "";
-        case "git": {
-          const draft: Files = { ...work };
-          const result = gitEngine.run(rest, repoRef.current, {
-            list: () => Object.keys(draft),
-            read: (path) => draft[path] ?? null,
-            write: (path, content) => {
-              draft[path] = content;
-            },
-            remove: (path) => {
-              delete draft[path];
-            },
-            now: () => Date.now(),
-          });
-          if (result.changed) applyRepo(result.state);
-          if (!sameFiles(draft, work)) {
-            setFiles(draft);
-            schedulePreviewReload();
-          }
-          return result.out;
-        }
-        case "ls": {
-          const all = rest.includes("-a") || rest.includes("-la") || rest.includes("-al");
-          const names = Object.keys(work).sort();
-          return `${(all ? [".git", ".studio", ...names] : names).join("  ")}\n`;
-        }
-        case "cat":
-          return rest.map((path) => (path in work ? work[path] : `cat: ${path}: No such file or directory\n`)).join("");
-        case "pwd":
-          return "/home/portal\n";
-        case "echo":
-          return `${rest.join(" ")}\n`;
-        case "help":
-          return `${FALLBACK_HELP}\n`;
-        case "node":
-          return rest[0] === "-v" || rest[0] === "--version" ? "v20.11.1\n" : "node: only `node -v` works in the lightweight shell\n";
-        case "npm":
-          if (rest[0] === "install" || rest[0] === "i") return "\nup to date, audited 1 package in 214ms\n\nfound 0 vulnerabilities\n";
-          if ((rest[0] === "run" && (rest[1] === "dev" || rest[1] === "start")) || rest[0] === "start") {
-            void startDevServer();
-            return "";
-          }
-          return "npm: try `npm install` or `npm run dev`\n";
-        default:
-          return `${command}: command not found\n${FALLBACK_HELP}\n`;
+  /** Ctrl+C in the terminal also stops a dev server that was started from the helper button. */
+  const onInterrupt = useCallback(() => {
+    if (devProcRef.current || (modeRef.current === "fallback" && serverUrl)) stopDevServer();
+  }, [serverUrl, stopDevServer]);
+
+  /** `git clone` from inside the container: fetch on the page, write the files, report back. */
+  const handleClone = useCallback(
+    async (payload: { id: string; url: string; dest: string; user: { name: string; email: string } }) => {
+      const box = boxRef.current;
+      if (!box) return;
+      const destRel = toRel(payload.dest);
+      const result = destRel === null ? ({ ok: false, out: "fatal: clone into a folder inside the workspace" } as const) : await resolveClone(payload.url, payload.user);
+      if (result.ok && destRel !== null) {
+        for (const [path, content] of Object.entries(result.files)) await box.write(joinPath(destRel, path), content);
+        await box.write(joinPath(destRel, ".git/studio.json"), JSON.stringify(result.state));
+      }
+      await box.write(`.studio/clone-${payload.id}.json`, JSON.stringify({ ok: result.ok, out: result.out }));
+    },
+    [toRel],
+  );
+
+  const handleOsc = useCallback(
+    (kind: string, payload: string) => {
+      try {
+        const data = JSON.parse(payload);
+        if (kind === "sync") {
+          const root = data.root ? toRel(data.root) : null;
+          const here = data.cwd ? toRel(data.cwd) : null;
+          recordCommand({ cmd: data.cmd ?? "", args: data.args ?? [], code: data.code ?? 0, root, at: Date.now() });
+          if (here !== null && here !== cwdRef.current) setCwd(here);
+          else void refresh();
+        } else if (kind === "clone") void handleClone(data);
+      } catch {
+        void refresh();
       }
     },
-    [applyRepo, setFiles, schedulePreviewReload, startDevServer],
+    [handleClone, recordCommand, refresh, setCwd, toRel],
+  );
+
+  const runFallback = useCallback(
+    async (line: string) => {
+      const mem = memRef.current;
+      if (!mem) return "";
+      const result = await runFallbackLine(line, {
+        mem,
+        cwd: cwdRef.current,
+        globalConfig: globalConfig.current,
+        clone: (url, user) => resolveClone(url, user),
+        startDev: () => void startDevServer(),
+      });
+      if (result.command) recordCommand({ ...result.command, at: Date.now() });
+      if (result.cwd !== cwdRef.current) {
+        cwdRef.current = result.cwd;
+        setCwdState(result.cwd);
+      }
+      await refresh();
+      return result.out;
+    },
+    [recordCommand, refresh, startDevServer],
   );
 
   const finishPush = useCallback((id: number) => {
@@ -393,125 +614,149 @@ export function WebContainerProvider({ children }: { children: ReactNode }) {
       // Already stopped.
     }
     devProcRef.current = null;
-    const box = wcRef.current;
-    wcRef.current = null;
-    if (box) {
-      try {
-        box.teardown();
-      } catch {
-        // Already gone.
-      }
-      (globalThis as BootGlobal).__gitStudioBoot = null;
-    }
-    setFiles({ ...STARTER_FILES });
-    setRepo(freshRepo());
-    setPushEvent(null);
     setServerUrl(null);
     setDevLog("");
     setDevRunning(false);
-    setWc(null);
+    setPushEvent(null);
+    setCommands([]);
+    factsRef.current = new Map();
+    setFacts(new Map());
+    const fresh = buildWorkspace(variant);
+    workspaceRef.current = fresh;
+    setWorkspace(fresh);
     if (modeRef.current === "container") {
       modeRef.current = "booting";
       setMode("booting");
-      setBootMessage("Rebooting the sandbox…");
+      setBootMessage("Resetting the sandbox…");
     }
-    setBootId((n) => n + 1);
-  }, [setFiles, setRepo]);
+    setSession((n) => n + 1);
+  }, [variant]);
 
-  // Boot (or reboot) the WebContainer, or fall back to the in-browser engine.
+  // Boot (or reuse) the WebContainer and lay out this studio's workspace, or fall back.
   useEffect(() => {
     let cancelled = false;
-    const unsubscribe: (() => void)[] = [];
     let watcher: { close(): void } | null = null;
     let watchTimer: ReturnType<typeof setTimeout> | null = null;
+    const unsubscribe: (() => void)[] = [];
     const g = globalThis as BootGlobal;
+    const ws = workspaceRef.current;
 
-    const fallBack = (reason: string) => {
+    const startFallback = (reason: string) => {
       if (cancelled) return;
+      const mem = new MemBox(ws.files);
+      memRef.current = mem;
+      boxRef.current = mem;
+      cwdRef.current = ws.startDir;
+      setCwdState(ws.startDir);
       modeRef.current = "fallback";
       setFallbackReason(reason);
       setMode("fallback");
+      void refresh();
     };
 
-    async function boot() {
+    async function start() {
       await Promise.resolve();
-      // ?engine=builtin skips the WebContainer download, for slow networks or old machines.
       if (new URLSearchParams(window.location.search).get("engine") === "builtin") {
-        fallBack("Running the built-in Git engine (?engine=builtin in the URL). Remove it to boot the full WebContainer sandbox.");
+        startFallback("Running the built-in Git engine (?engine=builtin in the URL). Remove it to boot the full WebContainer sandbox.");
         return;
       }
       if (!window.crossOriginIsolated) {
-        fallBack("This tab is not cross-origin isolated, so the browser blocks WebContainers. The built-in Git engine is running instead.");
+        startFallback("This tab is not cross-origin isolated, so the browser blocks WebContainers. The built-in Git engine is running instead.");
         return;
       }
       try {
         const { WebContainer } = await import("@webcontainer/api");
-        g.__gitStudioBoot ??= WebContainer.boot({ workdirName: "portal" });
-        const box = await withTimeout(g.__gitStudioBoot, 45_000, "Booting WebContainer");
+        g.__gitStudioBoot ??= WebContainer.boot({ workdirName: WORKDIR_NAME });
+        const container = await withTimeout(g.__gitStudioBoot, 45_000, "Booting WebContainer");
         if (cancelled) return;
-        setBootMessage("Mounting the portal project…");
-        await box.mount(buildTree(filesRef.current, repoRef.current));
+        setBootMessage("Preparing your workspace…");
+        // Clear whatever an earlier studio on this page left behind, then lay out this one.
+        for (const name of await container.fs.readdir(".")) await container.fs.rm(name, { recursive: true, force: true });
+        await container.mount(toTree({ ...ws.files, ".studio/bin/git": buildGitCli(createMiniGit.toString()) }));
         try {
-          const chmod = await box.spawn("chmod", ["+x", ".studio/bin/git"]);
+          const chmod = await container.spawn("chmod", ["+x", ".studio/bin/git"]);
           await chmod.exit;
         } catch {
           // jsh runs node scripts without the bit too.
         }
         if (cancelled) return;
-        unsubscribe.push(box.on("server-ready", (_port, url) => setServerUrl(url)));
+        unsubscribe.push(container.on("server-ready", (_port, url) => setServerUrl(url)));
         unsubscribe.push(
-          box.on("port", (_port, type) => {
-            if (type === "close") setServerUrl(null);
+          container.on("port", (_port, type) => {
+            if (type === "close") {
+              setServerUrl(null);
+              setDevRunning(false);
+            }
           }),
         );
         try {
-          // Picks up edits made from the shell (echo, touch, rm) so the editor and pipeline stay true.
-          watcher = box.fs.watch(".", { recursive: true }, (_event, name) => {
-            if (/(^|\/)(node_modules|\.studio|\.git)(\/|$)/.test(String(name))) return;
+          // Picks up edits made from the shell (echo, touch, mkdir, rm) so the editor stays true.
+          watcher = container.fs.watch(".", { recursive: true }, (_event, name) => {
+            if (/(^|\/)(node_modules|\.studio)(\/|$)/.test(String(name))) return;
             if (watchTimer) clearTimeout(watchTimer);
-            watchTimer = setTimeout(() => void syncFromSandbox(), 250);
+            watchTimer = setTimeout(() => void refresh(), 250);
           });
         } catch {
           watcher = null;
         }
-        wcRef.current = box;
+        wcRef.current = container;
+        boxRef.current = containerBox(container);
+        memRef.current = null;
+        cwdRef.current = ws.startDir;
+        setCwdState(ws.startDir);
         modeRef.current = "container";
-        setWc(box);
+        setWc(container);
         setMode("container");
+        void refresh();
       } catch (error) {
         g.__gitStudioBoot = null;
-        fallBack(`WebContainer could not start (${error instanceof Error ? error.message : String(error)}). The built-in Git engine is running instead.`);
+        startFallback(`WebContainer could not start (${error instanceof Error ? error.message : String(error)}). The built-in Git engine is running instead.`);
       }
     }
 
-    void boot();
+    void start();
     return () => {
       cancelled = true;
       unsubscribe.forEach((off) => off());
       watcher?.close();
       if (watchTimer) clearTimeout(watchTimer);
     };
-  }, [bootId, syncFromSandbox]);
+  }, [session, refresh]);
 
+  // Leaving the page (or this lesson) stops the dev server so it does not run on unseen.
   useEffect(
     () => () => {
+      try {
+        devProcRef.current?.kill();
+      } catch {
+        // Already stopped.
+      }
       if (previewTimer.current) clearTimeout(previewTimer.current);
     },
     [],
   );
 
-  const status = useMemo(() => gitEngine.status(repo, files), [repo, files]);
+  const status = useMemo(() => (repo ? gitEngine.status(repo, files) : null), [repo, files]);
+  const folder = repoRoot ?? cwd;
 
   const value = useMemo<StudioContextValue>(
     () => ({
+      variant,
+      workspace,
       mode,
       bootMessage,
       fallbackReason,
       wc,
-      bootId,
-      files,
+      session,
+      cwd,
+      repoRoot,
+      folder,
       repo,
+      files,
+      dirs,
       status,
+      commands,
+      facts,
       pushEvent,
       finishPush,
       serverUrl,
@@ -523,24 +768,38 @@ export function WebContainerProvider({ children }: { children: ReactNode }) {
       speed,
       setSpeed,
       updateFile,
+      createFile,
+      saveFile,
       flushWrites,
-      syncFromSandbox,
+      refresh,
       runCommand,
       registerTerminal,
       startDevServer,
+      stopDevServer,
       reloadPreview,
       runFallback,
+      promptCwd,
+      handleOsc,
+      onInterrupt,
       reset,
     }),
     [
+      variant,
+      workspace,
       mode,
       bootMessage,
       fallbackReason,
       wc,
-      bootId,
-      files,
+      session,
+      cwd,
+      repoRoot,
+      folder,
       repo,
+      files,
+      dirs,
       status,
+      commands,
+      facts,
       pushEvent,
       finishPush,
       serverUrl,
@@ -550,13 +809,19 @@ export function WebContainerProvider({ children }: { children: ReactNode }) {
       commitMessage,
       speed,
       updateFile,
+      createFile,
+      saveFile,
       flushWrites,
-      syncFromSandbox,
+      refresh,
       runCommand,
       registerTerminal,
       startDevServer,
+      stopDevServer,
       reloadPreview,
       runFallback,
+      promptCwd,
+      handleOsc,
+      onInterrupt,
       reset,
     ],
   );

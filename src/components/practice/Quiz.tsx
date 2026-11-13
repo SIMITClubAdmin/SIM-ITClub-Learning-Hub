@@ -190,7 +190,7 @@ export function Quiz({ slug, title, lesson, mode, attemptNo = 1, resuming = fals
         <span>Score {score}</span>
       </div>
       <div className="mt-2 h-2 bg-grid">
-        <div className="h-full bg-accent transition-[width]" style={{ width: `${(index / total) * 100}%` }} />
+        <div className="h-full bg-(--accent-primary) transition-[width]" style={{ width: `${(index / total) * 100}%` }} />
       </div>
 
       <h1 ref={headingRef} tabIndex={-1} className="mt-6 text-3xl font-semibold outline-none sm:text-4xl">

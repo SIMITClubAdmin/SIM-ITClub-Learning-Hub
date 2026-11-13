@@ -35,29 +35,52 @@ function Arrow({ label }: { label: string }) {
   return (
     <div className="flex shrink-0 flex-row items-center justify-center gap-1.5 @lg:flex-col @lg:gap-1" aria-hidden="true">
       {/* The command label only shows when the boxes have room to spare. */}
-      <span className="gs-code text-xs whitespace-nowrap text-(--accent-soft) @lg:hidden @2xl:inline">{label}</span>
-      <ArrowRight className="size-4 rotate-90 text-(--accent-soft) @lg:rotate-0" />
+      <span className="gs-code text-xs whitespace-nowrap text-(--accent-text) @lg:hidden @2xl:inline">{label}</span>
+      <ArrowRight className="size-4 rotate-90 text-(--accent-text) @lg:rotate-0" />
     </div>
   );
 }
 
 export function ThreeTreePipeline() {
-  const { status, repo } = useStudio();
+  const { status, repo, files, folder } = useStudio();
+
+  if (!repo || !status) {
+    const loose = Object.keys(files);
+    return (
+      <div className="@container">
+        <div className="flex flex-col gap-2.5 @lg:flex-row @lg:items-stretch">
+          <Stage
+            step={1}
+            title="Working Dir"
+            label={`~/itcamp${folder ? `/${folder}` : ""}`}
+            color="var(--git-modified)"
+            icon={<PencilLine className="size-4 shrink-0" />}
+            pills={loose.map((f) => ({ key: f, text: f, color: "var(--text-muted)" }))}
+            empty="Empty folder"
+          />
+          <Arrow label="git add" />
+          <Stage step={2} title="Staging Area" label="Packing Box" color="var(--git-local)" icon={<Package className="size-4 shrink-0" />} pills={[]} empty="No repository yet" />
+          <Arrow label="git commit" />
+          <Stage step={3} title="Local .git" label="Local History" color="var(--accent-text)" icon={<Archive className="size-4 shrink-0" />} pills={[]} empty="Run git init" />
+        </div>
+      </div>
+    );
+  }
+
   const headId = gitEngine.headId(repo);
-  const snapshots = repo.order.filter((id) => gitEngine.reachable(repo, headId).has(id)).length;
+  const snapshots = headId ? repo.order.filter((id) => gitEngine.reachable(repo, headId).has(id)).length : 0;
 
   const working: Pill[] = [
     ...status.conflicted.map((path) => ({ key: `c-${path}`, text: `! ${path}`, color: "var(--git-danger)", title: "Merge conflict" })),
-    ...status.unstaged.map((c) => ({ key: `u-${c.path}`, text: `${c.kind === "D" ? "D" : "M"} ${c.path}`, color: "var(--git-modified)", title: c.kind === "D" ? "Deleted" : "Modified" })),
-    ...status.untracked.map((path) => ({ key: `n-${path}`, text: `+ ${path}`, color: "var(--git-modified)", title: "New, not tracked yet" })),
+    ...status.unstaged.map((c) => ({ key: `u-${c.path}`, text: `${c.path} · Modified`, color: "var(--git-modified)", title: c.kind === "D" ? "Deleted" : "Modified" })),
+    ...status.untracked.map((path) => ({ key: `n-${path}`, text: `${path} · Modified`, color: "var(--git-modified)", title: "New, not tracked yet" })),
   ];
-  const staged: Pill[] = status.staged.map((c) => ({ key: c.path, text: `S ${c.path}`, color: "var(--git-local)", title: `Staged (${c.kind === "A" ? "new" : c.kind === "D" ? "deleted" : "modified"})` }));
+  const staged: Pill[] = status.staged.map((c) => ({ key: c.path, text: `${c.path} · Staged`, color: "var(--git-local)", title: `Staged (${c.kind === "A" ? "new" : c.kind === "D" ? "deleted" : "modified"})` }));
   const history: Pill[] = headId
     ? [
-        { key: "head", text: `${repo.detached ? "HEAD" : repo.head} → ${headId}`, color: "var(--accent-soft)", title: "The branch you are on, and its newest commit" },
-        { key: "count", text: `${snapshots} snapshot${snapshots === 1 ? "" : "s"}`, color: "var(--text-muted)" },
+        { key: "head", text: `${repo.detached ? "HEAD" : repo.head} · ${snapshots} commit${snapshots === 1 ? "" : "s"}`, color: "var(--accent-text)", title: "The branch you are on and its local history" },
       ]
-    : [];
+    : [{ key: "unborn", text: `${repo.head} · Empty`, color: "var(--text-muted)" }];
 
   return (
     <div className="@container">
@@ -66,7 +89,7 @@ export function ThreeTreePipeline() {
         <Arrow label="git add" />
         <Stage step={2} title="Staging Area" label="Packing Box" color="var(--git-local)" icon={<Package className="size-4 shrink-0" />} pills={staged} empty="Empty" />
         <Arrow label="git commit" />
-        <Stage step={3} title="Local .git" label="Local History" color="var(--accent-soft)" icon={<Archive className="size-4 shrink-0" />} pills={history} empty="Empty" />
+        <Stage step={3} title="Local .git" label="Local History" color="var(--accent-text)" icon={<Archive className="size-4 shrink-0" />} pills={history} empty="Empty" />
       </div>
     </div>
   );

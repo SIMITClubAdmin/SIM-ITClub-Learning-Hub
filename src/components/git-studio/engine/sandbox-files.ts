@@ -1,8 +1,8 @@
 import type { Files } from "./mini-git";
 
-/** Files with their own tab in the studio editor. Anything else lives only in the sandbox. */
-export const EDITOR_FILES = ["index.html", "app.js", "package.json"] as const;
-export type EditorFile = (typeof EDITOR_FILES)[number];
+/** Tabs open in this order when present; any other file follows alphabetically. */
+export const TAB_ORDER = ["index.html", "app.js", "package.json", "README.md", "your-name.txt", "part1.txt"];
+export type EditorFile = string;
 
 /** Folders the Git engine never tracks. */
 export const IGNORED_DIRS = [".git", ".studio", "node_modules"];
@@ -95,11 +95,23 @@ server.listen(PORT, () => {
 });
 `;
 
-/** The project every student starts from, and what C0 (the clone from GitHub) contains. */
+const PORTAL_README = `# ITClub Member Portal
+
+A tiny site for practising Git. Edit index.html or app.js, then:
+
+1. git add .
+2. git commit -m "describe your change"
+3. git push
+
+Run npm run dev to see it live.
+`;
+
+/** The portal project the full sandbox starts from, and what C0 (the clone from GitHub) contains. */
 export const STARTER_FILES: Files = {
   "index.html": INDEX_HTML,
   "app.js": APP_JS,
   "package.json": PACKAGE_JSON,
+  "README.md": PORTAL_README,
   "server.js": SERVER_JS,
 };
 
@@ -148,67 +160,3 @@ export const PRESETS: Preset[] = [
   { id: "footer", label: "🎨 Add Cyber Footer", file: "index.html", apply: (c) => insertAtMarker(c, "<!-- footer -->", FOOTER) },
 ];
 
-/**
- * The `git` command mounted in the WebContainer: the shared engine plus Node glue that
- * reads the real sandbox files. After every run it prints a private OSC escape
- * (ESC ] 7777 ; sync BEL) that xterm.js swallows and the studio uses to refresh the graph.
- */
-export function buildGitCli(engineSource: string) {
-  return `#!/usr/bin/env node
-"use strict";
-const fs = require("fs");
-const path = require("path");
-const createMiniGit = ${engineSource};
-const git = createMiniGit();
-const SKIP = new Set(${JSON.stringify(IGNORED_DIRS)});
-
-function findRoot(dir) {
-  for (;;) {
-    if (fs.existsSync(path.join(dir, ".git", "studio.json"))) return dir;
-    const up = path.dirname(dir);
-    if (up === dir) return null;
-    dir = up;
-  }
-}
-
-const root = findRoot(process.cwd());
-if (!root) {
-  process.stdout.write("fatal: not a git repository (or any of the parent directories): .git\\n");
-  process.exit(128);
-}
-
-function walk(dir, prefix, out) {
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (SKIP.has(entry.name)) continue;
-    const rel = prefix ? prefix + "/" + entry.name : entry.name;
-    if (entry.isDirectory()) walk(path.join(dir, entry.name), rel, out);
-    else if (entry.isFile()) out.push(rel);
-  }
-  return out;
-}
-
-const io = {
-  list: () => walk(root, "", []),
-  read: (p) => {
-    try { return fs.readFileSync(path.join(root, p), "utf8"); } catch { return null; }
-  },
-  write: (p, content) => {
-    const file = path.join(root, p);
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, content);
-  },
-  remove: (p) => {
-    try { fs.unlinkSync(path.join(root, p)); } catch {}
-  },
-  now: () => Date.now(),
-};
-
-const statePath = path.join(root, ".git", "studio.json");
-const state = JSON.parse(fs.readFileSync(statePath, "utf8"));
-const result = git.run(process.argv.slice(2), state, io);
-if (result.changed) fs.writeFileSync(statePath, JSON.stringify(result.state));
-process.stdout.write(result.out);
-process.stdout.write("\\x1b]7777;sync\\x07");
-process.exitCode = result.code;
-`;
-}

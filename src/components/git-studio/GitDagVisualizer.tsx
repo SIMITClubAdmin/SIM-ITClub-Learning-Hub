@@ -23,7 +23,7 @@ const STAGGER = 260;
 const LOCAL = "var(--git-local)";
 const REMOTE = "var(--git-remote)";
 const ACCENT = "var(--accent-primary)";
-const LANE_COLORS = [LOCAL, REMOTE, "var(--git-modified)", "var(--lane-2)", "var(--lane-3)", "var(--accent-soft)"];
+const LANE_COLORS = [LOCAL, REMOTE, "var(--git-modified)", "var(--lane-2)", "var(--lane-3)", "var(--accent-text)"];
 const tint = (color: string, percent: number) => `color-mix(in srgb, ${color} ${percent}%, transparent)`;
 
 type Tag = { key: string; label: string; color: string; x: number; y: number; stack: number };
@@ -36,15 +36,21 @@ function edgePath(px: number, py: number, cx: number, cy: number, dx: number) {
   return `M ${px + R * 0.7} ${py + Math.sign(cy - py) * R * 0.7} C ${px + dx * 0.55} ${cy}, ${cx - dx * 0.6} ${cy}, ${ex} ${cy}`;
 }
 
-function useLayout(repo: RepoState, shownRemote: Record<string, string>, width: number) {
+/**
+ * `repo` holds every commit; `local` supplies this machine's refs and `shownRemote` GitHub's.
+ * During a pull the old local refs are shown until the capsules land, and during a push the
+ * old GitHub refs, so new commits pop in at the end of the animation.
+ */
+function useLayout(repo: RepoState, local: RepoState, shownRemote: Record<string, string>, width: number) {
   return useMemo(() => {
-    const headId = gitEngine.headId(repo);
-    const localTips = [...Object.values(repo.branches), ...(headId ? [headId] : [])];
+    const headId = gitEngine.headId(local);
+    const tracking = gitEngine.trk(local);
+    const localTips = [...Object.values(local.branches), ...Object.values(tracking), ...(headId ? [headId] : [])];
     const visible = new Set<string>();
-    for (const tip of [...localTips, ...Object.values(repo.remote), ...Object.values(shownRemote)]) {
-      for (const id of gitEngine.reachable(repo, tip)) visible.add(id);
-    }
-    const ids = repo.order.filter((id) => visible.has(id));
+    for (const tip of localTips) for (const id of gitEngine.reachable(repo, tip)) visible.add(id);
+    const remoteShown = new Set<string>();
+    for (const tip of Object.values(shownRemote)) for (const id of gitEngine.reachable(repo, tip)) remoteShown.add(id);
+    const ids = repo.order.filter((id) => visible.has(id) || remoteShown.has(id));
     const rank = new Map(ids.map((id, i) => [id, i]));
 
     // One lane per branch a commit was made on; main always on top.
@@ -64,10 +70,14 @@ function useLayout(repo: RepoState, shownRemote: Record<string, string>, width: 
       if (!map.has(id)) map.set(id, []);
       map.get(id)!.push(tag);
     };
-    if (repo.detached) addTag(localTagsAt, repo.detached, { key: "HEAD", label: "HEAD", color: ACCENT });
-    for (const name of Object.keys(repo.branches).sort((a, b) => (a === "main" ? -1 : b === "main" ? 1 : a.localeCompare(b)))) {
-      const current = !repo.detached && repo.head === name;
-      addTag(localTagsAt, repo.branches[name], { key: `b-${name}`, label: `${name}${current ? "*" : ""}`, color: branchColor(name) });
+    if (local.detached) addTag(localTagsAt, local.detached, { key: "HEAD", label: "HEAD", color: ACCENT });
+    for (const name of Object.keys(local.branches).sort((a, b) => (a === "main" ? -1 : b === "main" ? 1 : a.localeCompare(b)))) {
+      const current = !local.detached && local.head === name;
+      addTag(localTagsAt, local.branches[name], { key: `b-${name}`, label: `${name}${current ? "*" : ""}`, color: branchColor(name) });
+    }
+    // origin/* as this machine last saw it: faint, so a fetch visibly moves it.
+    for (const name of Object.keys(tracking).sort()) {
+      addTag(localTagsAt, tracking[name], { key: `t-${name}`, label: `origin/${name}`, color: "var(--text-faint)" });
     }
     const remoteTagsAt = new Map<string, { key: string; label: string; color: string }[]>();
     for (const name of Object.keys(shownRemote).sort()) {
@@ -83,8 +93,6 @@ function useLayout(repo: RepoState, shownRemote: Record<string, string>, width: 
     const tunnelTop = localY(localLanes - 1) + R + 34;
     const remoteTop = tunnelTop + TUNNEL;
 
-    const remoteShown = new Set<string>();
-    for (const tip of Object.values(shownRemote)) for (const id of gitEngine.reachable(repo, tip)) remoteShown.add(id);
     const remoteAll = new Set(remoteShown);
     for (const tip of Object.values(repo.remote)) for (const id of gitEngine.reachable(repo, tip)) remoteAll.add(id);
     const remoteLanes = Math.max(1, ...Array.from(remoteAll).map((id) => (laneOf.get(id) ?? 0) + 1));
@@ -150,7 +158,7 @@ function useLayout(repo: RepoState, shownRemote: Record<string, string>, width: 
       localTags: makeTags(localTagsAt, localNodes),
       remoteTags: makeTags(remoteTagsAt, remoteNodes),
     };
-  }, [repo, shownRemote, width]);
+  }, [repo, local, shownRemote, width]);
 }
 
 function TagShape({ tag }: { tag: Tag }) {
@@ -219,7 +227,7 @@ function Inspector({ repo, id }: { repo: RepoState; id: string }) {
   return (
     <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-(--border-subtle) bg-(--bg-panel) px-5 py-3.5 text-sm">
       <span className="gs-label">Inspecting</span>
-      <span className="gs-code font-bold text-(--accent-soft)">{commit.id}</span>
+      <span className="gs-code font-bold text-(--accent-text)">{commit.id}</span>
       <span className="min-w-0 truncate text-(--text-main)">“{commit.message.split("\n")[0]}”</span>
       <span className="text-(--text-muted)">
         branch <span className="gs-code text-(--text-main)">{commit.branch}</span>
@@ -232,13 +240,30 @@ function Inspector({ repo, id }: { repo: RepoState; id: string }) {
 }
 
 export function GitDagVisualizer() {
-  const { repo, pushEvent, finishPush, speed } = useStudio();
+  const { repo, folder } = useStudio();
+  if (!repo) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-2 px-6 py-14 text-center">
+        <p className="gs-heading text-lg font-semibold">No Git repository here yet</p>
+        <p className="max-w-md text-sm text-(--text-muted)">
+          The terminal is in <code className="gs-pill">~/itcamp{folder ? `/${folder}` : ""}</code>. Run <code className="gs-pill">git init</code> to start a
+          repository, or <code className="gs-pill">git clone &lt;url&gt;</code> to copy one from GitHub. The graph appears as soon as there is one.
+        </p>
+      </div>
+    );
+  }
+  return <CommitGraph repo={repo} />;
+}
+
+function CommitGraph({ repo }: { repo: RepoState }) {
+  const { pushEvent, finishPush, speed } = useStudio();
   const wrapRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(640);
   const [pick, setPick] = useState<{ id: string; head: string | null } | null>(null);
   const slow = speed === 0.5 ? 2 : 1;
-  const shownRemote = pushEvent ? pushEvent.prevRemote : repo.remote;
-  const view = useLayout(repo, shownRemote, width);
+  const local = pushEvent?.direction === "up" ? pushEvent.prev : repo;
+  const shownRemote = pushEvent?.direction === "down" ? pushEvent.prev.remote : repo.remote;
+  const view = useLayout(repo, local, shownRemote, width);
 
   useEffect(() => {
     const el = wrapRef.current;
@@ -260,7 +285,12 @@ export function GitDagVisualizer() {
   const headId = view.headId;
   const selected = pick && pick.head === headId && repo.commits[pick.id] ? pick.id : headId;
   const select = (id: string) => setPick({ id, head: headId });
-  const unpushed = gitEngine.unpushedCount({ ...repo, remote: shownRemote });
+  const hasRemote = Boolean(repo.remoteUrl);
+  const unpushed = hasRemote ? gitEngine.unpushedCount({ ...local, commits: repo.commits, remote: shownRemote }) : 0;
+  const localKnown = new Set<string>();
+  for (const tip of Object.values(local.branches)) for (const id of gitEngine.reachable(repo, tip)) localKnown.add(id);
+  let behind = 0;
+  for (const tip of Object.values(shownRemote)) for (const id of gitEngine.reachable(repo, tip)) if (!localKnown.has(id)) behind++;
   const pushBranch = pushEvent?.branch ?? (repo.detached ? "main" : repo.head);
 
   const capsules = pushEvent
@@ -268,8 +298,9 @@ export function GitDagVisualizer() {
         .filter((id) => view.laneOf.has(id))
         .map((id, i) => {
           const lane = view.laneOf.get(id) ?? 0;
-          const from = view.localY(lane);
-          const to = view.remoteY(lane);
+          const up = pushEvent.direction === "up";
+          const from = up ? view.remoteY(lane) : view.localY(lane);
+          const to = up ? view.localY(lane) : view.remoteY(lane);
           return { id, x: view.xOf(id), from, dy: to - from, mid: view.tunnelTop + TUNNEL / 2 - from, delay: i * STAGGER * slow };
         })
     : [];
@@ -385,19 +416,34 @@ export function GitDagVisualizer() {
             <Laptop className="size-4" aria-hidden="true" /> Local repository <span className="font-normal normal-case text-(--text-muted)">· your machine</span>
           </p>
           <p className="gs-badge bg-(--bg-surface) text-(--text-muted)">
-            HEAD → <span className={repo.detached ? "text-(--git-modified)" : "text-(--git-local)"}>{repo.detached ? `detached @ ${repo.detached}` : repo.head}</span>
+            HEAD → <span className={local.detached ? "text-(--git-modified)" : "text-(--git-local)"}>{local.detached ? `detached @ ${local.detached}` : local.head}</span>
           </p>
         </div>
+
+        {view.localNodes.length === 0 && (
+          <p className="pointer-events-none absolute inset-x-0 text-center text-sm text-(--text-muted)" style={{ top: view.tunnelTop / 2 }}>
+            No commits yet: stage a file and make your first commit.
+          </p>
+        )}
+        {!hasRemote && (
+          <p className="pointer-events-none absolute inset-x-0 text-center text-sm text-(--text-muted)" style={{ top: view.remoteTop + (view.height - view.remoteTop) / 2 }}>
+            GitHub has no copy of this repository yet.
+          </p>
+        )}
 
         <div className="pointer-events-none absolute inset-x-0 flex items-center justify-center px-5" style={{ top: view.tunnelTop, height: TUNNEL }}>
           <p
             className={`gs-ui rounded border bg-(--bg-surface) px-3 py-1.5 text-[13px] ${
-              pushEvent ? "gs-blink border-(--accent-primary) text-(--accent-soft)" : "border-(--border-subtle) text-(--text-muted)"
+              pushEvent ? "gs-blink border-(--accent-primary) text-(--accent-text)" : "border-(--border-subtle) text-(--text-muted)"
             }`}
           >
             {pushEvent
-              ? `⇣ Sending ${pushEvent.commits.length} commit${pushEvent.commits.length === 1 ? "" : "s"} · git push origin ${pushBranch}`
-              : `HTTPS / SSH tunnel · git push origin ${pushBranch}`}
+              ? pushEvent.direction === "up"
+                ? `⇡ Receiving ${pushEvent.commits.length} commit${pushEvent.commits.length === 1 ? "" : "s"} · git pull`
+                : `⇣ Sending ${pushEvent.commits.length} commit${pushEvent.commits.length === 1 ? "" : "s"} · git push origin ${pushBranch}`
+              : hasRemote
+                ? `HTTPS / SSH tunnel · git push origin ${pushBranch} · git pull`
+                : "No tunnel yet: this repository has no remote"}
           </p>
         </div>
 
@@ -405,8 +451,21 @@ export function GitDagVisualizer() {
           <p className="gs-ui flex items-center gap-2 text-[13px] font-bold tracking-wide text-(--git-remote) uppercase">
             <Cloud className="size-4" aria-hidden="true" /> Remote · GitHub <span className="font-normal normal-case text-(--text-muted)">(origin)</span>
           </p>
-          <p role="status" className={`gs-badge bg-(--bg-surface) font-bold ${unpushed ? "text-(--git-modified)" : "text-(--git-local)"}`}>
-            {unpushed ? `⚠ ${unpushed} Commit${unpushed === 1 ? "" : "s"} Ahead (Unpushed)` : "✓ Synced with GitHub"}
+          <p role="status" className="flex flex-wrap justify-end gap-2">
+            {!hasRemote ? (
+              <span className="gs-badge bg-(--bg-surface) text-(--text-muted)">No remote · git remote add origin &lt;url&gt;</span>
+            ) : (
+              <>
+                {behind > 0 && (
+                  <span className="gs-badge bg-(--bg-surface) font-bold text-(--git-remote)">
+                    ⬇ {behind} new on GitHub (git pull)
+                  </span>
+                )}
+                <span className={`gs-badge bg-(--bg-surface) font-bold ${unpushed ? "text-(--git-modified)" : "text-(--git-local)"}`}>
+                  {unpushed ? `⚠ ${unpushed} Commit${unpushed === 1 ? "" : "s"} Ahead (Unpushed)` : behind ? "Nothing to push" : "✓ Synced with GitHub"}
+                </span>
+              </>
+            )}
           </p>
         </div>
       </div>

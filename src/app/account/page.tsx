@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { GroupPicker } from "@/components/account/GroupPicker";
+import { AppearanceSettings } from "@/components/appearance/AppearanceSettings";
 import { AccountForm } from "@/components/auth/AccountForm";
 import { bestScores } from "@/lib/progress";
 import { MAX_ATTEMPTS, QUESTIONS_PER_QUIZ, QUIZ_TITLES } from "@/lib/quiz-meta";
@@ -43,7 +44,7 @@ export default async function AccountPage() {
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-4xl font-semibold">Your account</h1>
         {isAdmin && (
-          <span className="border border-accent px-2 py-0.5 font-mono text-xs tracking-wider text-accent uppercase">
+          <span className="border border-(--border-accent) bg-(--accent-soft) px-2 py-0.5 font-mono text-xs tracking-wider text-(--accent-text) uppercase">
             Admin
           </span>
         )}
@@ -92,7 +93,7 @@ export default async function AccountPage() {
           <h2 id="points-heading" className="text-xl font-semibold">
             Correct answers
           </h2>
-          <p className="font-mono text-lg text-accent">{points}</p>
+          <p className="font-mono text-lg text-(--accent-text)">{points}</p>
         </div>
         <p className="text-sm text-dim">
           Questions you got right, counting your best attempt of each challenge ({MAX_ATTEMPTS} attempts each).
@@ -120,6 +121,8 @@ export default async function AccountPage() {
         // Guests and admins are kept off the leaderboard.
         onLeaderboard={!isAdmin && !isGuestAccount}
       />
+
+      <AppearanceSettings signedIn />
     </main>
   );
 }
