@@ -28,6 +28,17 @@ const GRID_PALETTES: Record<string, GridPalette> = {
     star: "rgba(230, 241, 255, 0.75)",
     grid: "rgba(148, 170, 255, 0.07)",
   },
+  matrix: {
+    space: [4, 8, 5],
+    nebula: [
+      [21, 128, 61],
+      [34, 197, 94],
+      [16, 185, 129],
+      [20, 83, 45],
+    ],
+    star: "rgba(220, 252, 231, 0.7)",
+    grid: "rgba(74, 222, 128, 0.06)",
+  },
   "purple-dark": {
     space: [7, 6, 14],
     nebula: [

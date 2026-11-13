@@ -113,53 +113,30 @@ export function CustomCursor() {
       kick();
     }
 
-    // Theme worlds (Appearance settings) swap the dot for an emoji or a terminal block, and
-    // clicks give it a little animation plus a puff of hearts, bones, snowflakes or stars.
-    const PARTICLES: Record<string, string[]> = {
-      cat: ["💗", "✨", "💕"],
-      dog: ["🦴", "💛", "🐾"],
-      penguin: ["❄️", "❄️", "💧"],
-      kawaii: ["⭐", "✨", "💖", "🌸"],
-      matrix: ["0", "1", "1", "0"],
-    };
-    let lastSparkle = 0;
-    function spawn(x: number, y: number, glyph: string, spread: number, rise: number) {
+    // The Code theme swaps the dot for a [ >_ ] terminal block, and a click glitches it and
+    // puffs a few 0s and 1s in the theme's accent colour.
+    function spawn(x: number, y: number, glyph: string) {
       const el = document.createElement("span");
       el.className = "cc-particle";
       el.textContent = glyph;
       el.setAttribute("aria-hidden", "true");
       el.style.left = `${x - 7}px`;
       el.style.top = `${y - 7}px`;
-      el.style.setProperty("--dx", `${(Math.random() - 0.5) * spread}px`);
-      el.style.setProperty("--dy", `${-rise - Math.random() * rise}px`);
-      if (root.dataset.world === "matrix") {
-        el.style.color = "#22c55e";
-        el.style.fontFamily = "var(--font-jetbrains), monospace";
-        el.style.textShadow = "0 0 6px #22c55e";
-      }
+      el.style.setProperty("--dx", `${(Math.random() - 0.5) * 60}px`);
+      el.style.setProperty("--dy", `${-24 - Math.random() * 24}px`);
       document.body.appendChild(el);
       setTimeout(() => el.remove(), 900);
     }
     function onDown(e: PointerEvent) {
-      const world = root.dataset.world;
-      if (e.pointerType === "touch" || !world) return;
+      if (e.pointerType === "touch" || root.dataset.world !== "matrix") return;
       dot!.classList.remove("cc-click");
       void dot!.offsetWidth;
       dot!.classList.add("cc-click");
       if (reduce.matches) return;
-      const glyphs = PARTICLES[world] ?? [];
-      for (let i = 0; i < 4; i++) spawn(e.clientX, e.clientY, glyphs[i % glyphs.length], 60, 24);
-    }
-    function onSparkle(e: PointerEvent) {
-      if (root.dataset.world !== "kawaii" || e.pointerType === "touch" || reduce.matches) return;
-      const now = performance.now();
-      if (now - lastSparkle < 110) return;
-      lastSparkle = now;
-      spawn(e.clientX + 8, e.clientY + 8, Math.random() > 0.5 ? "✨" : "⭐", 24, 10);
+      for (const glyph of ["0", "1", "1", "0"]) spawn(e.clientX, e.clientY, glyph);
     }
 
     window.addEventListener("pointermove", onMove, { passive: true });
-    window.addEventListener("pointermove", onSparkle, { passive: true });
     window.addEventListener("pointerdown", onDown, { passive: true });
     window.addEventListener("scroll", kick, { passive: true });
     document.addEventListener("mouseleave", onLeave);
@@ -172,7 +149,6 @@ export function CustomCursor() {
       cancelAnimationFrame(raf);
       root.classList.remove("has-cursor", "cc-on", "cc-light");
       window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointermove", onSparkle);
       window.removeEventListener("pointerdown", onDown);
       window.removeEventListener("scroll", kick);
       document.removeEventListener("mouseleave", onLeave);
@@ -184,14 +160,14 @@ export function CustomCursor() {
   }, []);
 
   return (
-    <>
-      <div ref={dotRef} className="cc-dot" aria-hidden="true" />
-      <div ref={frameRef} className="cc-frame" aria-hidden="true">
+    <div className="cc-layer" aria-hidden="true">
+      <div ref={dotRef} className="cc-dot" />
+      <div ref={frameRef} className="cc-frame">
         <i />
         <i />
         <i />
         <i />
       </div>
-    </>
+    </div>
   );
 }

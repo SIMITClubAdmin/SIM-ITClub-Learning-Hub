@@ -53,6 +53,8 @@ type StudioContextValue = {
   setSpeed: (speed: Speed) => void;
   updateFile: (name: string, content: string) => void;
   createFile: (name: string) => Promise<string | null>;
+  /** Writes a file now (Ctrl+S or the Save button); edits also save themselves shortly after typing. */
+  saveFile: (name: string) => Promise<void>;
   flushWrites: () => Promise<void>;
   refresh: () => Promise<void>;
   runCommand: (command: string) => Promise<void>;
@@ -427,6 +429,20 @@ export function WebContainerProvider({ variant, children }: { variant: StudioVar
     [writeNow],
   );
 
+  const saveFile = useCallback(
+    async (name: string) => {
+      const folder = folderRef.current;
+      await writeNow(joinPath(folder, name));
+      // "Write ... and SAVE": the Activity checklists tick when a filled file is saved on purpose.
+      if ((filesRef.current[name] ?? "").trim() && !factsRef.current.has(`saved:${folder}/${name}`)) {
+        factsRef.current.set(`saved:${folder}/${name}`, Date.now());
+        setFacts(new Map(factsRef.current));
+      }
+      await refresh();
+    },
+    [writeNow, refresh],
+  );
+
   const createFile = useCallback(
     async (raw: string) => {
       const name = raw.trim().replace(/^\.\//, "");
@@ -476,7 +492,7 @@ export function WebContainerProvider({ variant, children }: { variant: StudioVar
     setServerUrl(null);
     setDevRunning(false);
     setDevLog("");
-    terminalRef.current?.note("\x1b[31m[stopped]\x1b[0m npm run dev terminated (SIGTERM).");
+    terminalRef.current?.note("\x1b[31m[stopped]\x1b[0m npm run dev terminated.");
   }, []);
 
   const startDevServer = useCallback(async () => {
@@ -517,6 +533,7 @@ export function WebContainerProvider({ variant, children }: { variant: StudioVar
     const stopped = () => {
       if (devProcRef.current === proc) {
         devProcRef.current = null;
+        setServerUrl(null);
         setDevRunning(false);
       }
     };
@@ -752,6 +769,7 @@ export function WebContainerProvider({ variant, children }: { variant: StudioVar
       setSpeed,
       updateFile,
       createFile,
+      saveFile,
       flushWrites,
       refresh,
       runCommand,
@@ -792,6 +810,7 @@ export function WebContainerProvider({ variant, children }: { variant: StudioVar
       speed,
       updateFile,
       createFile,
+      saveFile,
       flushWrites,
       refresh,
       runCommand,

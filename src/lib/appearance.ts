@@ -16,6 +16,7 @@ function readOne<K extends keyof Appearance>(key: K): Appearance[K] {
       value = null;
     }
   }
+  // Anything no longer offered (the old cat, dog, Pingu and Chiikawa worlds) falls back to the default.
   return (value && IDS[key].includes(value) ? value : DEFAULT_APPEARANCE[key]) as Appearance[K];
 }
 

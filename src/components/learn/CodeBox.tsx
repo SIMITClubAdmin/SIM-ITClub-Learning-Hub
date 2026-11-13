@@ -40,7 +40,7 @@ export function CodeBox({ code, label, preview, previewHeight = 160, output }: P
         <button
           type="button"
           onClick={copy}
-          className="border border-accent px-3 py-1.5 font-mono text-xs tracking-wider text-accent uppercase transition-colors hover:bg-accent hover:text-bg"
+          className="border border-accent px-3 py-1.5 font-mono text-xs tracking-wider text-accent uppercase transition-colors hover:bg-(--accent-primary) hover:text-(--accent-on-primary)"
         >
           {copied ? "Copied!" : "Copy"}
         </button>

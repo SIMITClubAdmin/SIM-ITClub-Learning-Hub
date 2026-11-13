@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, FilePlus, GitCommitHorizontal, Plus } from "lucide-react";
+import { Check, ChevronDown, FilePlus, GitCommitHorizontal, Plus, Save } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { PRESETS, TAB_ORDER } from "./engine/sandbox-files";
 import { quoteMessage, useStudio } from "./WebContainerProvider";
@@ -134,8 +134,10 @@ function NewFile({ onCreated }: { onCreated: (name: string) => void }) {
 }
 
 export function CodeEditorPane() {
-  const { files, status, updateFile, flushWrites, mode, workspace, folder, repo, commitMessage, setCommitMessage, runCommand } = useStudio();
+  const { files, status, updateFile, saveFile, flushWrites, mode, workspace, folder, repo, commitMessage, setCommitMessage, runCommand } = useStudio();
   const [active, setActive] = useState("");
+  const [savedFile, setSavedFile] = useState<string | null>(null);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gutterRef = useRef<HTMLDivElement>(null);
   const names = sortTabs(Object.keys(files).filter((n) => !workspace.hidden.includes(n)));
   const current = names.includes(active) ? active : (names[0] ?? "");
@@ -153,7 +155,22 @@ export function CodeEditorPane() {
     return badges;
   };
 
+  // Like VS Code: Ctrl+S (Cmd+S on a Mac) or the Save button writes the file straight away.
+  // Typing also saves by itself a moment later, so nothing is ever lost.
+  const save = async () => {
+    if (!current || mode === "booting") return;
+    await saveFile(current);
+    setSavedFile(current);
+    if (savedTimer.current) clearTimeout(savedTimer.current);
+    savedTimer.current = setTimeout(() => setSavedFile(null), 1800);
+  };
+
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+      event.preventDefault();
+      void save();
+      return;
+    }
     if (event.key !== "Tab" || event.shiftKey) return;
     event.preventDefault();
     const el = event.currentTarget;
@@ -193,7 +210,25 @@ export function CodeEditorPane() {
           })}
           <NewFile onCreated={setActive} />
         </div>
-        <PresetMenu onPick={setActive} />
+        <div className="flex shrink-0 items-center">
+          {current && (
+            <button
+              type="button"
+              disabled={locked}
+              onClick={() => void save()}
+              className="gs-btn gap-1 border-transparent bg-transparent px-2.5"
+              title={`Save ${current} (Ctrl+S)`}
+              aria-label={`Save ${current}`}
+            >
+              {savedFile === current ? <Check className="size-4 text-(--git-local)" aria-hidden="true" /> : <Save className="size-4" aria-hidden="true" />}
+              <span className="hidden @md:inline">{savedFile === current ? "Saved" : "Save"}</span>
+            </button>
+          )}
+          <PresetMenu onPick={setActive} />
+        </div>
+        <span className="sr-only" role="status">
+          {savedFile ? `${savedFile} saved` : ""}
+        </span>
       </div>
 
       {current ? (
@@ -243,7 +278,7 @@ export function CodeEditorPane() {
             void runCommand(`git commit -m ${quoteMessage(commitMessage)}`);
           }}
         >
-          <GitCommitHorizontal className="size-4 shrink-0 text-(--accent-soft)" aria-hidden="true" />
+          <GitCommitHorizontal className="size-4 shrink-0 text-(--accent-text)" aria-hidden="true" />
           <label htmlFor="gs-commit-message" className="gs-code shrink-0 text-[13px] text-(--text-muted)">
             git commit -m
           </label>

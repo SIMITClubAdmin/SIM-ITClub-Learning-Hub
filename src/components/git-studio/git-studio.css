@@ -1,19 +1,15 @@
 /* Git & GitHub track. Every selector is prefixed gs- so nothing here reaches other pages. */
 
-/* ---------- Colours: follow the site palette chosen under Appearance (data-palette on <html>) ---------- */
+/* ---------- Colours ----------
+   The base colours (--bg-base, --bg-surface, --text-main, --text-muted, --accent-primary,
+   --accent-text, --border-subtle...) are the site's theme tokens from globals.css, so the
+   studio follows the palette picked under Appearance. These are the studio's own extras. */
 
 /* Cyber Navy, the site's default. */
 .gs-theme {
-  --bg-base: #070b1f;
-  --bg-surface: #0b1129;
-  --bg-panel: #0f1735;
-  --text-main: #e6f1ff;
-  --text-muted: #a9b5d6;
-  --text-faint: #6f7ba0;
-  --accent-primary: #4fd8eb;
-  --accent-soft: #7ee6f3;
-  --border-subtle: #1f2a55;
-  --on-accent: #070b1f;
+  --bg-panel: var(--bg-elevated);
+  --on-accent: var(--accent-on-primary);
+  --text-faint: color-mix(in srgb, var(--text-muted) 62%, var(--bg-base));
   --code-bg: #05081a;
   --code-text: #e2e8f0;
   --git-local: #10b981;
@@ -22,56 +18,32 @@
   --git-danger: #f87171;
   --lane-2: #60a5fa;
   --lane-3: #f472b6;
-  --glow: rgb(79 216 235 / 0.1);
+  --glow: color-mix(in srgb, var(--accent-primary) 10%, transparent);
   color-scheme: dark;
 }
 
+html[data-palette="matrix"] .gs-theme {
+  --code-bg: #020503;
+  --code-text: #dcfce7;
+}
+
 html[data-palette="purple-dark"] .gs-theme {
-  --bg-base: #07060e;
-  --bg-surface: #0e0c1a;
-  --bg-panel: #131024;
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --text-faint: #6b7280;
-  --accent-primary: #a855f7;
-  --accent-soft: #c084fc;
-  --border-subtle: #261e40;
-  --on-accent: #07060e;
   --code-bg: #09080f;
   --git-remote: #c084fc;
-  --glow: rgb(168 85 247 / 0.14);
+  --glow: color-mix(in srgb, var(--accent-primary) 14%, transparent);
 }
 
 html[data-palette="red-dark"] .gs-theme {
-  --bg-base: #080506;
-  --bg-surface: #11090b;
-  --bg-panel: #180c10;
-  --text-main: #fef2f2;
-  --text-muted: #a1a1aa;
-  --text-faint: #71717a;
-  --accent-primary: #ef4444;
-  --accent-soft: #f87171;
-  --border-subtle: #331419;
-  --on-accent: #080506;
   --code-bg: #0a0607;
   --code-text: #f4f4f5;
   --git-remote: #a855f7;
   --git-danger: #fb7185;
-  --glow: rgb(239 68 68 / 0.12);
+  --glow: color-mix(in srgb, var(--accent-primary) 12%, transparent);
 }
 
 /* Purple & White: every colour is darkened so nothing is white-on-white. */
 html[data-palette="purple-light"] .gs-theme {
-  --bg-base: #f8f7fc;
-  --bg-surface: #ffffff;
-  --bg-panel: #f1effa;
-  --text-main: #0f172a;
-  --text-muted: #475569;
   --text-faint: #64748b;
-  --accent-primary: #7c3aed;
-  --accent-soft: #6d28d9;
-  --border-subtle: #ddd6fe;
-  --on-accent: #ffffff;
   --code-bg: #fcfbff;
   --code-text: #0f172a;
   --git-local: #047857;
@@ -80,7 +52,7 @@ html[data-palette="purple-light"] .gs-theme {
   --git-danger: #b91c1c;
   --lane-2: #1d4ed8;
   --lane-3: #be185d;
-  --glow: rgb(124 58 237 / 0.08);
+  --glow: color-mix(in srgb, var(--accent-primary) 8%, transparent);
   color-scheme: light;
 }
 
@@ -146,9 +118,9 @@ html[data-palette="purple-light"] .gs-theme {
 @layer components {
   /* Inline code in lesson text. */
   .gs-pill {
-    border: 1px solid color-mix(in srgb, var(--accent-primary) 35%, var(--border-subtle));
-    background: color-mix(in srgb, var(--accent-primary) 10%, var(--bg-surface));
-    color: var(--accent-soft);
+    border: 1px solid color-mix(in srgb, var(--border-accent) 40%, transparent);
+    background: var(--accent-soft);
+    color: var(--accent-text);
     font-family: var(--gs-font-code);
     font-size: 0.88em;
     border-radius: 3px;
@@ -198,7 +170,7 @@ html[data-palette="purple-light"] .gs-theme {
   .gs-btn[aria-expanded="true"] {
     border-color: color-mix(in srgb, var(--accent-primary) 70%, transparent);
     background: color-mix(in srgb, var(--accent-primary) 14%, var(--bg-surface));
-    color: var(--accent-soft);
+    color: var(--accent-text);
   }
   .gs-btn:disabled {
     opacity: 0.45;
@@ -212,7 +184,7 @@ html[data-palette="purple-light"] .gs-theme {
     border: 1px solid color-mix(in srgb, var(--accent-primary) 35%, var(--border-subtle));
     border-radius: 4px;
     background: color-mix(in srgb, var(--accent-primary) 10%, var(--bg-surface));
-    color: var(--accent-soft);
+    color: var(--accent-text);
     padding: 0.3rem 0.6rem;
     font-family: var(--gs-font-code);
     font-size: 13px;

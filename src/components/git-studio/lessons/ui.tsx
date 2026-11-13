@@ -9,7 +9,7 @@ export function Pill({ children }: { children: ReactNode }) {
 export function Section({ id, index, title, children, wide }: { id: string; index: number; title: string; children: ReactNode; wide?: boolean }) {
   return (
     <section id={id} aria-labelledby={`${id}-title`} className={`scroll-mt-6 ${wide ? "w-full" : "max-w-4xl"}`}>
-      <p className="gs-ui text-sm text-(--accent-soft)">{String(index).padStart(2, "0")}</p>
+      <p className="gs-ui text-sm text-(--accent-text)">{String(index).padStart(2, "0")}</p>
       <h2 id={`${id}-title`} className="gs-heading mt-1 text-3xl font-semibold sm:text-4xl">
         {title}
       </h2>
@@ -18,7 +18,7 @@ export function Section({ id, index, title, children, wide }: { id: string; inde
   );
 }
 
-export function Card({ title, tag, tone = "var(--accent-soft)", children }: { title: ReactNode; tag?: string; tone?: string; children: ReactNode }) {
+export function Card({ title, tag, tone = "var(--accent-text)", children }: { title: ReactNode; tag?: string; tone?: string; children: ReactNode }) {
   return (
     <div className="gs-card flex flex-col gap-2 p-6" style={{ borderTopColor: tone, borderTopWidth: 2 }}>
       {tag && (
@@ -50,7 +50,7 @@ export function Terminal({ lines, title = "Terminal (CLI)" }: { lines: string[];
           <div key={i} className={line.startsWith("%") ? "text-(--code-text)" : line.startsWith("#") ? "text-(--text-faint)" : "text-(--git-local)"}>
             {line.startsWith("%") ? (
               <>
-                <span className="text-(--accent-soft) select-none">% </span>
+                <span className="text-(--accent-text) select-none">% </span>
                 {line.slice(2)}
               </>
             ) : (
@@ -92,7 +92,7 @@ export function Steps({ items }: { items: ReactNode[] }) {
     <ol className="flex flex-col gap-3">
       {items.map((item, i) => (
         <li key={i} className="flex gap-4">
-          <span className="gs-ui w-7 shrink-0 text-xl font-bold text-(--accent-soft)">{i + 1}.</span>
+          <span className="gs-ui w-7 shrink-0 text-xl font-bold text-(--accent-text)">{i + 1}.</span>
           <div className="pt-0.5 text-base leading-relaxed">{item}</div>
         </li>
       ))}

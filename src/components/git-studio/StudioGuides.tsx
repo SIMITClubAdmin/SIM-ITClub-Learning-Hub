@@ -1,10 +1,11 @@
 "use client";
 
 import { Check, ChevronDown } from "lucide-react";
-import type { ReactNode } from "react";
-import { gitEngine, quoteMessage, useStudio, type CommandEvent } from "./WebContainerProvider";
+import { useEffect, useState, type ReactNode } from "react";
+import { activity1Intro, rememberActivity1Intro } from "./engine/workspaces";
+import { gitEngine, useStudio, type CommandEvent } from "./WebContainerProvider";
 
-type Step = { label: ReactNode; cmds?: string[]; done: boolean };
+type Step = { label: ReactNode; hint?: ReactNode; cmds?: string[]; done: boolean };
 
 function RunPill({ cmd }: { cmd: string }) {
   const { runCommand, mode } = useStudio();
@@ -59,6 +60,7 @@ export function LiveChecklist({ title, minutes, intro, steps }: { title: string;
                   {step.label}
                   {step.done && <span className="sr-only"> (done)</span>}
                 </p>
+                {step.hint && !step.done && <p className="text-sm text-(--text-muted)">{step.hint}</p>}
                 {step.cmds && !step.done && (
                   <div className="flex flex-wrap gap-1.5">
                     {step.cmds.map((c) => (
@@ -78,67 +80,109 @@ export function LiveChecklist({ title, minutes, intro, steps }: { title: string;
 const ran = (commands: CommandEvent[], cmd: string, pred: (c: CommandEvent) => boolean = () => true) => commands.some((c) => c.cmd === cmd && c.code === 0 && pred(c));
 const after = (facts: ReadonlyMap<string, number>, key: string) => facts.get(key) ?? Number.POSITIVE_INFINITY;
 
-/** Activity 1 (slide 41): the basic Git command exercise. */
+/** Earliest time any fact matching the test was first seen (Infinity when none has been). */
+const firstAt = (facts: ReadonlyMap<string, number>, test: (key: string) => boolean) =>
+  Math.min(Number.POSITIVE_INFINITY, ...[...facts].filter(([key]) => test(key)).map(([, at]) => at));
+
+/** Activity 1 (slide 41): the basic Git command exercise, worded exactly as on the slide. */
 export function Activity1Guide() {
-  const { facts, commands, commitMessage } = useStudio();
+  const { facts, commands, repo, repoRoot } = useStudio();
+  const file = "my-project/your-name.txt";
+  const committed = facts.has("commit:my-project");
   const repoAt = after(facts, "repo:my-project");
   const commitAt = after(facts, "commit:my-project");
+
+  // Activity 2 starts from this introduction, so remember it once it is committed.
+  const head = repo && repoRoot === "my-project" ? gitEngine.headId(repo) : null;
+  const intro = head ? repo?.commits[head]?.files["your-name.txt"] : undefined;
+  useEffect(() => {
+    if (intro) rememberActivity1Intro(intro);
+  }, [intro]);
+
   const steps: Step[] = [
     { label: <>Create a new folder called <code className="gs-pill">my-project</code></>, cmds: ["mkdir my-project"], done: facts.has("dir:my-project") },
-    { label: <>Open the folder and type <code className="gs-pill">git init</code></>, cmds: ["cd my-project", "git init"], done: facts.has("repo:my-project") },
-    { label: <>Create a new text file named <code className="gs-pill">your-name.txt</code> (use New File in the editor)</>, cmds: ["touch your-name.txt"], done: facts.has("file:my-project/your-name.txt") },
-    { label: <>Write a short self-introduction in the file and save (just type: it saves itself)</>, done: facts.has("filled:my-project/your-name.txt") },
-    { label: <>Check the project status using <code className="gs-pill">git status</code></>, cmds: ["git status"], done: ran(commands, "status", (c) => c.root === "my-project" && c.at > repoAt) },
-    { label: <>Add the file using <code className="gs-pill">git add .</code></>, cmds: ["git add ."], done: facts.has("staged:my-project/your-name.txt") || facts.has("commit:my-project") },
+    { label: <>Open the folder and type <code className="gs-pill">git init</code> in the terminal</>, cmds: ["cd my-project", "git init"], done: facts.has("repo:my-project") },
     {
-      label: <>Save your changes with <code className="gs-pill">git commit -m &quot;Initial commit&quot;</code></>,
-      cmds: [`git commit -m ${quoteMessage(commitMessage === "feat: update portal UI" ? "Initial commit" : commitMessage)}`],
-      done: facts.has("commit:my-project"),
+      label: <>Create a new text file named <code className="gs-pill">your-name.txt</code></>,
+      hint: <>Use New File above the editor, or type the command.</>,
+      cmds: ["touch your-name.txt"],
+      done: facts.has(`file:${file}`),
     },
+    {
+      label: <>Write a short self-introduction in the file and SAVE</>,
+      hint: <>Type in the editor, then press Ctrl+S (Cmd+S on a Mac) or the Save button.</>,
+      done: facts.has(`filled:${file}`) && (facts.has(`saved:${file}`) || facts.has(`staged:${file}`) || committed),
+    },
+    { label: <>Check the project status using <code className="gs-pill">git status</code></>, cmds: ["git status"], done: ran(commands, "status", (c) => c.root === "my-project" && c.at > repoAt) },
+    { label: <>Add the file using <code className="gs-pill">git add .</code></>, cmds: ["git add ."], done: facts.has(`staged:${file}`) || committed },
+    { label: <>Save your changes with <code className="gs-pill">git commit -m &quot;Initial commit&quot;</code></>, cmds: ['git commit -m "Initial commit"'], done: committed },
     { label: <>View the commit history using <code className="gs-pill">git log</code></>, cmds: ["git log"], done: ran(commands, "log", (c) => c.root === "my-project" && c.at > commitAt) },
   ];
   return (
     <LiveChecklist
-      title="Activity 1 · Basic Git command exercise"
-      minutes={25}
-      intro={<p>Work through the steps in the terminal below. Each step ticks itself when the sandbox sees it done.</p>}
+      title="Slide checklist · 8 steps"
+      intro={<p>Work through the steps in the terminal and editor below. Each step ticks itself when the sandbox sees it done.</p>}
       steps={steps}
     />
   );
 }
 
-/** Activity 2 (slide 68): branching and merging. */
+/** Activity 2 (slide 68): branching and merging, worded exactly as on the slide. */
 export function Activity2Guide() {
   const { facts, commands, repo } = useStudio();
-  const branch = repo ? Object.keys(repo.branches).find((b) => b !== "main") : undefined;
+  const [carried] = useState(() => activity1Intro() !== null);
+  const isNewBranch = (prefix: string) => (key: string) => key.startsWith(prefix) && key !== `${prefix}main` && key !== `${prefix}master`;
+  const madeAt = firstAt(facts, isNewBranch("branch:my-project:"));
+  const onBranch = [...facts.keys()].some(isNewBranch("onbranch:my-project:"));
   const returnedAt = after(facts, "returned:my-project");
-  const madeBranch = [...facts.keys()].some((k) => k.startsWith("branch:my-project:") && k !== "branch:my-project:main");
-  const onBranch = [...facts.keys()].some((k) => k.startsWith("onbranch:my-project:") && k !== "onbranch:my-project:main");
-  const name = branch ?? "hobby";
+  const listedSince = (since: number) => ran(commands, "branch", (c) => c.args.length === 0 && c.root === "my-project" && c.at > since);
+  const name = (repo && Object.keys(repo.branches).find((b) => b !== "main" && b !== "master")) ?? "hobby";
   const steps: Step[] = [
-    { label: <>Create a new branch using <code className="gs-pill">git branch &lt;branch-name&gt;</code></>, cmds: ["git branch hobby"], done: madeBranch },
-    { label: <>Check the list of branches using <code className="gs-pill">git branch</code></>, cmds: ["git branch"], done: ran(commands, "branch", (c) => c.args.length === 0 && c.root === "my-project") },
+    { label: <>Create a new branch using <code className="gs-pill">git branch &lt;branch-name&gt;</code></>, cmds: ["git branch hobby"], done: Number.isFinite(madeAt) },
+    { label: <>Check the list of branches using <code className="gs-pill">git branch</code></>, cmds: ["git branch"], done: listedSince(madeAt) },
     { label: <>Switch to the new branch using <code className="gs-pill">git checkout &lt;branch-name&gt;</code></>, cmds: [`git checkout ${name}`], done: onBranch },
-    { label: <>Add a line about your hobby in <code className="gs-pill">your-name.txt</code> and save</>, done: facts.has("edited-on-branch:my-project") || facts.has("branchcommit:my-project") },
     {
       label: (
         <>
-          Commit it: <code className="gs-pill">git add your-name.txt</code> then <code className="gs-pill">git commit -m &quot;add hobby in branch&quot;</code>
+          Add a line about your hobby in <code className="gs-pill">your-name.txt</code> (the file you have created in previous exercise) and save.
         </>
       ),
-      cmds: ['git add your-name.txt && git commit -m "add hobby in branch"'],
+      hint: <>Type it in the editor, then press Ctrl+S (Cmd+S on a Mac) or the Save button.</>,
+      done: facts.has("edited-on-branch:my-project") || facts.has("branchcommit:my-project"),
+    },
+    {
+      label: (
+        <>
+          Commit the change using <code className="gs-pill">git add your-name.txt</code>, <code className="gs-pill">git commit -m &quot;add hobby in branch&quot;</code>
+        </>
+      ),
+      cmds: ["git add your-name.txt", 'git commit -m "add hobby in branch"'],
       done: facts.has("branchcommit:my-project"),
     },
-    { label: <>Switch back to the main branch using <code className="gs-pill">git checkout main</code></>, cmds: ["git checkout main"], done: facts.has("returned:my-project") },
-    { label: <>Check branches again using <code className="gs-pill">git branch</code> to confirm you are on main</>, cmds: ["git branch"], done: ran(commands, "branch", (c) => c.args.length === 0 && c.at > returnedAt) },
+    {
+      label: <>Switch back to the main branch using <code className="gs-pill">git checkout main/master</code></>,
+      hint: <>Watch the editor: your hobby line disappears, because it only exists on your branch.</>,
+      cmds: ["git checkout main"],
+      done: facts.has("returned:my-project"),
+    },
+    { label: <>Check branches again using <code className="gs-pill">git branch</code> to confirm you are now on main.</>, cmds: ["git branch"], done: listedSince(returnedAt) },
   ];
   return (
     <LiveChecklist
-      title="Activity 2 · Git branching + merging"
-      minutes={15}
+      title="Slide checklist · 7 steps"
       intro={
         <p>
-          The sandbox already has <code className="gs-pill">my-project</code> from Activity 1 with your <code className="gs-pill">your-name.txt</code> committed.
+          The sandbox already has <code className="gs-pill">my-project</code> from Activity 1 on <code className="gs-pill">main</code>, with{" "}
+          {carried ? (
+            <>
+              the <code className="gs-pill">your-name.txt</code> you wrote
+            </>
+          ) : (
+            <>
+              a sample <code className="gs-pill">your-name.txt</code>
+            </>
+          )}{" "}
+          committed as &quot;Initial commit&quot;.
         </p>
       }
       steps={steps}
@@ -254,7 +298,7 @@ export function GameGuide({ level, setLevel }: { level: number; setLevel: (n: nu
               role="tab"
               aria-selected={level === i + 1}
               onClick={() => setLevel(i + 1)}
-              className={`gs-btn ${level === i + 1 ? "border-(--accent-primary) text-(--accent-soft)" : ""}`}
+              className={`gs-btn ${level === i + 1 ? "border-(--accent-primary) text-(--accent-text)" : ""}`}
             >
               Level {i + 1}
             </button>
@@ -265,7 +309,7 @@ export function GameGuide({ level, setLevel }: { level: number; setLevel: (n: nu
         <p className="gs-heading text-lg font-semibold">{info.title}</p>
         <p className="text-(--text-muted)">{info.goal}</p>
         <details className="gs-details">
-          <summary className="gs-ui flex items-center gap-1.5 text-sm text-(--accent-soft)">
+          <summary className="gs-ui flex items-center gap-1.5 text-sm text-(--accent-text)">
             Show the commands <ChevronDown className="gs-chevron size-4 transition-transform" aria-hidden="true" />
           </summary>
           <div className="mt-2 flex flex-wrap gap-1.5">

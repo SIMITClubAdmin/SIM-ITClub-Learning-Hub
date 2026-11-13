@@ -45,7 +45,7 @@ export function SavePointTimeline() {
       <div className="grid gap-4 md:grid-cols-[1fr_1.2fr] md:items-center">
         <p className="text-base text-(--text-muted)">
           Something broke? <strong className="text-(--text-main)">Jump back to any save point.</strong> You are looking at the project as it was after
-          <span className="text-(--accent-soft)"> “{point.message}”</span> on {point.day}.
+          <span className="text-(--accent-text)"> “{point.message}”</span> on {point.day}.
         </p>
         <div className="overflow-hidden rounded border border-(--border-subtle) bg-white text-[13px] text-slate-800 shadow-sm" aria-label="The homepage at this save point">
           {point.nav && <div className="flex gap-3 bg-slate-800 px-3 py-1.5 text-white">Home · Events · Join</div>}
@@ -143,15 +143,15 @@ export function ConflictResolver() {
         ) : (
           <>
             <div className="flex flex-wrap gap-x-2 text-xs text-(--text-faint)">
-              <button type="button" onClick={() => setChoice("current")} className="underline-offset-2 hover:text-(--accent-soft) hover:underline">
+              <button type="button" onClick={() => setChoice("current")} className="underline-offset-2 hover:text-(--accent-text) hover:underline">
                 Accept Current Change
               </button>
               |
-              <button type="button" onClick={() => setChoice("incoming")} className="underline-offset-2 hover:text-(--accent-soft) hover:underline">
+              <button type="button" onClick={() => setChoice("incoming")} className="underline-offset-2 hover:text-(--accent-text) hover:underline">
                 Accept Incoming Change
               </button>
               |
-              <button type="button" onClick={() => setChoice("both")} className="underline-offset-2 hover:text-(--accent-soft) hover:underline">
+              <button type="button" onClick={() => setChoice("both")} className="underline-offset-2 hover:text-(--accent-text) hover:underline">
                 Accept Both Changes
               </button>
             </div>

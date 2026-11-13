@@ -25,7 +25,7 @@ export function IntroductionLesson() {
           <Card title="Collaborate without chaos" tag="Teamwork" tone="var(--git-local)">
             Work with a team on the same project without overwriting each other&apos;s work.
           </Card>
-          <Card title="Revert with confidence" tag="Undo" tone="var(--accent-soft)">
+          <Card title="Revert with confidence" tag="Undo" tone="var(--accent-text)">
             If something breaks, go back to a previous version. It is the ultimate &quot;undo&quot; button for your entire project.
           </Card>
         </div>
@@ -52,7 +52,7 @@ export function IntroductionLesson() {
           <Card title="Git (Terminal)" tag="1" tone="var(--git-local)">
             The engine. Every action has one command.
           </Card>
-          <Card title="GitHub Desktop" tag="2" tone="var(--accent-soft)">
+          <Card title="GitHub Desktop" tag="2" tone="var(--accent-text)">
             Buttons for the same commands. Great for seeing what changed.
           </Card>
           <Card title="VS Code" tag="3" tone="var(--lane-2)">
@@ -100,7 +100,7 @@ export function CoreWorkflowLesson() {
           <Card title="Staging area" tag="2" tone="var(--git-local)">
             Files you&apos;ve marked as ready for the next &quot;save point&quot;.
           </Card>
-          <Card title="Repository (.git folder)" tag="3" tone="var(--accent-soft)">
+          <Card title="Repository (.git folder)" tag="3" tone="var(--accent-text)">
             The permanent, saved history of your project.
           </Card>
         </div>
@@ -114,7 +114,7 @@ export function CoreWorkflowLesson() {
           <Card title="Staging area" tag="Ready-to-save pile" tone="var(--git-local)">
             You pick the chapters you&apos;re happy with and put them in a &quot;ready-to-save&quot; pile.
           </Card>
-          <Card title="Local repository (.git)" tag="Bookshelf" tone="var(--accent-soft)">
+          <Card title="Local repository (.git)" tag="Bookshelf" tone="var(--accent-text)">
             You store the finished, approved versions neatly on your bookshelf.
           </Card>
         </div>
@@ -127,11 +127,11 @@ export function CoreWorkflowLesson() {
             <span />
             <p className="gs-ui text-xs tracking-wider text-(--git-remote) uppercase">The internet</p>
             <div className="rounded border border-(--git-modified) px-3 py-4">Working directory</div>
-            <span className="gs-code text-sm text-(--accent-soft)">git add →</span>
+            <span className="gs-code text-sm text-(--accent-text)">git add →</span>
             <div className="rounded border border-(--git-local) px-3 py-4">Staging area</div>
-            <span className="gs-code text-sm text-(--accent-soft)">git commit →</span>
-            <div className="rounded border border-(--accent-soft) px-3 py-4">Local repository</div>
-            <span className="gs-code flex flex-col text-sm text-(--accent-soft)">
+            <span className="gs-code text-sm text-(--accent-text)">git commit →</span>
+            <div className="rounded border border-(--accent-text) px-3 py-4">Local repository</div>
+            <span className="gs-code flex flex-col text-sm text-(--accent-text)">
               <span>git push →</span>
               <span>← git pull</span>
               <span className="text-xs text-(--text-muted)">← git clone (first time only)</span>
@@ -147,7 +147,7 @@ export function CoreWorkflowLesson() {
           <Card title="Add" tag="Working dir → staging" tone="var(--git-local)">
             &quot;I want this in my save.&quot;
           </Card>
-          <Card title="Commit" tag="Staging → local repo" tone="var(--accent-soft)">
+          <Card title="Commit" tag="Staging → local repo" tone="var(--accent-text)">
             A save point with a label.
           </Card>
           <Card title="Push / Pull" tag="Laptop ↔ GitHub" tone="var(--lane-2)">
@@ -168,7 +168,7 @@ export function CoreWorkflowLesson() {
             Like checking the information board on the platform: <span className="gs-ui text-(--text-main)">Marina South Pier · 3 mins</span>. It shows what is
             waiting right now.
           </Card>
-          <Card title={<Pill>git log</Pill>} tag="The timetable" tone="var(--accent-soft)">
+          <Card title={<Pill>git log</Pill>} tag="The timetable" tone="var(--accent-text)">
             Like looking at the history of trains that have already departed.
           </Card>
         </div>
@@ -267,7 +267,7 @@ export function WorkingWithGithubLesson() {
             ["Pull request (PR)", "Open a PR from your fork to the original repository: a formal request to have your work reviewed and merged."],
           ].map(([title, text], i) => (
             <li key={title} className="gs-card flex flex-col gap-2 p-5">
-              <span className="gs-ui text-2xl font-bold text-(--accent-soft)">{i + 1}</span>
+              <span className="gs-ui text-2xl font-bold text-(--accent-text)">{i + 1}</span>
               <p className="gs-heading text-lg font-semibold">{title}</p>
               <p className="text-base text-(--text-muted)">{text}</p>
             </li>
@@ -275,7 +275,7 @@ export function WorkingWithGithubLesson() {
         </ol>
       </Section>
 
-      <Section id="activity-1" index={6} title="Activity 1 · basic Git commands" wide>
+      <Section id="activity-1" index={6} title="ACTIVITY 1 (25 MINS) — BASIC GIT COMMAND EXERCISE" wide>
         <p className="max-w-4xl text-(--text-muted)">
           A real terminal runs below. Follow the eight steps: the checklist ticks itself, and the diagram shows each file moving from your working
           directory, to the staging area, into the repository.

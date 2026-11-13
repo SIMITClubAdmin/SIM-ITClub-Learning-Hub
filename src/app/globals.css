@@ -1,24 +1,52 @@
 @import "tailwindcss";
 
+/* The site's Tailwind colours are aliases of the theme tokens below, so every bg-bg,
+   text-accent, border-violet... follows the palette picked under Appearance. */
 @theme {
-  --color-bg: #070b1f;
-  --color-ink: #e6f1ff;
-  --color-accent: #4fd8eb;
-  --color-grid: #1a2150;
-  --color-violet: #6d4aff;
-  --color-dim: #b4bfdf;
+  --color-bg: var(--bg-base);
+  --color-ink: var(--text-main);
+  --color-accent: var(--accent-text);
+  --color-grid: var(--grid-line);
+  --color-violet: var(--accent-secondary);
+  --color-dim: var(--text-muted);
   --font-display: var(--font-chakra), system-ui, sans-serif;
   --font-sans: var(--font-grotesk), system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, Menlo, monospace;
 }
 
+/* ---------- Theme tokens ----------
+   Cyber Navy is the default and the original design. Each palette (data-palette on <html>,
+   set by src/lib/appearance.ts) overrides the same set further down.
+   --accent-primary      solid buttons (Start learning, Save changes), the nav's active square
+   --accent-hover        hover edge of those buttons
+   --accent-on-primary   text on a solid button
+   --accent-text         eyebrows, section numbers, counters, inline code
+   --accent-soft         translucent tint behind inline code, badges and highlights
+   --border-subtle       dividers and quiet card edges
+   --border-accent       highlighted edges (the Sound toggle, active cards)
+   --accent-secondary    the second brand colour (card borders, planet rings)
+   --grid-line           the faint grid lines */
 :root {
   color-scheme: dark;
+  --bg-base: #070b1f;
+  --bg-surface: #0b1129;
+  --bg-elevated: #0f1735;
+  --text-main: #e6f1ff;
+  --text-muted: #b4bfdf;
+  --accent-primary: #4fd8eb;
+  --accent-hover: #7ee6f3;
+  --accent-on-primary: #070b1f;
+  --accent-text: #4fd8eb;
+  --accent-soft: color-mix(in srgb, var(--accent-primary) 14%, transparent);
+  --border-subtle: #1f2a55;
+  --border-accent: #6d4aff;
+  --accent-secondary: #6d4aff;
+  --grid-line: #1a2150;
 }
 
 body {
-  background: var(--color-bg);
-  color: var(--color-ink);
+  background: var(--bg-base);
+  color: var(--text-main);
   font-family: var(--font-sans);
 }
 
@@ -103,6 +131,13 @@ html.has-cursor * {
   cursor: none !important;
 }
 
+.cc-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  pointer-events: none;
+}
+
 .cc-dot,
 .cc-frame {
   --cur: var(--color-ink);
@@ -110,8 +145,7 @@ html.has-cursor * {
   left: 0;
   top: 0;
   pointer-events: none;
-  /* Above everything, including the Git studio's expanded overlay and preview theater. */
-  z-index: 99999;
+  z-index: 1;
   opacity: 0;
   transition: opacity 150ms ease-out;
 }
@@ -309,7 +343,7 @@ html.cc-on .cc-frame {
   box-shadow:
     0 0 0 2px var(--color-bg),
     0 0 0 4px var(--color-accent),
-    0 0 24px 4px rgb(79 216 235 / 0.35);
+    0 0 24px 4px color-mix(in srgb, var(--accent-primary) 35%, transparent);
 }
 
 /* PracticeGalaxy */
@@ -328,9 +362,9 @@ html.cc-on .cc-frame {
   display: inline-block;
   isolation: isolate;
   overflow: hidden;
-  background: var(--color-accent);
-  box-shadow: inset 0 0 0 1px var(--color-accent);
-  color: var(--color-bg);
+  background: var(--accent-primary);
+  box-shadow: inset 0 0 0 1px var(--accent-primary);
+  color: var(--accent-on-primary);
   font-family: var(--font-mono);
   font-size: 0.8125rem;
   font-weight: 500;
@@ -354,7 +388,7 @@ html.cc-on .cc-frame {
   position: absolute;
   inset: 1px;
   z-index: -1;
-  background: var(--color-bg);
+  background: var(--bg-base);
   transform: scaleX(0);
   transform-origin: left;
   transition: transform 250ms ease-out;
@@ -362,7 +396,8 @@ html.cc-on .cc-frame {
 
 .cta:hover,
 .cta:focus-visible {
-  color: var(--color-accent);
+  color: var(--accent-text);
+  box-shadow: inset 0 0 0 1px var(--accent-hover);
 }
 
 .cta:hover::before,
@@ -586,31 +621,72 @@ html.cc-on .cc-frame {
 /* ---------- Appearance: palettes, fonts and theme worlds (src/lib/appearance.ts) ---------- */
 /* Each choice is a data attribute on <html>; with none set the site keeps its original look. */
 
+/* Text on a bright purple or red button is dark ink: white on #a855f7 or #ef4444 is under the
+   4.5:1 contrast small text needs. The light palette's deeper purple takes white text. */
+
+/* Matrix Green: also picked automatically with the Code (Matrix Rain) theme. */
+html[data-palette="matrix"] {
+  --bg-base: #040805;
+  --bg-surface: #07110a;
+  --bg-elevated: #0b1a10;
+  --text-main: #ecfdf5;
+  --text-muted: #a3c9b0;
+  --accent-primary: #22c55e;
+  --accent-hover: #4ade80;
+  --accent-on-primary: #03140a;
+  --accent-text: #4ade80;
+  --border-subtle: #14532d;
+  --border-accent: #22c55e;
+  --accent-secondary: #15803d;
+  --grid-line: #0f2a18;
+}
+
 html[data-palette="purple-dark"] {
-  --color-bg: #07060e;
-  --color-ink: #f8fafc;
-  --color-accent: #c084fc;
-  --color-grid: #1d1733;
-  --color-violet: #7c3aed;
-  --color-dim: #b3aecb;
+  --bg-base: #07060e;
+  --bg-surface: #0e0c1a;
+  --bg-elevated: #131024;
+  --text-main: #f8fafc;
+  --text-muted: #b3aecb;
+  --accent-primary: #a855f7;
+  --accent-hover: #c084fc;
+  --accent-on-primary: #0b0614;
+  --accent-text: #c084fc;
+  --border-subtle: #261e40;
+  --border-accent: #a855f7;
+  --accent-secondary: #7c3aed;
+  --grid-line: #1d1733;
 }
 
 html[data-palette="red-dark"] {
-  --color-bg: #080506;
-  --color-ink: #fef2f2;
-  --color-accent: #f87171;
-  --color-grid: #2a1216;
-  --color-violet: #b91c1c;
-  --color-dim: #c9b8bb;
+  --bg-base: #080506;
+  --bg-surface: #11090b;
+  --bg-elevated: #180c10;
+  --text-main: #fef2f2;
+  --text-muted: #c9b8bb;
+  --accent-primary: #ef4444;
+  --accent-hover: #f87171;
+  --accent-on-primary: #0b0405;
+  --accent-text: #f87171;
+  --border-subtle: #331419;
+  --border-accent: #ef4444;
+  --accent-secondary: #b91c1c;
+  --grid-line: #2a1216;
 }
 
 html[data-palette="purple-light"] {
-  --color-bg: #f8f7fc;
-  --color-ink: #0f172a;
-  --color-accent: #7c3aed;
-  --color-grid: #e4dcfb;
-  --color-violet: #a78bfa;
-  --color-dim: #475569;
+  --bg-base: #f8f7fc;
+  --bg-surface: #ffffff;
+  --bg-elevated: #f1effa;
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --accent-primary: #7c3aed;
+  --accent-hover: #6d28d9;
+  --accent-on-primary: #ffffff;
+  --accent-text: #6d28d9;
+  --border-subtle: #ddd6fe;
+  --border-accent: #7c3aed;
+  --accent-secondary: #a78bfa;
+  --grid-line: #e4dcfb;
   color-scheme: light;
 }
 
@@ -636,96 +712,32 @@ html[data-font="times"] {
   --font-display: "Times New Roman", Times, serif;
 }
 
-/* Theme-world cursors: the dot becomes an emoji or a terminal block; the focus frame stays. */
-html[data-world] .cc-dot {
+/* Code (Matrix Rain) theme: the dot becomes a [ >_ ] terminal block in the palette's accent,
+   inside the usual focus frame. */
+html[data-world="matrix"] .cc-dot {
   width: auto;
   height: auto;
-  margin: -13px 0 0 -13px;
-  background: none;
-}
-html[data-world] .cc-dot::before {
-  display: block;
-  font-size: 24px;
-  line-height: 1;
-  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.45));
-  transform-origin: 50% 80%;
-}
-html[data-world="cat"] .cc-dot::before {
-  content: "🐱";
-}
-html[data-world="dog"] .cc-dot::before {
-  content: "🐶";
-}
-html[data-world="penguin"] .cc-dot::before {
-  content: "🐧";
-}
-html[data-world="kawaii"] .cc-dot::before {
-  content: "🪄";
-}
-html[data-world="matrix"] .cc-dot {
   margin: -10px 0 0 -4px;
+  background: none;
 }
 html[data-world="matrix"] .cc-dot::before {
   content: ">_";
+  display: block;
   font-family: var(--font-jetbrains), monospace;
   font-size: 13px;
   font-weight: 700;
-  color: #22c55e;
-  background: rgb(0 0 0 / 0.75);
-  border: 1px solid #22c55e;
+  line-height: 1.2;
+  color: var(--accent-text);
+  background: color-mix(in srgb, var(--bg-base) 80%, transparent);
+  border: 1px solid var(--accent-primary);
   padding: 2px 5px;
-  box-shadow: 0 0 12px rgb(34 197 94 / 0.7);
-  filter: none;
-}
-html[data-world="cat"] .cc-frame {
-  --cur: #f9a8d4;
-}
-html[data-world="dog"] .cc-frame {
-  --cur: #fbbf24;
-}
-html[data-world="penguin"] .cc-frame {
-  --cur: #7dd3fc;
-}
-html[data-world="kawaii"] .cc-frame {
-  --cur: #f0abfc;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent-primary) 70%, transparent);
 }
 html[data-world="matrix"] .cc-frame {
-  --cur: #22c55e;
-}
-
-/* Click animations, one per world. */
-html[data-world="cat"] .cc-dot.cc-click::before {
-  animation: cc-tilt 320ms ease-out;
-}
-html[data-world="dog"] .cc-dot.cc-click::before {
-  animation: cc-bounce 360ms ease-out;
-}
-html[data-world="penguin"] .cc-dot.cc-click::before {
-  animation: cc-slide 380ms ease-out;
-}
-html[data-world="kawaii"] .cc-dot.cc-click::before {
-  animation: cc-tilt 320ms ease-out;
+  --cur: var(--accent-primary);
 }
 html[data-world="matrix"] .cc-dot.cc-click::before {
   animation: cc-glitch 240ms steps(3);
-}
-@keyframes cc-tilt {
-  40% {
-    transform: rotate(-18deg) scale(0.9);
-  }
-}
-@keyframes cc-bounce {
-  35% {
-    transform: translateY(-9px) scale(1.08);
-  }
-  70% {
-    transform: translateY(0) scale(0.92);
-  }
-}
-@keyframes cc-slide {
-  40% {
-    transform: translateX(8px) rotate(14deg);
-  }
 }
 @keyframes cc-glitch {
   50% {
@@ -734,15 +746,18 @@ html[data-world="matrix"] .cc-dot.cc-click::before {
   }
 }
 
-/* Little hearts, snowflakes and sparkles that float off a click. */
+/* The 0s and 1s that float off a click. */
 .cc-particle {
   position: fixed;
   left: 0;
   top: 0;
-  z-index: 99999;
+  z-index: 1000000;
   pointer-events: none;
+  font-family: var(--font-jetbrains), monospace;
   font-size: 14px;
   line-height: 1;
+  color: var(--accent-text);
+  text-shadow: 0 0 6px var(--accent-primary);
   animation: cc-float 850ms ease-out forwards;
 }
 @keyframes cc-float {
@@ -756,20 +771,6 @@ html[data-world="matrix"] .cc-dot.cc-click::before {
     translate: var(--dx, 0px) var(--dy, -36px);
     scale: 1.15;
   }
-}
-
-/* "Noot Noot!" when a penguin in the background is clicked. */
-.world-tooltip {
-  position: fixed;
-  z-index: 99998;
-  pointer-events: none;
-  padding: 4px 10px;
-  border: 1px solid var(--color-accent);
-  background: var(--color-bg);
-  color: var(--color-ink);
-  font-family: var(--font-mono);
-  font-size: 13px;
-  animation: callout-in 150ms ease-out;
 }
 
 @media (prefers-reduced-motion: reduce) {

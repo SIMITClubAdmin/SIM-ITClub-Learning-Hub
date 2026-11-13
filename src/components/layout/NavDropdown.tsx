@@ -99,7 +99,7 @@ export function NavDropdown({ label, href, active = false, align = "left", items
       <path d="M1 1l4 4 4-4" />
     </svg>
   );
-  const activeDot = active && <span className="absolute -bottom-1 left-1/2 size-1.5 -translate-x-1/2 bg-accent" />;
+  const activeDot = active && <span className="absolute -bottom-1 left-1/2 size-1.5 -translate-x-1/2 bg-(--accent-primary)" />;
 
   return (
     <div

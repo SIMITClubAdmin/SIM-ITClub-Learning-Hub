@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown, ExternalLink, Eye, Maximize2, Minimize2, RefreshCw, Square } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Files } from "./engine/mini-git";
 import { DEV_PORT } from "./engine/sandbox-files";
 import { useStudio } from "./WebContainerProvider";
@@ -20,6 +20,7 @@ export function PreviewDrawer() {
   const [snapshot, setSnapshot] = useState(files);
   const live = Boolean(serverUrl);
   const running = live || devRunning;
+  const wasRunning = useRef(running);
   // Opens by itself the first time a server comes up, until the student chooses.
   const open = openChoice ?? live;
   const big = theater && live;
@@ -29,6 +30,14 @@ export function PreviewDrawer() {
     const timer = setTimeout(() => setSnapshot(files), 500);
     return () => clearTimeout(timer);
   }, [files]);
+
+  useEffect(() => {
+    if (wasRunning.current && !running) {
+      setTheater(false);
+      setOpenChoice(false);
+    }
+    wasRunning.current = running;
+  }, [running]);
 
   // Escape shrinks the theater view.
   useEffect(() => {

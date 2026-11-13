@@ -1110,7 +1110,13 @@ export function createMiniGit() {
           return done();
         }
         let branch = s.branches[name] ? name : null;
-        let target = branch ? s.branches[name] : null;
+        // The slides say "git checkout main/master": accept either name for the default branch.
+        const otherDefault = name === "master" ? "main" : name === "main" ? "master" : null;
+        if (!branch && otherDefault && s.branches[otherDefault] && !trk(s)[name]) {
+          branch = otherDefault;
+          print(`hint: this repository's default branch is called '${otherDefault}', not '${name}'.`);
+        }
+        let target = branch ? s.branches[branch] : null;
         let tracking = false;
         if (!branch && trk(s)[name]) {
           branch = name;

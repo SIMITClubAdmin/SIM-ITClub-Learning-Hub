@@ -75,7 +75,7 @@ function StudioShell() {
                 aria-pressed={speed === s}
                 onClick={() => setSpeed(s)}
                 className={`gs-ui inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] ${
-                  speed === s ? "bg-[color-mix(in_srgb,var(--accent-primary)_16%,var(--bg-surface))] text-(--accent-soft)" : "bg-(--bg-surface) text-(--text-muted) hover:text-(--text-main)"
+                  speed === s ? "bg-[color-mix(in_srgb,var(--accent-primary)_16%,var(--bg-surface))] text-(--accent-text)" : "bg-(--bg-surface) text-(--text-muted) hover:text-(--text-main)"
                 }`}
               >
                 {s === 1 ? (
@@ -106,6 +106,7 @@ function StudioShell() {
 
       {/* Top: what Git sees. Middle: the code. Bottom: the terminal and preview. */}
       <div className="border-b border-(--border-subtle) p-5">
+        <GuidedActionBar />
         <ThreeTreePipeline />
       </div>
       <GitDagVisualizer />
@@ -115,6 +116,31 @@ function StudioShell() {
       <XtermTerminalPane />
       <PreviewDrawer />
     </div>
+  );
+}
+
+function GuidedActionBar() {
+  const { runCommand, mode } = useStudio();
+  const actions = [
+    { label: "1. Edit a file", command: null },
+    { label: "2. Stage it · git add .", command: "git add ." },
+    { label: "3. Commit a snapshot", command: 'git commit -m "Workshop save point"' },
+    { label: "4. Push to GitHub", command: "git push" },
+  ];
+  return (
+    <ol className="mb-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4" aria-label="Git workflow">
+      {actions.map((action) => (
+        <li key={action.label} className="min-w-0">
+          {action.command ? (
+            <button type="button" disabled={mode === "booting"} onClick={() => void runCommand(action.command!)} className="gs-cmd w-full justify-start">
+              {action.label}
+            </button>
+          ) : (
+            <span className="flex min-h-9 items-center rounded border border-(--border-subtle) bg-(--bg-panel) px-3 text-[13px] text-(--text-muted)">{action.label}</span>
+          )}
+        </li>
+      ))}
+    </ol>
   );
 }
 

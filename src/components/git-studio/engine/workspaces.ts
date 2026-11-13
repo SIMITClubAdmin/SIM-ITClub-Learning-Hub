@@ -82,6 +82,26 @@ const GAME_RED: Step[] = [
   { git: ["switch", "main"] },
 ];
 
+const ACTIVITY1_KEY = "gs-activity1-intro";
+
+/** The your-name.txt a student committed in Activity 1, if this browser has it. */
+export function activity1Intro(): string | null {
+  try {
+    const text = localStorage.getItem(ACTIVITY1_KEY);
+    return text && text.trim() ? text : null;
+  } catch {
+    return null;
+  }
+}
+
+export function rememberActivity1Intro(text: string) {
+  try {
+    if (text.trim()) localStorage.setItem(ACTIVITY1_KEY, text.endsWith("\n") ? text : `${text}\n`);
+  } catch {
+    // Storage can be blocked; Activity 2 then starts from a sample introduction.
+  }
+}
+
 export function buildWorkspace(variant: StudioVariant, now = Date.now()): Workspace {
   const start = now - 3 * 3600_000;
   switch (variant) {
@@ -96,10 +116,9 @@ export function buildWorkspace(variant: StudioVariant, now = Date.now()): Worksp
     case "game4":
       return { startDir: "", allowDev: false, hidden: [], files: {} };
     case "activity2": {
-      const repo = scripted(
-        [{ write: { "your-name.txt": "Hi! I'm an ITCamp student and I'm learning Git.\n" }, git: ["add", "."] }, { git: ["commit", "-m", "Initial commit"] }],
-        start,
-      );
+      // Picks up where Activity 1 left off: the student's own introduction if they wrote one.
+      const intro = activity1Intro() ?? "Hi! I'm an ITCamp student and I'm learning Git.\n";
+      const repo = scripted([{ write: { "your-name.txt": intro }, git: ["add", "."] }, { git: ["commit", "-m", "Initial commit"] }], start);
       return { startDir: "my-project", allowDev: false, hidden: [], files: inFolder("my-project", repo.files, repo.state) };
     }
     case "game1":

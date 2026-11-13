@@ -11,7 +11,7 @@ export function SfxToggle() {
       onClick={toggle}
       aria-pressed={soundOn}
       aria-label={soundOn ? "Turn sound off" : "Turn sound on"}
-      className="border border-violet px-2.5 py-1 font-mono text-xs tracking-wider text-accent uppercase hover:border-accent focus-visible:outline-2 focus-visible:outline-accent"
+      className="border border-(--border-accent) px-2.5 py-1 font-mono text-xs tracking-wider text-(--accent-text) uppercase hover:border-(--accent-hover) focus-visible:outline-2 focus-visible:outline-(--accent-text)"
     >
       Sound: {soundOn ? "on" : "off"}
     </button>

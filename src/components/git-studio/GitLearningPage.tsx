@@ -30,14 +30,14 @@ function LessonLink({ lesson, current }: { lesson: GitLesson; current: boolean }
         aria-current={current ? "page" : undefined}
         className={`flex gap-2 py-1.5 text-sm ${current ? "font-semibold text-(--text-main)" : "text-(--text-muted) hover:text-(--text-main)"}`}
       >
-        <span className="gs-ui w-6 shrink-0 text-xs leading-5 text-(--accent-soft)">{lesson.number}</span>
+        <span className="gs-ui w-6 shrink-0 text-xs leading-5 text-(--accent-text)">{lesson.number}</span>
         <span>{lesson.title}</span>
       </Link>
       {current && (
         <ol className="mb-2 ml-8 flex flex-col">
           {lesson.sections.map((section) => (
             <li key={section.id}>
-              <a href={`#${section.id}`} className="block py-1 text-sm text-(--text-muted) hover:text-(--accent-soft)">
+              <a href={`#${section.id}`} className="block py-1 text-sm text-(--text-muted) hover:text-(--accent-text)">
                 {section.title}
               </a>
             </li>
@@ -54,10 +54,10 @@ function Sidebar({ current }: { current: string }) {
   return (
     <nav aria-label="Git & GitHub lessons">
       {/* useIsolationGuard turns links out of the Git pages into full page loads. */}
-      <Link href="/learn" className="gs-ui text-xs tracking-wider text-(--text-muted) uppercase hover:text-(--accent-soft)">
+      <Link href="/learn" className="gs-ui text-xs tracking-wider text-(--text-muted) uppercase hover:text-(--accent-text)">
         ← All topics
       </Link>
-      <p className="gs-ui mt-5 text-xs tracking-wider text-(--accent-soft) uppercase">Git &amp; GitHub</p>
+      <p className="gs-ui mt-5 text-xs tracking-wider text-(--accent-text) uppercase">Git &amp; GitHub</p>
       <p className="gs-ui mt-1 text-[11px] tracking-wider text-(--text-faint) uppercase">Core workshop · Lesson 2 slides</p>
       <ol className="mt-2 flex flex-col gap-0.5">
         {core.map((lesson) => (
@@ -75,7 +75,7 @@ function Sidebar({ current }: { current: string }) {
       </div>
       <div className="gs-ui mt-6 flex flex-col gap-1.5 text-xs tracking-wider uppercase">
         {LESSON_TOPICS.map((topic) => (
-          <Link key={topic.slug} href={lessonHref(topic.slug, topic.lessons[0].slug)} className="text-(--text-muted) hover:text-(--accent-soft)">
+          <Link key={topic.slug} href={lessonHref(topic.slug, topic.lessons[0].slug)} className="text-(--text-muted) hover:text-(--accent-text)">
             {topic.name} →
           </Link>
         ))}
@@ -93,7 +93,7 @@ export function GitLessonPage({ slug }: { slug: string }) {
   return (
     <GitTrackLayout sidebar={<Sidebar current={slug} />}>
       <header id="top" className="flex max-w-4xl scroll-mt-6 flex-col gap-4">
-        <p className="gs-ui flex flex-wrap items-center gap-3 text-xs tracking-wider text-(--accent-soft) uppercase">
+        <p className="gs-ui flex flex-wrap items-center gap-3 text-xs tracking-wider text-(--accent-text) uppercase">
           {lesson.additional ? (
             <>
               <AdditionalPill /> Git &amp; GitHub · {lesson.number}

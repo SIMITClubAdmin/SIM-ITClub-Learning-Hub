@@ -8,7 +8,7 @@ import { CodeBox } from "./CodeBox";
 
 const LABEL = "font-mono text-xs tracking-wider text-dim uppercase";
 const CHIP = "border px-3 py-1.5 font-mono text-sm transition-colors";
-const chip = (on: boolean) => `${CHIP} ${on ? "border-accent bg-accent text-bg" : "border-violet/60 text-ink hover:border-accent"}`;
+const chip = (on: boolean) => `${CHIP} ${on ? "border-(--accent-primary) bg-(--accent-primary) text-(--accent-on-primary)" : "border-violet/60 text-ink hover:border-accent"}`;
 
 function Range(props: { label: string; value: number; min: number; max: number; unit?: string; onChange: (n: number) => void }) {
   return (

@@ -44,7 +44,7 @@ export default async function AccountPage() {
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-4xl font-semibold">Your account</h1>
         {isAdmin && (
-          <span className="border border-accent px-2 py-0.5 font-mono text-xs tracking-wider text-accent uppercase">
+          <span className="border border-(--border-accent) bg-(--accent-soft) px-2 py-0.5 font-mono text-xs tracking-wider text-(--accent-text) uppercase">
             Admin
           </span>
         )}
@@ -93,7 +93,7 @@ export default async function AccountPage() {
           <h2 id="points-heading" className="text-xl font-semibold">
             Correct answers
           </h2>
-          <p className="font-mono text-lg text-accent">{points}</p>
+          <p className="font-mono text-lg text-(--accent-text)">{points}</p>
         </div>
         <p className="text-sm text-dim">
           Questions you got right, counting your best attempt of each challenge ({MAX_ATTEMPTS} attempts each).

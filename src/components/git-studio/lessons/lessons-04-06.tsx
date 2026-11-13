@@ -48,7 +48,7 @@ export function BranchingLesson() {
 
       <Section id="best-practices" index={3} title="Best practices for branching">
         <div className="grid gap-5 md:grid-cols-3">
-          <Card title="Name branches by what they do" tag="Descriptive" tone="var(--accent-soft)">
+          <Card title="Name branches by what they do" tag="Descriptive" tone="var(--accent-text)">
             One branch per feature: <Pill>feature/navbar</Pill>, <Pill>feature/user-login</Pill>, <Pill>fix/footer-link</Pill>.
           </Card>
           <Card title="Merge back often" tag="Frequently" tone="var(--git-local)">
@@ -114,7 +114,7 @@ export function BranchingLesson() {
         </div>
       </Section>
 
-      <Section id="activity-2" index={5} title="Activity 2 · Git branching + merging" wide>
+      <Section id="activity-2" index={5} title="ACTIVITY 2 (15 MINS) — GIT BRANCHING + MERGING" wide>
         <StudioLoader kind="activity2" />
       </Section>
     </>
@@ -141,8 +141,8 @@ export function PullRequestsLesson() {
           <FileBox title="main · part1.txt" lines={["Hello my name is Michelle."]} tone="var(--git-local)" />
           <span className="text-center text-2xl text-(--text-muted)">+</span>
           <FileBox title="branch-a · part1.txt" lines={["Hello my name is Michelle.", "Hello world."]} tone="var(--git-remote)" />
-          <span className="gs-code text-center text-sm text-(--accent-soft)">git merge branch-a →</span>
-          <FileBox title="main after merge" lines={["Hello my name is Michelle.", "Hello world."]} tone="var(--accent-soft)" />
+          <span className="gs-code text-center text-sm text-(--accent-text)">git merge branch-a →</span>
+          <FileBox title="main after merge" lines={["Hello my name is Michelle.", "Hello world."]} tone="var(--accent-text)" />
         </div>
         <Terminal lines={["% git switch main", "% git merge branch-a", "Updating 9f8e7d6..a1b2c3d", "Fast-forward"]} />
       </Section>
@@ -156,7 +156,7 @@ export function PullRequestsLesson() {
           {["feature/navbar pushed", "Open pull request", "Teammate reviews + approves", "Merged into main", "Everyone switches to main and pulls"].map((step, i, all) => (
             <li key={step} className="flex items-center gap-2">
               <span className="rounded border border-(--border-subtle) bg-(--bg-surface) px-3 py-1.5">{step}</span>
-              {i < all.length - 1 && <span className="text-(--accent-soft)">→</span>}
+              {i < all.length - 1 && <span className="text-(--accent-text)">→</span>}
             </li>
           ))}
         </ol>
@@ -231,7 +231,7 @@ export function PullRequestsLesson() {
 
       <Section id="activity-3" index={4} title="Activity 3 · the branching game" wide>
         <p className="max-w-4xl text-(--text-muted)">
-          In class we play <a className="text-(--accent-soft) underline underline-offset-4" href="https://learngitbranching.js.org/" target="_blank" rel="noreferrer">learngitbranching.js.org</a>.
+          In class we play <a className="text-(--accent-text) underline underline-offset-4" href="https://learngitbranching.js.org/" target="_blank" rel="noreferrer">learngitbranching.js.org</a>.
           These four levels practise the same moves right here: blue and red branches, a fast-forward merge, deleting branches, and a remote sync with{" "}
           <Pill>git fakeTeamwork</Pill>.
         </p>
@@ -303,13 +303,13 @@ export function TipsLesson() {
 
       <Section id="pro-tips" index={4} title="Pro tips">
         <div className="grid gap-5 md:grid-cols-3">
-          <Card title={<Pill>git stash</Pill>} tag="Stashing" tone="var(--accent-soft)">
+          <Card title={<Pill>git stash</Pill>} tag="Stashing" tone="var(--accent-text)">
             Need to switch branches but not ready to commit? Stash temporarily saves your changes.
           </Card>
-          <Card title={<Pill>git revert &lt;commit-hash&gt;</Pill>} tag="Reverting" tone="var(--accent-soft)">
+          <Card title={<Pill>git revert &lt;commit-hash&gt;</Pill>} tag="Reverting" tone="var(--accent-text)">
             To safely undo a pushed commit, create a new commit that reverses the changes.
           </Card>
-          <Card title="Back up first" tag="Backups" tone="var(--accent-soft)">
+          <Card title="Back up first" tag="Backups" tone="var(--accent-text)">
             Before a risky operation, duplicate the folder locally or push your branch to a separate backup repository on GitHub.
           </Card>
         </div>
@@ -347,7 +347,7 @@ export function TipsLesson() {
             </tbody>
           </table>
         </div>
-        <p className="gs-heading text-xl font-semibold text-(--accent-soft)">Pull before you work. Branch off main. Merge with a PR.</p>
+        <p className="gs-heading text-xl font-semibold text-(--accent-text)">Pull before you work. Branch off main. Merge with a PR.</p>
       </Section>
     </>
   );

@@ -33,6 +33,7 @@ const DARK_ANSI = {
 /** xterm.js draws its own colours, so each site palette gets a matching terminal palette. */
 const TERMINAL_THEMES: Record<PaletteId, ITheme> = {
   navy: { ...DARK_ANSI, background: "#05081a", cursor: "#4fd8eb", cursorAccent: "#05081a", selectionBackground: "#1e3a5f" },
+  matrix: { ...DARK_ANSI, foreground: "#dcfce7", background: "#020503", cursor: "#22c55e", cursorAccent: "#020503", selectionBackground: "#14532d" },
   "purple-dark": { ...DARK_ANSI, background: "#09080f", cursor: "#a855f7", cursorAccent: "#09080f", selectionBackground: "#3b2a63" },
   "red-dark": { ...DARK_ANSI, background: "#0a0607", cursor: "#ef4444", cursorAccent: "#0a0607", selectionBackground: "#4c1d24" },
   // Light: every ANSI colour is darkened, and "white" text becomes slate, so nothing vanishes.
@@ -330,7 +331,7 @@ export function XtermTerminalPane() {
     <div className="flex min-h-0 flex-col border-t border-(--border-subtle)">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-(--border-subtle) bg-(--bg-panel) px-4 py-2.5">
         <p className="gs-ui flex items-center gap-2 text-[13px] text-(--text-muted)">
-          <SquareTerminal className="size-4 text-(--accent-soft)" aria-hidden="true" />
+          <SquareTerminal className="size-4 text-(--accent-text)" aria-hidden="true" />
           Terminal
           <span className="text-(--text-faint)">
             · ~/itcamp{cwd ? `/${cwd}` : ""}

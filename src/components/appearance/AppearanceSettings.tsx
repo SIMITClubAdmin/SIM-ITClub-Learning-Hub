@@ -39,6 +39,15 @@ export function AppearanceSettings({ signedIn }: { signedIn: boolean }) {
     }, 600);
   }
 
+  // The Code theme brings its Matrix Green palette. Going back to the pixel grid undoes that,
+  // but keeps any other palette the member picked by hand.
+  function chooseWorld(world: Appearance["world"]) {
+    const next: Partial<Appearance> = { world };
+    if (world === "matrix") next.palette = "matrix";
+    else if (appearance.palette === "matrix") next.palette = DEFAULT_APPEARANCE.palette;
+    choose(next);
+  }
+
   const reset = () => choose(DEFAULT_APPEARANCE);
 
   return (
@@ -93,14 +102,15 @@ export function AppearanceSettings({ signedIn }: { signedIn: boolean }) {
       </fieldset>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="mb-2 font-mono text-xs tracking-wider text-accent uppercase">Theme world · background and cursor</legend>
+        <legend className="mb-2 font-mono text-xs tracking-wider text-accent uppercase">Theme · background and cursor</legend>
+        <p className="-mt-1 mb-1 text-sm text-dim">The Code theme switches to Matrix Green; you can pick another palette after.</p>
         <div className="grid grid-cols-2 gap-2">
           {WORLDS.map((w) => {
             const on = appearance.world === w.id;
             return (
               <label key={w.id} className={`${OPTION} flex-col items-start ${on ? "border-accent bg-accent/10" : "border-violet/60 hover:border-accent"}`}>
-                <input type="radio" name="world" className="sr-only" checked={on} onChange={() => choose({ world: w.id })} />
-                <span className="text-2xl leading-none" aria-hidden="true">
+                <input type="radio" name="world" className="sr-only" checked={on} onChange={() => chooseWorld(w.id)} />
+                <span className="font-mono text-2xl leading-none text-accent" aria-hidden="true">
                   {w.emoji}
                 </span>
                 <span className="text-sm font-semibold">{w.label}</span>

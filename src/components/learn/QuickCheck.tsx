@@ -28,7 +28,7 @@ export function QuickCheck({ question, options, answer, explanation }: Props) {
             className={`cursor-pointer border px-4 py-2 transition-colors has-focus-visible:outline-2 has-focus-visible:outline-accent ${
               picked === i
                 ? i === answer
-                  ? "border-accent bg-accent text-bg"
+                  ? "border-(--accent-primary) bg-(--accent-primary) text-(--accent-on-primary)"
                   : "border-[#be3caa] bg-[#be3caa]/20"
                 : "border-violet hover:border-accent"
             }`}

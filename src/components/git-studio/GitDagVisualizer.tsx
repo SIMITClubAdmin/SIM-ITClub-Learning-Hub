@@ -23,7 +23,7 @@ const STAGGER = 260;
 const LOCAL = "var(--git-local)";
 const REMOTE = "var(--git-remote)";
 const ACCENT = "var(--accent-primary)";
-const LANE_COLORS = [LOCAL, REMOTE, "var(--git-modified)", "var(--lane-2)", "var(--lane-3)", "var(--accent-soft)"];
+const LANE_COLORS = [LOCAL, REMOTE, "var(--git-modified)", "var(--lane-2)", "var(--lane-3)", "var(--accent-text)"];
 const tint = (color: string, percent: number) => `color-mix(in srgb, ${color} ${percent}%, transparent)`;
 
 type Tag = { key: string; label: string; color: string; x: number; y: number; stack: number };
@@ -227,7 +227,7 @@ function Inspector({ repo, id }: { repo: RepoState; id: string }) {
   return (
     <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-(--border-subtle) bg-(--bg-panel) px-5 py-3.5 text-sm">
       <span className="gs-label">Inspecting</span>
-      <span className="gs-code font-bold text-(--accent-soft)">{commit.id}</span>
+      <span className="gs-code font-bold text-(--accent-text)">{commit.id}</span>
       <span className="min-w-0 truncate text-(--text-main)">“{commit.message.split("\n")[0]}”</span>
       <span className="text-(--text-muted)">
         branch <span className="gs-code text-(--text-main)">{commit.branch}</span>
@@ -434,7 +434,7 @@ function CommitGraph({ repo }: { repo: RepoState }) {
         <div className="pointer-events-none absolute inset-x-0 flex items-center justify-center px-5" style={{ top: view.tunnelTop, height: TUNNEL }}>
           <p
             className={`gs-ui rounded border bg-(--bg-surface) px-3 py-1.5 text-[13px] ${
-              pushEvent ? "gs-blink border-(--accent-primary) text-(--accent-soft)" : "border-(--border-subtle) text-(--text-muted)"
+              pushEvent ? "gs-blink border-(--accent-primary) text-(--accent-text)" : "border-(--border-subtle) text-(--text-muted)"
             }`}
           >
             {pushEvent

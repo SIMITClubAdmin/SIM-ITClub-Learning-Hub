@@ -12,20 +12,18 @@ export const FONTS = [
   { id: "times", label: "Times New Roman", hint: "Classic serif" },
 ] as const;
 
+/** Swatch colours for the picker. The real values are the tokens in globals.css. */
 export const PALETTES = [
   { id: "navy", label: "Cyber Navy", hint: "Default", base: "#070b1f", accent: "#4fd8eb" },
+  { id: "matrix", label: "Matrix Green", hint: "Dark · Code theme", base: "#040805", accent: "#22c55e" },
   { id: "purple-dark", label: "Purple & Black", hint: "Dark", base: "#07060e", accent: "#a855f7" },
   { id: "red-dark", label: "Red & Black", hint: "Dark", base: "#080506", accent: "#ef4444" },
   { id: "purple-light", label: "Purple & White", hint: "Light mode", base: "#f8f7fc", accent: "#7c3aed" },
 ] as const;
 
 export const WORLDS = [
-  { id: "pixel", label: "Default Pixel Grid", emoji: "▦", hint: "Drifting pixel nebula, reticle cursor" },
-  { id: "cat", label: "Cat Theme", emoji: "🐱", hint: "Wandering cats, yarn and paw prints" },
-  { id: "dog", label: "Dog Theme", emoji: "🐶", hint: "Puppies, bones and tennis balls" },
-  { id: "penguin", label: "Pingu Theme", emoji: "🐧", hint: "Snowfall, ice floes and penguins" },
-  { id: "kawaii", label: "Chiikawa Theme", emoji: "✨", hint: "Pastel clouds, stars and snacks" },
-  { id: "matrix", label: "Code (Matrix Rain) Theme", emoji: "💻", hint: "Falling code, terminal cursor" },
+  { id: "pixel", label: "Default Pixel Grid", emoji: "▦", hint: "Animated pixel grid, [ · ] reticle cursor" },
+  { id: "matrix", label: "Code Theme (Matrix Rain)", emoji: ">_", hint: "Falling code rain, [ >_ ] terminal cursor" },
 ] as const;
 
 export type FontId = (typeof FONTS)[number]["id"];
@@ -34,7 +32,6 @@ export type WorldId = (typeof WORLDS)[number]["id"];
 export type Appearance = { font: FontId; palette: PaletteId; world: WorldId };
 
 export const DEFAULT_APPEARANCE: Appearance = { font: "site", palette: "navy", world: "pixel" };
-
 export const KEYS = { font: "hub-font", palette: "hub-palette", world: "hub-world" } as const;
 export const IDS = {
   font: FONTS.map((f) => f.id) as string[],
