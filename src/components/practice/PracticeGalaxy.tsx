@@ -125,6 +125,7 @@ export function PracticeGalaxy({
                   palette={module.palette}
                   showRocket={i === checkpoint}
                   mode={mode}
+                  index={i}
                 />
               </div>
               {/* A planet waiting at the edge can be clicked to rotate it in. */}

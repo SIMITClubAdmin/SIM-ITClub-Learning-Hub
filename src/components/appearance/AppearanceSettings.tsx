@@ -1,9 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useAppearance } from "@/lib/appearance";
-import { DEFAULT_APPEARANCE, FONTS, PALETTES, WORLDS, type Appearance } from "@/lib/appearance-config";
-import { createClient } from "@/lib/supabase/client";
+import { currentAppearance, useAppearance, useAppearanceOwner } from "@/lib/appearance";
+import { DEFAULT_APPEARANCE, FONTS, GUEST, PALETTES, WORLD_PALETTE, WORLDS, type Appearance } from "@/lib/appearance-config";
+import { saveAppearanceToProfile } from "./ThemeCustomizationProvider";
 
 const FONT_PREVIEW: Record<Appearance["font"], string> = {
   site: "var(--font-chakra), system-ui, sans-serif",
@@ -16,9 +16,14 @@ const FONT_PREVIEW: Record<Appearance["font"], string> = {
 const OPTION =
   "flex cursor-pointer items-center gap-3 border px-3 py-2.5 text-left transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent";
 
-/** Font, colour palette and theme world for the whole site, saved per browser and (for members) to the profile. */
-export function AppearanceSettings({ signedIn }: { signedIn: boolean }) {
+/**
+ * Font, colour palette and theme world for the whole site. Saved per account in this browser
+ * (itcamp_theme_<user id>, or the guest copy) and, for members, in their profile too.
+ */
+export function AppearanceSettings({ signedIn: signedInHint }: { signedIn: boolean }) {
   const appearance = useAppearance();
+  const owner = useAppearanceOwner();
+  const signedIn = signedInHint || owner !== GUEST;
   const [status, setStatus] = useState("");
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -28,23 +33,23 @@ export function AppearanceSettings({ signedIn }: { signedIn: boolean }) {
     if (!signedIn) return;
     // Members get the same look on every device: keep a copy in their profile.
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    const merged = { font: appearance.font, palette: appearance.palette, world: appearance.world, ...next };
     saveTimer.current = setTimeout(async () => {
       try {
-        const { error } = await createClient().auth.updateUser({ data: { hub_appearance: merged } });
-        setStatus(error ? "Saved in this browser (your profile could not be updated)." : "Saved to this browser and your profile.");
+        const ok = await saveAppearanceToProfile(currentAppearance());
+        setStatus(ok ? "Saved to this browser and your profile." : "Saved in this browser (your profile could not be updated).");
       } catch {
         setStatus("Saved in this browser.");
       }
     }, 600);
   }
 
-  // The Code theme brings its Matrix Green palette. Going back to the pixel grid undoes that,
-  // but keeps any other palette the member picked by hand.
+  // The Code, Sakura and Winter themes bring their own palette. Going back to the pixel grid
+  // undoes that, but keeps any other palette the member picked by hand.
   function chooseWorld(world: Appearance["world"]) {
     const next: Partial<Appearance> = { world };
-    if (world === "matrix") next.palette = "matrix";
-    else if (appearance.palette === "matrix") next.palette = DEFAULT_APPEARANCE.palette;
+    const own = WORLD_PALETTE[world];
+    if (own) next.palette = own;
+    else if (Object.values(WORLD_PALETTE).includes(appearance.palette)) next.palette = DEFAULT_APPEARANCE.palette;
     choose(next);
   }
 
@@ -103,14 +108,14 @@ export function AppearanceSettings({ signedIn }: { signedIn: boolean }) {
 
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-2 font-mono text-xs tracking-wider text-accent uppercase">Theme · background and cursor</legend>
-        <p className="-mt-1 mb-1 text-sm text-dim">The Code theme switches to Matrix Green; you can pick another palette after.</p>
+        <p className="-mt-1 mb-1 text-sm text-dim">Each theme brings its own colours (Code: Matrix Green, Sakura: Sakura Pink, Winter: Winter Frost); you can pick another palette after.</p>
         <div className="grid grid-cols-2 gap-2">
           {WORLDS.map((w) => {
             const on = appearance.world === w.id;
             return (
               <label key={w.id} className={`${OPTION} flex-col items-start ${on ? "border-accent bg-accent/10" : "border-violet/60 hover:border-accent"}`}>
                 <input type="radio" name="world" className="sr-only" checked={on} onChange={() => chooseWorld(w.id)} />
-                <span className="font-mono text-2xl leading-none text-accent" aria-hidden="true">
+                <span className="h-7 font-mono text-2xl leading-none text-accent" aria-hidden="true">
                   {w.emoji}
                 </span>
                 <span className="text-sm font-semibold">{w.label}</span>

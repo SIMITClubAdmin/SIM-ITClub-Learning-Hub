@@ -4,8 +4,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { GroupPicker } from "@/components/account/GroupPicker";
+import { LeaderboardPosition } from "@/components/account/LeaderboardPosition";
 import { AppearanceSettings } from "@/components/appearance/AppearanceSettings";
 import { AccountForm } from "@/components/auth/AccountForm";
+import { boardPosition, cleanTagline, type BoardRow } from "@/lib/leaderboard";
 import { bestScores } from "@/lib/progress";
 import { MAX_ATTEMPTS, QUESTIONS_PER_QUIZ, QUIZ_TITLES } from "@/lib/quiz-meta";
 import { loadLearner, needsGroup } from "@/lib/supabase/learner";
@@ -26,15 +28,18 @@ export default async function AccountPage() {
 
   // The learner row is made on their first visit, so load it before reading when they joined.
   const learner = await loadLearner(supabase);
-  const [{ data: profile }, { data: attempts }] = await Promise.all([
+  const [{ data: profile }, { data: attempts }, board] = await Promise.all([
     supabase.from("learners").select("created_at").eq("user_id", user.id).maybeSingle(),
     supabase.from("quiz_attempts").select("quiz_slug:topic_slug, score, total, finished_at").eq("user_id", user.id),
+    supabase.rpc("get_leaderboard"),
   ]);
   const isAdmin = !!learner?.is_admin;
   const isGuestAccount = learner?.account_type === "guest";
   const finished = (attempts ?? []).filter((a) => a.finished_at);
   const best = bestScores(finished);
   const points = Object.values(best).reduce<number>((sum, n) => sum + (n ?? 0), 0);
+  const onLeaderboard = !isAdmin && !isGuestAccount;
+  const position = board.error ? null : boardPosition((board.data ?? []) as BoardRow[], learner?.display_name, points);
 
   const joined = profile ? new Date(profile.created_at).toLocaleDateString("en-SG", { dateStyle: "long" }) : "";
 
@@ -98,6 +103,7 @@ export default async function AccountPage() {
         <p className="text-sm text-dim">
           Questions you got right, counting your best attempt of each challenge ({MAX_ATTEMPTS} attempts each).
         </p>
+        <LeaderboardPosition position={position} onLeaderboard={onLeaderboard} isAdmin={isAdmin} />
         <ul className="flex flex-col gap-1.5">
           {Object.entries(QUIZ_TITLES).map(([slug, title]) => {
             const used = finished.filter((a) => a.quiz_slug === slug).length;
@@ -118,8 +124,9 @@ export default async function AccountPage() {
       <AccountForm
         userId={user.id}
         initialName={learner?.display_name ?? ""}
+        initialTagline={cleanTagline(user.user_metadata?.hub_tagline)}
         // Guests and admins are kept off the leaderboard.
-        onLeaderboard={!isAdmin && !isGuestAccount}
+        onLeaderboard={onLeaderboard}
       />
 
       <AppearanceSettings signedIn />

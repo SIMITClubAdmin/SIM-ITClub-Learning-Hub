@@ -1,28 +1,117 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
+import { css, isLight, pick, rand, tokenRgb, useCanvasScene, type Rgb, type Scene } from "./canvas-scene";
 
-const FPS = 60;
 const COLUMN = 18;
 const GLYPHS = "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789";
 const GIT_WORDS = ["git push", "git commit", "git pull", "git merge", "git add .", "git clone", "git status", "git log", "HEAD", "main"];
+/**
+ * How far a column's head falls each frame, in cells. About half the old speed (0.7 cells a
+ * frame on average), so the rain stays calm behind lesson text.
+ */
+const SPEED: [number, number] = [0.26, 0.46];
 
-type Rgb = [number, number, number];
+type Column = { y: number; speed: number; len: number; cell: number; trail: string[]; word: string; idx: number };
 
-const rand = (a: number, b: number) => a + Math.random() * (b - a);
-const css = (c: Rgb, alpha = 1) => `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${alpha})`;
+const glyph = () => GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
 
-/** Reads a theme token from <html> as RGB, whatever colour syntax it was written in. */
-function tokenRgb(probe: CanvasRenderingContext2D, name: string, fallback: Rgb): Rgb {
-  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  if (!value) return fallback;
-  probe.fillStyle = "#010203";
-  probe.fillStyle = value;
-  const out = String(probe.fillStyle);
-  if (out === "#010203") return fallback;
-  if (out.startsWith("#")) return [1, 3, 5].map((i) => parseInt(out.slice(i, i + 2), 16)) as Rgb;
-  const n = out.match(/[\d.]+/g);
-  return n && n.length >= 3 ? [Number(n[0]), Number(n[1]), Number(n[2])] : fallback;
+function readColours(c: CanvasRenderingContext2D) {
+  const bg = tokenRgb(c, "--bg-base", [4, 8, 5]);
+  const primary = tokenRgb(c, "--accent-primary", [34, 197, 94]);
+  const text = tokenRgb(c, "--accent-text", [74, 222, 128]);
+  const light = isLight(bg);
+  const pale = primary.map((v) => Math.round(v + (255 - v) * 0.65)) as Rgb;
+  return {
+    light,
+    bg: css(bg),
+    head: light ? css(text) : css(pale),
+    trail: light ? css(text) : css(primary),
+    glow: light ? "transparent" : css(primary),
+  };
+}
+
+/**
+ * Katakana and Git commands falling down the screen. Each column snaps from cell to cell like
+ * the classic effect and draws its own fading trail, so nothing smears or leaves ghosts.
+ */
+function createMatrixRain(c: CanvasRenderingContext2D): Scene {
+  // Canvas fonts cannot read CSS variables, so resolve the next/font family name once.
+  const font = `15px ${getComputedStyle(document.documentElement).getPropertyValue("--font-jetbrains").trim() || "ui-monospace"}, monospace`;
+  let W = 0;
+  let H = 0;
+  let columns: Column[] = [];
+  let colours = readColours(c);
+
+  function column(y: number, filled: boolean): Column {
+    const len = Math.floor(rand(8, 20));
+    const cell = Math.floor(y / COLUMN);
+    return {
+      y,
+      speed: rand(SPEED[0], SPEED[1]) * COLUMN,
+      len,
+      cell,
+      trail: filled ? Array.from({ length: len }, glyph) : [],
+      word: Math.random() < 0.18 ? pick(GIT_WORDS) : "",
+      idx: 0,
+    };
+  }
+
+  function next(col: Column) {
+    if (!col.word) return glyph();
+    const g = col.word[col.idx] ?? " ";
+    col.idx++;
+    if (col.idx >= col.word.length) col.word = "";
+    return g;
+  }
+
+  return {
+    resize(width, height) {
+      W = width;
+      H = height;
+      // Spread over the screen at the start, so the page never opens on an empty sky.
+      columns = Array.from({ length: Math.ceil(W / COLUMN) }, () => column(rand(-H * 0.4, H * 1.1), true));
+    },
+    recolour() {
+      colours = readColours(c);
+    },
+    frame(_now, f) {
+      c.fillStyle = colours.bg;
+      c.fillRect(0, 0, W, H);
+      c.font = font;
+      c.textAlign = "center";
+      columns.forEach((col, i) => {
+        col.y += col.speed * f;
+        const cell = Math.floor(col.y / COLUMN);
+        while (col.cell < cell) {
+          col.cell++;
+          col.trail.unshift(next(col));
+          if (col.trail.length > col.len) col.trail.pop();
+        }
+        // Now and then a glyph in the trail changes, like the original.
+        if (f && col.trail.length > 2 && Math.random() < 0.03 * f) col.trail[1 + Math.floor(Math.random() * (col.trail.length - 1))] = glyph();
+
+        const x = i * COLUMN + COLUMN / 2;
+        c.fillStyle = colours.trail;
+        for (let k = col.trail.length - 1; k >= 1; k--) {
+          const y = (col.cell - k) * COLUMN;
+          if (y < -COLUMN || y > H + COLUMN) continue;
+          c.globalAlpha = Math.pow(1 - k / col.len, 1.3) * 0.75;
+          c.fillText(col.trail[k], x, y);
+        }
+        c.globalAlpha = 1;
+        if (col.trail.length) {
+          c.fillStyle = colours.head;
+          c.shadowColor = colours.glow;
+          c.shadowBlur = colours.light ? 0 : 7;
+          c.fillText(col.trail[0], x, col.cell * COLUMN);
+          c.shadowBlur = 0;
+        }
+        // The whole trail has left the screen: start again above it.
+        if ((col.cell - col.trail.length) * COLUMN > H) columns[i] = column(rand(-220, -20), false);
+      });
+    },
+  };
 }
 
 /**
@@ -32,159 +121,6 @@ function tokenRgb(probe: CanvasRenderingContext2D, name: string, fallback: Rgb):
  */
 export function MatrixRainBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    if (!canvas || !ctx) return;
-    const c = ctx;
-
-    const reduce = matchMedia("(prefers-reduced-motion: reduce)");
-    const touch = matchMedia("(hover: none), (pointer: coarse)");
-    // Canvas fonts cannot read CSS variables, so resolve the next/font family name once.
-    const mono = `${getComputedStyle(document.documentElement).getPropertyValue("--font-jetbrains").trim() || "ui-monospace"}, monospace`;
-    let W = 0;
-    let H = 0;
-    let raf = 0;
-    let last = 0;
-    let tick = 0;
-    let animated = false;
-    let columns: { y: number; speed: number; word: string; idx: number }[] = [];
-    let colours = readColours();
-
-    function readColours() {
-      const bg = tokenRgb(c, "--bg-base", [4, 8, 5]);
-      const primary = tokenRgb(c, "--accent-primary", [34, 197, 94]);
-      const text = tokenRgb(c, "--accent-text", [74, 222, 128]);
-      const light = (0.2126 * bg[0] + 0.7152 * bg[1] + 0.0722 * bg[2]) / 255 > 0.5;
-      const pale = primary.map((v) => Math.round(v + (255 - v) * 0.65)) as Rgb;
-      return {
-        light,
-        bg: css(bg),
-        // A translucent wash each frame leaves the trail behind every head glyph.
-        wash: css(bg, light ? 0.16 : 0.14),
-        head: light ? css(text) : css(pale),
-        trail: (alpha: number) => (light ? css(text, alpha * 0.75) : css(primary, alpha * 0.85)),
-        glow: light ? "transparent" : css(primary),
-      };
-    }
-
-    function setup() {
-      columns = Array.from({ length: Math.ceil(W / COLUMN) }, () => ({ y: rand(-H, 0), speed: rand(5, 13), word: "", idx: 0 }));
-    }
-
-    function drawFrame(first: boolean) {
-      c.fillStyle = first ? colours.bg : colours.wash;
-      c.fillRect(0, 0, W, H);
-      c.font = `15px ${mono}`;
-      c.textAlign = "center";
-      columns.forEach((col, i) => {
-        const x = i * COLUMN + COLUMN / 2;
-        let glyph: string;
-        if (col.word) {
-          glyph = col.word[col.idx] ?? " ";
-          col.idx++;
-          if (col.idx >= col.word.length) col.word = "";
-        } else glyph = GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
-        c.fillStyle = colours.head;
-        c.shadowColor = colours.glow;
-        c.shadowBlur = colours.light ? 0 : 8;
-        c.fillText(glyph, x, col.y);
-        c.shadowBlur = 0;
-        c.fillStyle = colours.trail(1);
-        c.fillText(GLYPHS[(i * 7 + Math.floor(tick / 6)) % GLYPHS.length], x, col.y - 18);
-        col.y += col.speed * 1.4;
-        if (col.y > H + 20) {
-          col.y = rand(-200, 0);
-          col.speed = rand(5, 13);
-          if (Math.random() < 0.18) {
-            col.word = GIT_WORDS[Math.floor(Math.random() * GIT_WORDS.length)];
-            col.idx = 0;
-          }
-        }
-      });
-    }
-
-    /** One still frame of code trails, for reduced motion and touch screens. */
-    function drawStill() {
-      c.fillStyle = colours.bg;
-      c.fillRect(0, 0, W, H);
-      c.font = `15px ${mono}`;
-      c.textAlign = "center";
-      columns.forEach((_, i) => {
-        const x = i * COLUMN + COLUMN / 2;
-        const head = rand(0, H * 1.2);
-        const length = Math.floor(rand(6, 18));
-        for (let k = 0; k < length; k++) {
-          const alpha = k === 0 ? 1 : 0.85 - k / length;
-          if (alpha <= 0) break;
-          c.fillStyle = k === 0 ? colours.head : colours.trail(alpha);
-          c.fillText(GLYPHS[Math.floor(Math.random() * GLYPHS.length)], x, head - k * 18);
-        }
-      });
-    }
-
-    const render = (first = false) => (animated ? drawFrame(first) : drawStill());
-
-    function frame(now: number) {
-      raf = requestAnimationFrame(frame);
-      if (now - last < 1000 / FPS - 1) return;
-      last = now;
-      tick++;
-      drawFrame(false);
-    }
-    function start() {
-      if (animated && !raf && !document.hidden) raf = requestAnimationFrame(frame);
-    }
-    function stop() {
-      cancelAnimationFrame(raf);
-      raf = 0;
-    }
-    function resize() {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      W = window.innerWidth;
-      H = window.innerHeight;
-      canvas!.width = Math.round(W * dpr);
-      canvas!.height = Math.round(H * dpr);
-      c.setTransform(dpr, 0, 0, dpr, 0, 0);
-      setup();
-      render(true);
-    }
-    function applyMode() {
-      animated = !reduce.matches && !touch.matches;
-      if (animated) start();
-      else {
-        stop();
-        render(true);
-      }
-    }
-    function onVisibility() {
-      if (document.hidden) stop();
-      else start();
-    }
-
-    // A new palette recolours the rain straight away.
-    const paletteWatch = new MutationObserver(() => {
-      colours = readColours();
-      render(true);
-    });
-    paletteWatch.observe(document.documentElement, { attributes: true, attributeFilter: ["data-palette"] });
-
-    resize();
-    applyMode();
-    window.addEventListener("resize", resize);
-    document.addEventListener("visibilitychange", onVisibility);
-    reduce.addEventListener("change", applyMode);
-    touch.addEventListener("change", applyMode);
-    return () => {
-      stop();
-      paletteWatch.disconnect();
-      window.removeEventListener("resize", resize);
-      document.removeEventListener("visibilitychange", onVisibility);
-      reduce.removeEventListener("change", applyMode);
-      touch.removeEventListener("change", applyMode);
-    };
-  }, []);
-
+  useCanvasScene(canvasRef, createMatrixRain);
   return <canvas ref={canvasRef} className="pixel-grid" aria-hidden="true" />;
 }

@@ -1,16 +1,19 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { cleanTagline, TAGLINE_MAX } from "@/lib/leaderboard";
 import { createClient } from "@/lib/supabase/client";
 
 type Props = {
   userId: string;
   initialName: string;
+  /** Shown under their name on the leaderboard while they are in the top 3. */
+  initialTagline: string;
   /** Admins are kept off the leaderboard. */
   onLeaderboard: boolean;
 };
 
-export function AccountForm({ userId, initialName, onLeaderboard }: Props) {
+export function AccountForm({ userId, initialName, initialTagline, onLeaderboard }: Props) {
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -23,7 +26,9 @@ export function AccountForm({ userId, initialName, onLeaderboard }: Props) {
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const displayName = String(new FormData(event.currentTarget).get("displayName")).trim();
+    const form = new FormData(event.currentTarget);
+    const displayName = String(form.get("displayName")).trim();
+    const tagline = cleanTagline(form.get("tagline"));
     setBusy(true);
     setMessage("");
 
@@ -40,9 +45,14 @@ export function AccountForm({ userId, initialName, onLeaderboard }: Props) {
       );
       return;
     }
-    // The header reads the name from the session, so keep it in step.
-    await supabase.auth.updateUser({ data: { display_name: displayName } });
-    show("Display name saved.", false);
+    // The header reads the name from the session, so keep it in step. The tagline lives in the
+    // profile too, where the leaderboard reads it for the top 3.
+    const { error: profileError } = await supabase.auth.updateUser({ data: { display_name: displayName, hub_tagline: tagline } });
+    if (profileError) {
+      show("Your display name was saved, but not your tagline. Please try again.", true);
+      return;
+    }
+    show(tagline ? "Display name and tagline saved." : "Display name saved.", false);
   }
 
   return (
@@ -61,6 +71,22 @@ export function AccountForm({ userId, initialName, onLeaderboard }: Props) {
         />
         <span className="text-sm text-dim">
           {onLeaderboard ? "Shown on the leaderboard, which members can see." : "Shown in the header and on your account."}
+        </span>
+      </label>
+      <label htmlFor="tagline" className="flex flex-col gap-2">
+        Leaderboard tagline
+        <input
+          id="tagline"
+          name="tagline"
+          maxLength={TAGLINE_MAX}
+          defaultValue={initialTagline}
+          placeholder="e.g. Commit early, push often"
+          autoComplete="off"
+          className="w-full border border-violet bg-bg/85 px-3.5 py-3 text-ink"
+        />
+        <span className="text-sm text-dim">
+          Displayed under your name on the Leaderboard when you place in the Top 3 (#1, #2, or #3). Up to {TAGLINE_MAX} characters.
+          {!onLeaderboard && " Your account is kept off the leaderboard, so it won't show there."}
         </span>
       </label>
       {message && (

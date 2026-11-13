@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LessonBlocks, splitSections } from "@/components/learn/LessonBlocks";
 import { RememberTopic } from "@/components/learn/RememberTopic";
+import { SectionNav } from "@/components/learn/SectionNav";
 import { findLesson, LESSON_TOPICS, lessonHref } from "@/lib/lessons";
 
 // Every lesson is built ahead of time, so reading the URL here does not slow navigation.
@@ -52,15 +53,7 @@ export default async function LessonPage(props: PageProps<"/learn/[topic]/[lesso
                 </Link>
                 {/* The current lesson lists its sections, so students can jump straight to one. */}
                 {current && sections.length > 0 && (
-                  <ol className="mb-2 ml-7 flex flex-col">
-                    {sections.map((section) => (
-                      <li key={section.id}>
-                        <a href={`#${section.id}`} className="block py-1 text-sm text-dim hover:text-accent">
-                          {section.title}
-                        </a>
-                      </li>
-                    ))}
-                  </ol>
+                  <SectionNav sections={sections.map((section) => ({ id: section.id, title: section.title }))} className="mb-2 ml-5" />
                 )}
               </li>
             );

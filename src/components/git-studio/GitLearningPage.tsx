@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { SectionNav } from "@/components/learn/SectionNav";
 import { LESSON_TOPICS, lessonHref } from "@/lib/lessons";
 import { GitTrackLayout } from "./GitTrackLayout";
 import { IntroductionLesson, CoreWorkflowLesson, WorkingWithGithubLesson } from "./lessons/lessons-01-03";
@@ -33,17 +34,7 @@ function LessonLink({ lesson, current }: { lesson: GitLesson; current: boolean }
         <span className="gs-ui w-6 shrink-0 text-xs leading-5 text-(--accent-text)">{lesson.number}</span>
         <span>{lesson.title}</span>
       </Link>
-      {current && (
-        <ol className="mb-2 ml-8 flex flex-col">
-          {lesson.sections.map((section) => (
-            <li key={section.id}>
-              <a href={`#${section.id}`} className="block py-1 text-sm text-(--text-muted) hover:text-(--accent-text)">
-                {section.title}
-              </a>
-            </li>
-          ))}
-        </ol>
-      )}
+      {current && <SectionNav sections={lesson.sections} className="mb-2 ml-6" />}
     </li>
   );
 }

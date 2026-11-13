@@ -1,7 +1,8 @@
 "use client";
 
-import { Check, ChevronDown, FilePlus, GitCommitHorizontal, Plus, Save } from "lucide-react";
+import { Check, ChevronDown, FilePlus, GitCommitHorizontal, Lock, Plus, Save } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { readyCommand, useGate } from "./activity-gate";
 import { PRESETS, TAB_ORDER } from "./engine/sandbox-files";
 import { quoteMessage, useStudio } from "./WebContainerProvider";
 
@@ -135,6 +136,9 @@ function NewFile({ onCreated }: { onCreated: (name: string) => void }) {
 
 export function CodeEditorPane() {
   const { files, status, updateFile, saveFile, flushWrites, mode, workspace, folder, repo, commitMessage, setCommitMessage, runCommand } = useStudio();
+  // In an activity, the Commit button only opens at a commit step.
+  const gate = useGate();
+  const commitOpen = readyCommand(gate, "git commit", "commit") !== null;
   const [active, setActive] = useState("");
   const [savedFile, setSavedFile] = useState<string | null>(null);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -275,7 +279,7 @@ export function CodeEditorPane() {
           className="flex items-center gap-2 border-t border-(--border-subtle) bg-(--bg-panel) px-4 py-2.5"
           onSubmit={(e) => {
             e.preventDefault();
-            void runCommand(`git commit -m ${quoteMessage(commitMessage)}`);
+            if (commitOpen) void runCommand(`git commit -m ${quoteMessage(commitMessage)}`);
           }}
         >
           <GitCommitHorizontal className="size-4 shrink-0 text-(--accent-text)" aria-hidden="true" />
@@ -290,8 +294,17 @@ export function CodeEditorPane() {
             spellCheck={false}
             className="gs-code min-w-0 flex-1 rounded border border-(--border-subtle) bg-(--code-bg) px-2.5 py-1.5 text-[13px] text-(--code-text) outline-none focus:border-(--accent-primary)"
           />
-          <button type="submit" disabled={mode === "booting"} className="gs-cmd">
+          <button
+            type="submit"
+            disabled={mode === "booting" || !commitOpen}
+            data-state={gate ? (commitOpen ? "ready" : "locked") : undefined}
+            data-glow={gate && commitOpen ? "" : undefined}
+            title={commitOpen ? undefined : "Opens at the commit step"}
+            className="gs-cmd"
+          >
+            {!commitOpen && <Lock className="size-3 shrink-0" aria-hidden="true" />}
             Commit
+            {!commitOpen && <span className="sr-only"> (locked until the commit step)</span>}
           </button>
         </form>
       )}

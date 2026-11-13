@@ -294,6 +294,45 @@ html.cc-on .cc-frame {
   animation: rocket-bob 2.4s ease-in-out infinite;
 }
 
+/* Themed planets (src/lib/planet-looks.ts): the Code theme's glow pulses and a scan sweeps its
+   ring, the Winter aurora breathes and its ring sparkles, and themed moons glow softly. */
+.planet-pulse {
+  animation: planet-pulse 3.6s ease-in-out infinite;
+}
+@keyframes planet-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+.planet-aurora {
+  animation: planet-pulse 7s ease-in-out infinite;
+}
+.ring-scan {
+  animation: ring-scan 5s linear infinite;
+}
+@keyframes ring-scan {
+  from {
+    stroke-dashoffset: 107;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.ice-twinkle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ice-twinkle 2.4s ease-in-out infinite;
+}
+@keyframes ice-twinkle {
+  50% {
+    opacity: 0.2;
+    scale: 0.55;
+  }
+}
+.orbit-node[data-glow] {
+  filter: drop-shadow(0 0 10px var(--moon-glow));
+}
+
 .orbit-flame {
   transform-origin: 0 15px;
   animation: rocket-flame 0.5s ease-in-out infinite alternate;
@@ -319,8 +358,15 @@ html.cc-on .cc-frame {
   .orbit-rocket,
   .orbit-flame,
   .orbit-callout,
-  .planet-spin {
+  .planet-spin,
+  .planet-pulse,
+  .planet-aurora,
+  .ring-scan,
+  .ice-twinkle {
     animation: none;
+  }
+  .orbit-petals {
+    display: none;
   }
 }
 
@@ -641,6 +687,41 @@ html[data-palette="matrix"] {
   --grid-line: #0f2a18;
 }
 
+/* Sakura Pink: also picked automatically with the Sakura theme. Dark ink on the pink buttons. */
+html[data-palette="sakura"] {
+  --bg-base: #0d0711;
+  --bg-surface: #150b19;
+  --bg-elevated: #1c0f21;
+  --text-main: #fdf2f8;
+  --text-muted: #d3b9c8;
+  --accent-primary: #f472b6;
+  --accent-hover: #ec4899;
+  --accent-on-primary: #1a0612;
+  --accent-text: #f9a8d4;
+  --border-subtle: #3b1a2e;
+  --border-accent: #f472b6;
+  --accent-secondary: #be185d;
+  --grid-line: #26101f;
+}
+
+/* Winter Frost: also picked automatically with the Winter theme. Icy blue, with warm gold
+   (--accent-secondary) for the festive edges. */
+html[data-palette="winter"] {
+  --bg-base: #060d1a;
+  --bg-surface: #0a1526;
+  --bg-elevated: #0e1c33;
+  --text-main: #f0f9ff;
+  --text-muted: #b3c5db;
+  --accent-primary: #38bdf8;
+  --accent-hover: #7dd3fc;
+  --accent-on-primary: #04121f;
+  --accent-text: #7dd3fc;
+  --border-subtle: #1e3a5f;
+  --border-accent: #38bdf8;
+  --accent-secondary: #d9a640;
+  --grid-line: #12233b;
+}
+
 html[data-palette="purple-dark"] {
   --bg-base: #07060e;
   --bg-surface: #0e0c1a;
@@ -746,6 +827,62 @@ html[data-world="matrix"] .cc-dot.cc-click::before {
   }
 }
 
+/* Sakura theme: a blossom for the dot; a click sheds petals (see CustomCursor). */
+html[data-world="sakura"] .cc-dot,
+html[data-world="winter"] .cc-dot {
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  background: none;
+}
+html[data-world="sakura"] .cc-dot::before,
+html[data-world="winter"] .cc-dot::before {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: center / contain no-repeat;
+}
+html[data-world="sakura"] .cc-dot::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-10 -10 20 20'%3E%3Cg fill='%23fbcfe8' stroke='%23ec4899' stroke-width='.7'%3E%3Cpath d='M0 0C-3.4-2.4-3.4-7.6-1.2-9.2L0-7.8l1.2-1.4C3.4-7.6 3.4-2.4 0 0Z'/%3E%3Cpath transform='rotate(72)' d='M0 0C-3.4-2.4-3.4-7.6-1.2-9.2L0-7.8l1.2-1.4C3.4-7.6 3.4-2.4 0 0Z'/%3E%3Cpath transform='rotate(144)' d='M0 0C-3.4-2.4-3.4-7.6-1.2-9.2L0-7.8l1.2-1.4C3.4-7.6 3.4-2.4 0 0Z'/%3E%3Cpath transform='rotate(216)' d='M0 0C-3.4-2.4-3.4-7.6-1.2-9.2L0-7.8l1.2-1.4C3.4-7.6 3.4-2.4 0 0Z'/%3E%3Cpath transform='rotate(288)' d='M0 0C-3.4-2.4-3.4-7.6-1.2-9.2L0-7.8l1.2-1.4C3.4-7.6 3.4-2.4 0 0Z'/%3E%3C/g%3E%3Ccircle r='2' fill='%23fde68a' stroke='%23f59e0b' stroke-width='.5'/%3E%3C/svg%3E");
+  filter: drop-shadow(0 0 4px rgb(244 114 182 / 0.75));
+}
+/* Winter theme: a slowly turning ice crystal; a click scatters snowflakes. */
+html[data-world="winter"] .cc-dot::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-10 -10 20 20'%3E%3Cg stroke='%23e0f2fe' stroke-width='1.3' stroke-linecap='round' fill='none'%3E%3Cpath d='M0 0V-9M-2.3-7.3 0-5.2 2.3-7.3'/%3E%3Cpath transform='rotate(60)' d='M0 0V-9M-2.3-7.3 0-5.2 2.3-7.3'/%3E%3Cpath transform='rotate(120)' d='M0 0V-9M-2.3-7.3 0-5.2 2.3-7.3'/%3E%3Cpath transform='rotate(180)' d='M0 0V-9M-2.3-7.3 0-5.2 2.3-7.3'/%3E%3Cpath transform='rotate(240)' d='M0 0V-9M-2.3-7.3 0-5.2 2.3-7.3'/%3E%3Cpath transform='rotate(300)' d='M0 0V-9M-2.3-7.3 0-5.2 2.3-7.3'/%3E%3C/g%3E%3Ccircle r='1.7' fill='%2338bdf8'/%3E%3C/svg%3E");
+  filter: drop-shadow(0 0 4px rgb(56 189 248 / 0.9));
+  animation: cc-turn 8s linear infinite;
+}
+html[data-world="sakura"] .cc-frame,
+html[data-world="winter"] .cc-frame {
+  --cur: var(--accent-primary);
+}
+html[data-world="sakura"] .cc-dot.cc-click::before,
+html[data-world="winter"] .cc-dot.cc-click::before {
+  animation: cc-bloom 420ms ease-out;
+}
+@keyframes cc-turn {
+  to {
+    rotate: 1turn;
+  }
+}
+@keyframes cc-bloom {
+  45% {
+    scale: 1.45;
+    rotate: 40deg;
+  }
+  100% {
+    scale: 1;
+    rotate: 72deg;
+  }
+}
+
+/* Over the Git studio's terminal the frame hugs the typing caret, so its corners are smaller. */
+html.cc-caret .cc-frame i {
+  width: 5px;
+  height: 5px;
+}
+
 /* The 0s and 1s that float off a click. */
 .cc-particle {
   position: fixed;
@@ -759,6 +896,33 @@ html[data-world="matrix"] .cc-dot.cc-click::before {
   color: var(--accent-text);
   text-shadow: 0 0 6px var(--accent-primary);
   animation: cc-float 850ms ease-out forwards;
+}
+/* Sakura petals flutter down; Winter snowflakes drift up and away. */
+.cc-particle.cc-petal {
+  width: 9px;
+  height: 7px;
+  border-radius: 0 80% 0 80%;
+  background: linear-gradient(135deg, #fce7f3, #f472b6);
+  text-shadow: none;
+  animation: cc-flutter 1100ms ease-out forwards;
+}
+.cc-particle.cc-flake {
+  color: #e0f2fe;
+  font-size: 13px;
+  text-shadow: 0 0 6px #38bdf8;
+  animation: cc-flutter 1000ms ease-out forwards;
+}
+@keyframes cc-flutter {
+  from {
+    opacity: 1;
+    translate: 0 0;
+    rotate: 0deg;
+  }
+  to {
+    opacity: 0;
+    translate: var(--dx, 0px) var(--dy, 30px);
+    rotate: var(--rot, 200deg);
+  }
 }
 @keyframes cc-float {
   from {
@@ -774,7 +938,8 @@ html[data-world="matrix"] .cc-dot.cc-click::before {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html[data-world] .cc-dot.cc-click::before {
+  html[data-world] .cc-dot.cc-click::before,
+  html[data-world="winter"] .cc-dot::before {
     animation: none;
   }
   .cc-particle {

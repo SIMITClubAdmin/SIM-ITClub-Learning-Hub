@@ -39,6 +39,28 @@ const GRID_PALETTES: Record<string, GridPalette> = {
     star: "rgba(220, 252, 231, 0.7)",
     grid: "rgba(74, 222, 128, 0.06)",
   },
+  sakura: {
+    space: [13, 7, 17],
+    nebula: [
+      [190, 24, 93],
+      [244, 114, 182],
+      [168, 85, 247],
+      [131, 24, 67],
+    ],
+    star: "rgba(253, 242, 248, 0.7)",
+    grid: "rgba(249, 168, 212, 0.06)",
+  },
+  winter: {
+    space: [6, 13, 26],
+    nebula: [
+      [14, 116, 144],
+      [56, 189, 248],
+      [37, 99, 235],
+      [217, 166, 64],
+    ],
+    star: "rgba(240, 249, 255, 0.75)",
+    grid: "rgba(125, 211, 252, 0.06)",
+  },
   "purple-dark": {
     space: [7, 6, 14],
     nebula: [
