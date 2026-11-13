@@ -1,16 +1,36 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { needsFullPageLoad } from "@/components/git-studio/isolation";
 import { PracticeGalaxy } from "@/components/practice/PracticeGalaxy";
 import { MODULES } from "@/lib/topics";
 
 export const metadata: Metadata = { title: "Learn · ITCamp Learning Hub" };
 
+// The Git planet opens the Git & GitHub studio, so it is open here even though it stays
+// locked in Challenge (no Git quizzes yet). Each moon jumps to its part of the page.
+const GIT_MOON_LESSONS: Record<string, { title: string; href: string }[]> = {
+  "git-basics": [{ title: "Inside a Git repository", href: "/learn/git#inside-a-repository" }],
+  branches: [{ title: "Interactive Git playground", href: "/learn/git#playground" }],
+  github: [{ title: "How do we push code to GitHub?", href: "/learn/git#pushing-to-github" }],
+};
+
 // Learn is for reference during class, so topics are never locked here; locks only apply in Practice.
 // Lessons whose planet is locked stay locked, since their content does not exist yet.
-const LEARN_MODULES = MODULES.map((module) => ({
-  ...module,
-  topics: module.lockedReason ? module.topics : module.topics.map((topic) => ({ ...topic, lockedReason: null })),
-}));
+const LEARN_MODULES = MODULES.map((module) =>
+  module.slug === "git"
+    ? {
+        ...module,
+        lockedReason: null,
+        topics: module.topics.map((topic) => ({ ...topic, lockedReason: null, lessons: GIT_MOON_LESSONS[topic.slug] ?? topic.lessons })),
+      }
+    : {
+        ...module,
+        topics: module.lockedReason ? module.topics : module.topics.map((topic) => ({ ...topic, lockedReason: null })),
+      },
+);
+
+// The wheel still opens on Lesson 1, where the rocket follows the HTML, CSS and JS trail.
+const START_PLANET = Math.max(0, LEARN_MODULES.findIndex((module) => module.slug === "web-basics"));
 
 export default function LearnPage() {
   return (
@@ -24,7 +44,7 @@ export default function LearnPage() {
         className="fixed inset-0 z-0 hidden flex-col overflow-clip pt-24 pb-4 sm:flex"
         style={{ "--planet-width": "min(64rem, calc((100svh - 170px) * 800 / 520))" } as React.CSSProperties}
       >
-        <PracticeGalaxy modules={LEARN_MODULES} mode="learn" />
+        <PracticeGalaxy modules={LEARN_MODULES} mode="learn" startAt={START_PLANET} />
       </div>
 
 
@@ -46,7 +66,13 @@ export default function LearnPage() {
                 const href = topic.lessons.find((l) => l.href)?.href;
                 return (
                   <li key={topic.slug} className="border border-violet bg-bg/85 p-4">
-                    {href && !topic.lockedReason ? (
+                    {href && !topic.lockedReason && needsFullPageLoad(href) ? (
+                      // The Git studio needs a full page load to get its isolation headers.
+                      <a href={href} className="block">
+                        <p className="font-display text-xl font-semibold">{topic.name}</p>
+                        <p className="mt-1 text-sm text-dim">{topic.summary}</p>
+                      </a>
+                    ) : href && !topic.lockedReason ? (
                       <Link href={href} className="block">
                         <p className="font-display text-xl font-semibold">{topic.name}</p>
                         <p className="mt-1 text-sm text-dim">{topic.summary}</p>

@@ -72,6 +72,11 @@ export default async function LessonPage(props: PageProps<"/learn/[topic]/[lesso
               {t.name} →
             </Link>
           ))}
+          {/* A plain <a>: the Git studio needs a full page load to get its isolation headers. */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+          <a href="/learn/git" className="text-dim hover:text-accent">
+            Git &amp; GitHub →
+          </a>
         </div>
       </nav>
 

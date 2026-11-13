@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
+import { needsFullPageLoad } from "@/components/git-studio/isolation";
 import { nextRocketStop } from "@/lib/learn-trail";
 import type { PlanetPalette, Topic } from "@/lib/topics";
 
@@ -294,6 +295,11 @@ export function PracticeOrbit({ topics, palette, showRocket = true, mode = "prac
           <span key={t.slug} tabIndex={0} role="link" aria-disabled="true" aria-label={`${t.name}, locked`} {...handlers}>
             {content}
           </span>
+        ) : needsFullPageLoad(href) ? (
+          // The Git studio needs a full page load to get its isolation headers.
+          <a key={t.slug} href={href} aria-label={`${mode === "learn" ? "Learn" : "Challenge"} ${t.name}`} {...handlers}>
+            {content}
+          </a>
         ) : (
           <Link key={t.slug} href={href} aria-label={`${mode === "learn" ? "Learn" : "Challenge"} ${t.name}`} {...handlers}>
             {content}
@@ -343,7 +349,7 @@ export function PracticeOrbit({ topics, palette, showRocket = true, mode = "prac
             {topic.lockedReason ??
               (mode === "learn"
                 ? topic.lessons.some((l) => l.href)
-                  ? `${topic.lessons.length} lessons: click to start`
+                  ? `${topic.lessons.length} lesson${topic.lessons.length === 1 ? "" : "s"}: click to start`
                   : "Lessons coming soon"
                 : "Open: click to start")}
           </p>

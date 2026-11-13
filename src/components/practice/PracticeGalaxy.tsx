@@ -42,10 +42,19 @@ const NAV_BUTTON =
   "flex size-11 items-center justify-center border border-ink bg-bg/80 transition-colors hover:border-accent hover:bg-accent hover:text-bg";
 
 /** One planet per lesson, on a wheel that rotates the chosen planet to the front. */
-export function PracticeGalaxy({ modules, mode = "practice" }: { modules: CourseModule[]; mode?: "learn" | "practice" }) {
+export function PracticeGalaxy({
+  modules,
+  mode = "practice",
+  startAt,
+}: {
+  modules: CourseModule[];
+  mode?: "learn" | "practice";
+  /** The planet that starts in front and carries the rocket. Defaults to the newest open lesson. */
+  startAt?: number;
+}) {
   const n = modules.length;
-  // The rocket lives on the newest open lesson.
-  const checkpoint = Math.max(0, modules.findLastIndex((m) => !m.lockedReason));
+  // The rocket lives on the newest open lesson, unless the page picks one.
+  const checkpoint = startAt ?? Math.max(0, modules.findLastIndex((m) => !m.lockedReason));
   const [target, setTarget] = useState(checkpoint);
   // A continuous position on the wheel, so planets glide along the curve between stops.
   const [spin, setSpin] = useState(checkpoint);
