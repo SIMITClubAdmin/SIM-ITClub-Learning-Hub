@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { starsFor, type BestScores } from "@/lib/progress";
 import { hasQuiz, QUESTIONS_PER_QUIZ } from "@/lib/quiz-meta";
+import { useAppearance } from "@/lib/appearance";
+import { planetLook } from "@/lib/planet-looks";
 import type { CourseModule, PlanetPalette } from "@/lib/topics";
 
 // Same scene as the Learn solar system: tilted orbits around a sun.
@@ -46,7 +48,7 @@ function Ring({ half, color }: { half: "back" | "front"; color: string }) {
       className="practice-ring pointer-events-none absolute top-0 -left-1/2 h-full w-[200%] overflow-visible"
       aria-hidden="true"
     >
-      <g transform="rotate(-10 100 50)" fill="none" stroke={color}>
+      <g transform="rotate(-10 100 50)" fill="none" style={{ stroke: color }}>
         <path d={`M8 50 A92 15 0 0 ${sweep} 192 50`} strokeWidth="3" strokeOpacity={half === "back" ? 0.5 : 0.9} />
         <path d={`M18 50 A82 12 0 0 ${sweep} 182 50`} strokeWidth="1.2" strokeOpacity="0.45" />
       </g>
@@ -170,6 +172,11 @@ export function PracticeSolarSystem({ modules, best = {} }: { modules: CourseMod
 
   const lesson = open === null ? null : modules[open];
   const zoomed = open !== null;
+  // Each lesson planet takes the colours of the chosen theme (its own hue within it).
+  const { world, palette: paletteId } = useAppearance();
+  const looks = modules.map((m, i) => planetLook(world, paletteId, i, m.palette));
+  const themed = looks.map((l) => l.palette);
+  const orbitColour = looks[0]?.orbit ?? "#94aaff";
 
   return (
     <div className="relative w-full overflow-clip" style={{ aspectRatio: `${W} / ${H}` }}>
@@ -193,7 +200,7 @@ export function PracticeSolarSystem({ modules, best = {} }: { modules: CourseMod
               rx={o.rx}
               ry={o.rx * TILT}
               fill="none"
-              stroke="#94aaff"
+              style={{ stroke: orbitColour }}
               strokeOpacity="0.45"
               strokeWidth="1.5"
               strokeDasharray="4 6"
@@ -241,9 +248,9 @@ export function PracticeSolarSystem({ modules, best = {} }: { modules: CourseMod
               filter: m.lockedReason ? "saturate(0.55) brightness(0.8)" : undefined,
             }}
           >
-            {open === i && <Ring half="back" color={m.palette.ring} />}
-            <PlanetSurface palette={m.palette} />
-            {open === i && <Ring half="front" color={m.palette.ring} />}
+            {open === i && <Ring half="back" color={themed[i].ring} />}
+            <PlanetSurface palette={themed[i]} />
+            {open === i && <Ring half="front" color={themed[i].ring} />}
             <span
               className={`relative drop-shadow-[0_1px_2px_rgb(7_11_31)] ${open === i ? "font-display text-[0.8rem] font-semibold" : ""}`}
             >
