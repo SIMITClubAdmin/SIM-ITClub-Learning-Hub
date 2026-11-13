@@ -5,31 +5,35 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type Keyboard
 import type { RepoState } from "./engine/mini-git";
 import { gitEngine, useStudio } from "./WebContainerProvider";
 
-const DX = 88;
-const R = 13;
-const PAD_X = 52;
-const HEADER = 44;
-const TUNNEL = 76;
-const TAG_H = 16;
-const TAG_STEP = TAG_H + 4;
+/** Widest and narrowest gap between commits; the graph squeezes to fit before it scrolls. */
+const DX = 96;
+const MIN_DX = 72;
+const R = 15;
+const PAD_X = 60;
+/** Room for each zone's header row above its commits. */
+const HEADER = 60;
+const TUNNEL = 88;
+const TAG_H = 20;
+const TAG_STEP = TAG_H + 5;
 /** Push animation timings at 1x; Slow-Mo doubles them. */
 const TRAVEL = 1100;
 const STAGGER = 260;
 
-const EMERALD = "#10b981";
-const VIOLET = "#a855f7";
-const CYAN = "#38bdf8";
-const AMBER = "#f59e0b";
-const LANE_COLORS = [EMERALD, VIOLET, AMBER, CYAN, "#f472b6", "#60a5fa"];
+// Theme colours. SVG presentation attributes do not accept var(), so these go in style props.
+const LOCAL = "var(--git-local)";
+const REMOTE = "var(--git-remote)";
+const ACCENT = "var(--accent-primary)";
+const LANE_COLORS = [LOCAL, REMOTE, "var(--git-modified)", "var(--lane-2)", "var(--lane-3)", "var(--accent-soft)"];
+const tint = (color: string, percent: number) => `color-mix(in srgb, ${color} ${percent}%, transparent)`;
 
 type Tag = { key: string; label: string; color: string; x: number; y: number; stack: number };
 type Node = { id: string; x: number; y: number; color: string; merge: boolean };
 type Edge = { key: string; d: string; color: string };
 
-function edgePath(px: number, py: number, cx: number, cy: number) {
+function edgePath(px: number, py: number, cx: number, cy: number, dx: number) {
   const ex = cx - R - 4;
   if (py === cy) return `M ${px + R} ${py} L ${ex} ${cy}`;
-  return `M ${px + R * 0.7} ${py + Math.sign(cy - py) * R * 0.7} C ${px + DX * 0.55} ${cy}, ${cx - DX * 0.6} ${cy}, ${ex} ${cy}`;
+  return `M ${px + R * 0.7} ${py + Math.sign(cy - py) * R * 0.7} C ${px + dx * 0.55} ${cy}, ${cx - dx * 0.6} ${cy}, ${ex} ${cy}`;
 }
 
 function useLayout(repo: RepoState, shownRemote: Record<string, string>, width: number) {
@@ -52,7 +56,7 @@ function useLayout(repo: RepoState, shownRemote: Record<string, string>, width: 
       laneOf.set(id, lanes.indexOf(name));
     }
     const laneColor = (lane: number) => LANE_COLORS[lane % LANE_COLORS.length];
-    const branchColor = (name: string) => (lanes.includes(name) ? laneColor(lanes.indexOf(name)) : VIOLET);
+    const branchColor = (name: string) => (lanes.includes(name) ? laneColor(lanes.indexOf(name)) : REMOTE);
 
     // Pointer tags, stacked above the commit they point at.
     const localTagsAt = new Map<string, { key: string; label: string; color: string }[]>();
@@ -60,23 +64,23 @@ function useLayout(repo: RepoState, shownRemote: Record<string, string>, width: 
       if (!map.has(id)) map.set(id, []);
       map.get(id)!.push(tag);
     };
-    if (repo.detached) addTag(localTagsAt, repo.detached, { key: "HEAD", label: "HEAD", color: CYAN });
+    if (repo.detached) addTag(localTagsAt, repo.detached, { key: "HEAD", label: "HEAD", color: ACCENT });
     for (const name of Object.keys(repo.branches).sort((a, b) => (a === "main" ? -1 : b === "main" ? 1 : a.localeCompare(b)))) {
       const current = !repo.detached && repo.head === name;
       addTag(localTagsAt, repo.branches[name], { key: `b-${name}`, label: `${name}${current ? "*" : ""}`, color: branchColor(name) });
     }
     const remoteTagsAt = new Map<string, { key: string; label: string; color: string }[]>();
     for (const name of Object.keys(shownRemote).sort()) {
-      addTag(remoteTagsAt, shownRemote[name], { key: `r-${name}`, label: `origin/${name}`, color: VIOLET });
+      addTag(remoteTagsAt, shownRemote[name], { key: `r-${name}`, label: `origin/${name}`, color: REMOTE });
     }
 
     const maxStack = Math.max(1, ...[...localTagsAt.values(), ...remoteTagsAt.values()].map((t) => t.length));
-    const tagSpace = maxStack * TAG_STEP + 6;
-    const laneGap = Math.max(58, maxStack * TAG_STEP + 2 * R + 14);
+    const tagSpace = maxStack * TAG_STEP + 14;
+    const laneGap = Math.max(76, maxStack * TAG_STEP + 2 * R + 24);
 
     const localLanes = Math.max(1, ...ids.map((id) => (laneOf.get(id) ?? 0) + 1));
     const localY = (lane: number) => HEADER + tagSpace + R + lane * laneGap;
-    const tunnelTop = localY(localLanes - 1) + R + 20;
+    const tunnelTop = localY(localLanes - 1) + R + 34;
     const remoteTop = tunnelTop + TUNNEL;
 
     const remoteShown = new Set<string>();
@@ -85,10 +89,12 @@ function useLayout(repo: RepoState, shownRemote: Record<string, string>, width: 
     for (const tip of Object.values(repo.remote)) for (const id of gitEngine.reachable(repo, tip)) remoteAll.add(id);
     const remoteLanes = Math.max(1, ...Array.from(remoteAll).map((id) => (laneOf.get(id) ?? 0) + 1));
     const remoteY = (lane: number) => remoteTop + HEADER + tagSpace + R + lane * laneGap;
-    const height = remoteY(remoteLanes - 1) + R + 24;
+    const height = remoteY(remoteLanes - 1) + R + 36;
 
-    const xOf = (id: string) => PAD_X + (rank.get(id) ?? 0) * DX;
-    const svgWidth = Math.max(width, PAD_X * 2 + Math.max(0, ids.length - 1) * DX + 70);
+    const gaps = Math.max(1, ids.length - 1);
+    const dx = Math.min(DX, Math.max(MIN_DX, (width - PAD_X * 2) / gaps));
+    const xOf = (id: string) => PAD_X + (rank.get(id) ?? 0) * dx;
+    const svgWidth = Math.max(width, PAD_X * 2 + Math.max(0, ids.length - 1) * dx);
 
     const makeNodes = (set: Set<string>, yOf: (lane: number) => number): Node[] =>
       ids
@@ -110,7 +116,7 @@ function useLayout(repo: RepoState, shownRemote: Record<string, string>, width: 
         for (const parentId of repo.commits[child.id].parents) {
           const parent = at.get(parentId);
           if (!parent) continue;
-          edges.push({ key: `${prefix}${parentId}-${child.id}`, d: edgePath(parent.x, parent.y, child.x, child.y), color: child.color });
+          edges.push({ key: `${prefix}${parentId}-${child.id}`, d: edgePath(parent.x, parent.y, child.x, child.y, dx), color: child.color });
         }
       }
       return edges;
@@ -129,7 +135,6 @@ function useLayout(repo: RepoState, shownRemote: Record<string, string>, width: 
 
     return {
       headId,
-      lanes,
       laneOf,
       localY,
       remoteY,
@@ -149,14 +154,14 @@ function useLayout(repo: RepoState, shownRemote: Record<string, string>, width: 
 }
 
 function TagShape({ tag }: { tag: Tag }) {
-  const w = tag.label.length * 6.4 + 12;
-  const y = -R - 8 - tag.stack * TAG_STEP - TAG_H;
+  const w = tag.label.length * 7.4 + 16;
+  const y = -R - 10 - tag.stack * TAG_STEP - TAG_H;
   return (
     <g className="gs-move" style={{ transform: `translate(${tag.x}px, ${tag.y}px)` }}>
-      {tag.stack === 0 && <line x1={0} y1={-R - 1} x2={0} y2={-R - 8} stroke={tag.color} strokeWidth={1.5} />}
+      {tag.stack === 0 && <line x1={0} y1={-R - 1} x2={0} y2={-R - 10} strokeWidth={1.5} style={{ stroke: tag.color }} />}
       <g className="gs-tag-in">
-        <rect x={-w / 2} y={y} width={w} height={TAG_H} rx={2} fill={`${tag.color}22`} stroke={tag.color} strokeWidth={1} />
-        <text x={0} y={y + TAG_H / 2} dy="0.34em" textAnchor="middle" fontSize={10} fontWeight={700} fill={tag.color} className="gs-svg-mono">
+        <rect x={-w / 2} y={y} width={w} height={TAG_H} rx={3} strokeWidth={1} style={{ fill: tint(tag.color, 14), stroke: tag.color }} />
+        <text x={0} y={y + TAG_H / 2} dy="0.35em" textAnchor="middle" fontSize={12} fontWeight={700} className="gs-svg-code" style={{ fill: tag.color }}>
           {tag.label}
         </text>
       </g>
@@ -195,11 +200,11 @@ function CommitNode({
       onKeyDown={onKey}
     >
       <g className="gs-pop">
-        {head && <circle r={R + 6} fill="none" stroke={CYAN} strokeWidth={1.5} strokeDasharray="3 3" className="gs-head-ring" />}
-        {selected && <circle r={R + 3.5} fill="none" stroke="#f8fafc" strokeWidth={1.5} />}
-        <circle r={R} fill={remote ? "#140c24" : "#0b101e"} stroke={node.color} strokeWidth={2.5} />
-        {node.merge && <circle r={R - 4.5} fill="none" stroke={node.color} strokeWidth={1} opacity={0.7} />}
-        <text textAnchor="middle" dy="0.35em" fontSize={10} fontWeight={700} fill="#f8fafc" className="gs-svg-mono">
+        {head && <circle r={R + 6} fill="none" strokeWidth={1.5} strokeDasharray="3 3" className="gs-head-ring" style={{ stroke: ACCENT }} />}
+        {selected && <circle r={R + 3.5} fill="none" strokeWidth={1.75} style={{ stroke: "var(--text-main)" }} />}
+        <circle r={R} strokeWidth={2.5} style={{ fill: remote ? `color-mix(in srgb, ${REMOTE} 12%, var(--bg-surface))` : "var(--bg-surface)", stroke: node.color }} />
+        {node.merge && <circle r={R - 5} fill="none" strokeWidth={1} opacity={0.7} style={{ stroke: node.color }} />}
+        <text textAnchor="middle" dy="0.35em" fontSize={11.5} fontWeight={700} className="gs-svg-code" style={{ fill: "var(--text-main)" }}>
           {node.id}
         </text>
       </g>
@@ -207,40 +212,21 @@ function CommitNode({
   );
 }
 
-function Inspector({ repo, id, onGitHub }: { repo: RepoState; id: string; onGitHub: boolean }) {
+/** One compact line: which commit, its message, its branch and how many files it holds. */
+function Inspector({ repo, id }: { repo: RepoState; id: string }) {
   const commit = repo.commits[id];
-  const parentTree = commit.parents[0] ? repo.commits[commit.parents[0]].files : {};
-  const changes = Array.from(new Set([...Object.keys(parentTree), ...Object.keys(commit.files)]))
-    .sort()
-    .filter((path) => parentTree[path] !== commit.files[path])
-    .map((path) => ({ path, kind: !(path in parentTree) ? "A" : !(path in commit.files) ? "D" : "M" }));
-  const time = new Date(commit.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const files = Object.keys(commit.files).length;
   return (
-    <div className="grid gap-x-6 gap-y-1.5 border-t border-[#152238] bg-[#0b101e] px-4 py-3 font-mono text-[11px] sm:grid-cols-[auto_1fr]">
-      <p className="text-[#64748b] uppercase">Inspecting</p>
-      <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="font-bold text-[#38bdf8]">{commit.id}</span>
-        <span className="text-[#f59e0b]">{commit.sha.slice(0, 7)}</span>
-        <span className="text-[#f8fafc]">“{commit.message.split("\n")[0]}”</span>
-        <span className={onGitHub ? "text-[#10b981]" : "text-[#f59e0b]"}>{onGitHub ? "✓ on GitHub" : "⚠ local only"}</span>
-      </p>
-      <p className="text-[#64748b] uppercase">Parent</p>
-      <p className="text-[#cbd5e1]">
-        {commit.parents.length ? commit.parents.join(" + ") : "none (root commit)"}
-        <span className="text-[#475569]"> · {time} · {commit.author.replace(/ <.*>$/, "")} · branch {commit.branch}</span>
-      </p>
-      <p className="text-[#64748b] uppercase">Files</p>
-      <p className="flex flex-wrap gap-x-3 gap-y-1 text-[#cbd5e1]">
-        {changes.length === 0 && <span className="text-[#475569]">no file changes</span>}
-        {changes.map((c) => (
-          <span key={c.path}>
-            <span className={c.kind === "A" ? "text-[#10b981]" : c.kind === "D" ? "text-[#f87171]" : "text-[#f59e0b]"}>{c.kind}</span> {c.path}
-          </span>
-        ))}
-        <span className="text-[#475569]">· snapshot holds {Object.keys(commit.files).length} files</span>
-      </p>
-      <p className="text-[#64748b] uppercase">SHA</p>
-      <p className="truncate text-[#475569]">{commit.sha}</p>
+    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-(--border-subtle) bg-(--bg-panel) px-5 py-3.5 text-sm">
+      <span className="gs-label">Inspecting</span>
+      <span className="gs-code font-bold text-(--accent-soft)">{commit.id}</span>
+      <span className="min-w-0 truncate text-(--text-main)">“{commit.message.split("\n")[0]}”</span>
+      <span className="text-(--text-muted)">
+        branch <span className="gs-code text-(--text-main)">{commit.branch}</span>
+      </span>
+      <span className="text-(--text-muted)">
+        {files} file{files === 1 ? "" : "s"}
+      </span>
     </div>
   );
 }
@@ -275,8 +261,6 @@ export function GitDagVisualizer() {
   const selected = pick && pick.head === headId && repo.commits[pick.id] ? pick.id : headId;
   const select = (id: string) => setPick({ id, head: headId });
   const unpushed = gitEngine.unpushedCount({ ...repo, remote: shownRemote });
-  const remoteHas = new Set<string>();
-  for (const tip of Object.values(shownRemote)) for (const id of gitEngine.reachable(repo, tip)) remoteHas.add(id);
   const pushBranch = pushEvent?.branch ?? (repo.detached ? "main" : repo.head);
 
   const capsules = pushEvent
@@ -297,7 +281,7 @@ export function GitDagVisualizer() {
           <svg width={view.svgWidth} height={view.height} className="block" role="group" aria-label="Commit graph: your local repository above, GitHub below">
             <defs>
               <marker id="gs-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
+                <path d="M 0 0 L 10 5 L 0 10 z" style={{ fill: "var(--text-muted)" }} />
               </marker>
               <filter id="gs-glow" x="-50%" y="-50%" width="200%" height="200%">
                 <feGaussianBlur stdDeviation="3.5" result="blur" />
@@ -307,18 +291,18 @@ export function GitDagVisualizer() {
                 </feMerge>
               </filter>
               <linearGradient id="gs-tunnel" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stopColor={EMERALD} stopOpacity="0.06" />
-                <stop offset="0.5" stopColor={CYAN} stopOpacity="0.08" />
-                <stop offset="1" stopColor={VIOLET} stopOpacity="0.07" />
+                <stop offset="0" style={{ stopColor: LOCAL, stopOpacity: 0.07 }} />
+                <stop offset="0.5" style={{ stopColor: ACCENT, stopOpacity: 0.1 }} />
+                <stop offset="1" style={{ stopColor: REMOTE, stopOpacity: 0.08 }} />
               </linearGradient>
             </defs>
 
             {/* Zones */}
-            <rect x={0} y={0} width={view.svgWidth} height={view.tunnelTop} fill={EMERALD} fillOpacity={0.025} />
+            <rect x={0} y={0} width={view.svgWidth} height={view.tunnelTop} style={{ fill: tint(LOCAL, 4) }} />
             <rect x={0} y={view.tunnelTop} width={view.svgWidth} height={TUNNEL} fill="url(#gs-tunnel)" />
-            <line x1={0} x2={view.svgWidth} y1={view.tunnelTop} y2={view.tunnelTop} stroke="#1e3a5f" strokeDasharray="6 5" />
-            <line x1={0} x2={view.svgWidth} y1={view.remoteTop} y2={view.remoteTop} stroke="#1e3a5f" strokeDasharray="6 5" />
-            <rect x={0} y={view.remoteTop} width={view.svgWidth} height={view.height - view.remoteTop} fill={VIOLET} fillOpacity={0.035} />
+            <line x1={0} x2={view.svgWidth} y1={view.tunnelTop} y2={view.tunnelTop} strokeDasharray="6 5" style={{ stroke: "var(--border-subtle)" }} />
+            <line x1={0} x2={view.svgWidth} y1={view.remoteTop} y2={view.remoteTop} strokeDasharray="6 5" style={{ stroke: "var(--border-subtle)" }} />
+            <rect x={0} y={view.remoteTop} width={view.svgWidth} height={view.height - view.remoteTop} style={{ fill: tint(REMOTE, 5) }} />
 
             {/* Tunnel data lanes while pushing */}
             {capsules.map((c) => (
@@ -328,11 +312,10 @@ export function GitDagVisualizer() {
                   x2={c.x}
                   y1={view.tunnelTop + 4}
                   y2={view.remoteTop - 4}
-                  stroke={CYAN}
                   strokeWidth={2}
                   strokeDasharray="4 6"
                   className="gs-stream"
-                  style={{ animationDuration: `${600 * slow}ms` }}
+                  style={{ stroke: ACCENT, animationDuration: `${600 * slow}ms` }}
                 />
                 {[0, 1, 2].map((k) => (
                   <circle
@@ -340,10 +323,16 @@ export function GitDagVisualizer() {
                     cx={c.x}
                     cy={view.tunnelTop + 6}
                     r={3}
-                    fill={k % 2 ? EMERALD : CYAN}
                     filter="url(#gs-glow)"
                     className="gs-data-dot"
-                    style={{ "--gs-dy": `${TUNNEL - 12}px`, animationDuration: `${700 * slow}ms`, animationDelay: `${c.delay + k * 220 * slow}ms` } as CSSProperties}
+                    style={
+                      {
+                        fill: k % 2 ? LOCAL : ACCENT,
+                        "--gs-dy": `${TUNNEL - 12}px`,
+                        animationDuration: `${700 * slow}ms`,
+                        animationDelay: `${c.delay + k * 220 * slow}ms`,
+                      } as CSSProperties
+                    }
                   />
                 ))}
               </g>
@@ -351,7 +340,7 @@ export function GitDagVisualizer() {
 
             {/* Local repository */}
             {view.localEdges.map((e) => (
-              <path key={e.key} d={e.d} fill="none" stroke={e.color} strokeOpacity={0.55} strokeWidth={2} markerEnd="url(#gs-arrow)" className="gs-edge" />
+              <path key={e.key} d={e.d} fill="none" strokeOpacity={0.6} strokeWidth={2} markerEnd="url(#gs-arrow)" className="gs-edge" style={{ stroke: e.color }} />
             ))}
             {view.localNodes.map((n) => (
               <CommitNode key={n.id} node={n} head={n.id === headId} selected={n.id === selected} onSelect={select} />
@@ -362,10 +351,10 @@ export function GitDagVisualizer() {
 
             {/* GitHub */}
             {view.remoteEdges.map((e) => (
-              <path key={e.key} d={e.d} fill="none" stroke={VIOLET} strokeOpacity={0.5} strokeWidth={2} markerEnd="url(#gs-arrow)" className="gs-edge" />
+              <path key={e.key} d={e.d} fill="none" strokeOpacity={0.55} strokeWidth={2} markerEnd="url(#gs-arrow)" className="gs-edge" style={{ stroke: REMOTE }} />
             ))}
             {view.remoteNodes.map((n) => (
-              <CommitNode key={`r-${n.id}`} node={{ ...n, color: VIOLET }} head={false} selected={n.id === selected} remote onSelect={select} />
+              <CommitNode key={`r-${n.id}`} node={{ ...n, color: REMOTE }} head={false} selected={n.id === selected} remote onSelect={select} />
             ))}
             {view.remoteTags.map((t) => (
               <TagShape key={t.key} tag={t} />
@@ -376,10 +365,12 @@ export function GitDagVisualizer() {
               <g key={`cap-${pushEvent?.id}-${c.id}`} style={{ transform: `translate(${c.x}px, ${c.from}px)` }} aria-hidden="true">
                 <g
                   className="gs-capsule"
-                  style={{ "--gs-dy": `${c.dy}px`, "--gs-mid": `${c.mid}px`, animationDuration: `${TRAVEL * slow}ms`, animationDelay: `${c.delay}ms` } as CSSProperties}
+                  style={
+                    { "--gs-dy": `${c.dy}px`, "--gs-mid": `${c.mid}px`, animationDuration: `${TRAVEL * slow}ms`, animationDelay: `${c.delay}ms` } as CSSProperties
+                  }
                 >
-                  <rect x={-30} y={-11} width={60} height={22} rx={11} fill="#0f243c" stroke={CYAN} strokeWidth={1.5} filter="url(#gs-glow)" />
-                  <text textAnchor="middle" dy="0.35em" fontSize={10.5} fontWeight={700} fill="#e0f2fe" className="gs-svg-mono">
+                  <rect x={-34} y={-13} width={68} height={26} rx={13} strokeWidth={1.5} filter="url(#gs-glow)" style={{ fill: `color-mix(in srgb, ${ACCENT} 18%, var(--bg-surface))`, stroke: ACCENT }} />
+                  <text textAnchor="middle" dy="0.35em" fontSize={12} fontWeight={700} className="gs-svg-code" style={{ fill: "var(--text-main)" }}>
                     📦 {c.id}
                   </text>
                 </g>
@@ -389,43 +380,38 @@ export function GitDagVisualizer() {
         </div>
 
         {/* Zone headers sit over the graph but do not scroll with it. */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between gap-3 px-4 py-3">
-          <p className="flex items-center gap-2 font-mono text-[11px] font-bold tracking-wider text-[#10b981] uppercase">
-            <Laptop className="size-4" aria-hidden="true" /> Local repository <span className="font-normal text-[#64748b]">· your machine</span>
+        <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between gap-3 px-5 py-4">
+          <p className="gs-ui flex items-center gap-2 text-[13px] font-bold tracking-wide text-(--git-local) uppercase">
+            <Laptop className="size-4" aria-hidden="true" /> Local repository <span className="font-normal normal-case text-(--text-muted)">· your machine</span>
           </p>
-          <p className="rounded-sm border border-[#1e3a5f] bg-[#070b14]/90 px-2 py-0.5 font-mono text-[11px] text-[#94a3b8]">
-            HEAD → <span className={repo.detached ? "text-[#f59e0b]" : "text-[#10b981]"}>{repo.detached ? `detached @ ${repo.detached}` : repo.head}</span>
+          <p className="gs-badge bg-(--bg-surface) text-(--text-muted)">
+            HEAD → <span className={repo.detached ? "text-(--git-modified)" : "text-(--git-local)"}>{repo.detached ? `detached @ ${repo.detached}` : repo.head}</span>
           </p>
         </div>
 
-        <div className="pointer-events-none absolute inset-x-0 flex items-center justify-center px-4" style={{ top: view.tunnelTop, height: TUNNEL }}>
+        <div className="pointer-events-none absolute inset-x-0 flex items-center justify-center px-5" style={{ top: view.tunnelTop, height: TUNNEL }}>
           <p
-            className={`rounded-sm border bg-[#070b14]/90 px-3 py-1 font-mono text-[10.5px] tracking-wider uppercase ${
-              pushEvent ? "gs-blink border-[#38bdf8]/70 text-[#38bdf8]" : "border-[#152238] text-[#475569]"
+            className={`gs-ui rounded border bg-(--bg-surface) px-3 py-1.5 text-[13px] ${
+              pushEvent ? "gs-blink border-(--accent-primary) text-(--accent-soft)" : "border-(--border-subtle) text-(--text-muted)"
             }`}
           >
             {pushEvent
-              ? `⇣ HTTPS · sending ${pushEvent.commits.length} commit${pushEvent.commits.length === 1 ? "" : "s"} · git push origin ${pushBranch}`
-              : `HTTPS / SSH network tunnel · git push origin ${pushBranch}`}
+              ? `⇣ Sending ${pushEvent.commits.length} commit${pushEvent.commits.length === 1 ? "" : "s"} · git push origin ${pushBranch}`
+              : `HTTPS / SSH tunnel · git push origin ${pushBranch}`}
           </p>
         </div>
 
-        <div className="pointer-events-none absolute inset-x-0 flex items-center justify-between gap-3 px-4 py-3" style={{ top: view.remoteTop }}>
-          <p className="flex items-center gap-2 font-mono text-[11px] font-bold tracking-wider text-[#a855f7] uppercase">
-            <Cloud className="size-4" aria-hidden="true" /> Remote · GitHub <span className="font-normal text-[#64748b]">(origin)</span>
+        <div className="pointer-events-none absolute inset-x-0 flex items-center justify-between gap-3 px-5 py-4" style={{ top: view.remoteTop }}>
+          <p className="gs-ui flex items-center gap-2 text-[13px] font-bold tracking-wide text-(--git-remote) uppercase">
+            <Cloud className="size-4" aria-hidden="true" /> Remote · GitHub <span className="font-normal normal-case text-(--text-muted)">(origin)</span>
           </p>
-          <p
-            role="status"
-            className={`rounded-sm border px-2 py-0.5 font-mono text-[11px] font-bold ${
-              unpushed ? "border-[#f59e0b]/60 bg-[#f59e0b]/10 text-[#f59e0b]" : "border-[#10b981]/60 bg-[#10b981]/10 text-[#10b981]"
-            }`}
-          >
+          <p role="status" className={`gs-badge bg-(--bg-surface) font-bold ${unpushed ? "text-(--git-modified)" : "text-(--git-local)"}`}>
             {unpushed ? `⚠ ${unpushed} Commit${unpushed === 1 ? "" : "s"} Ahead (Unpushed)` : "✓ Synced with GitHub"}
           </p>
         </div>
       </div>
 
-      {selected && repo.commits[selected] && <Inspector repo={repo} id={selected} onGitHub={remoteHas.has(selected)} />}
+      {selected && repo.commits[selected] && <Inspector repo={repo} id={selected} />}
     </div>
   );
 }

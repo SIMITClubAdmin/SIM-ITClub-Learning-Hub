@@ -3,33 +3,72 @@
 import "@xterm/xterm/css/xterm.css";
 import type { WebContainerProcess } from "@webcontainer/api";
 import type { FitAddon } from "@xterm/addon-fit";
-import type { Terminal } from "@xterm/xterm";
+import type { ITheme, Terminal } from "@xterm/xterm";
 import { SquareTerminal } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { quoteMessage, useStudio } from "./WebContainerProvider";
+import { useAppearance, type ThemeId } from "./appearance";
+import { useStudio } from "./WebContainerProvider";
 
-const THEME = {
-  background: "#05080f",
-  foreground: "#cbd5e1",
-  cursor: "#38bdf8",
-  cursorAccent: "#05080f",
-  selectionBackground: "#1e3a5f",
-  black: "#0b101e",
+const DARK_ANSI = {
+  foreground: "#e2e8f0",
+  black: "#1e1b2e",
   red: "#f87171",
-  green: "#10b981",
-  yellow: "#f59e0b",
+  green: "#34d399",
+  yellow: "#fbbf24",
   blue: "#60a5fa",
-  magenta: "#a855f7",
+  magenta: "#c084fc",
   cyan: "#38bdf8",
   white: "#e2e8f0",
-  brightBlack: "#64748b",
+  brightBlack: "#7c8496",
   brightRed: "#fca5a5",
-  brightGreen: "#34d399",
-  brightYellow: "#fbbf24",
+  brightGreen: "#6ee7b7",
+  brightYellow: "#fcd34d",
   brightBlue: "#93c5fd",
-  brightMagenta: "#c084fc",
+  brightMagenta: "#d8b4fe",
   brightCyan: "#7dd3fc",
   brightWhite: "#f8fafc",
+};
+
+/** xterm.js draws its own colours, so each page theme gets a matching terminal palette. */
+const TERMINAL_THEMES: Record<ThemeId, ITheme> = {
+  "purple-dark": {
+    ...DARK_ANSI,
+    background: "#09080f",
+    cursor: "#a855f7",
+    cursorAccent: "#09080f",
+    selectionBackground: "#3b2a63",
+  },
+  "red-dark": {
+    ...DARK_ANSI,
+    background: "#0a0607",
+    cursor: "#ef4444",
+    cursorAccent: "#0a0607",
+    selectionBackground: "#4c1d24",
+  },
+  // Light: every ANSI colour is darkened, and "white" text becomes slate, so nothing vanishes.
+  "purple-light": {
+    background: "#fcfbff",
+    foreground: "#0f172a",
+    cursor: "#7c3aed",
+    cursorAccent: "#fcfbff",
+    selectionBackground: "#ddd6fe",
+    black: "#0f172a",
+    red: "#b91c1c",
+    green: "#047857",
+    yellow: "#b45309",
+    blue: "#1d4ed8",
+    magenta: "#7c3aed",
+    cyan: "#0e7490",
+    white: "#334155",
+    brightBlack: "#64748b",
+    brightRed: "#dc2626",
+    brightGreen: "#059669",
+    brightYellow: "#c2410c",
+    brightBlue: "#2563eb",
+    brightMagenta: "#6d28d9",
+    brightCyan: "#0891b2",
+    brightWhite: "#0f172a",
+  },
 };
 
 /** Private OSC id the mounted `git` command prints after every run. */
@@ -37,7 +76,9 @@ const SYNC_OSC = 7777;
 
 export function XtermTerminalPane() {
   const studio = useStudio();
-  const { mode, wc, bootId, bootMessage, repo, commitMessage, runCommand, startDevServer } = studio;
+  const { mode, wc, bootId, bootMessage, repo, runCommand, startDevServer } = studio;
+  const { theme } = useAppearance();
+  const themeRef = useRef(theme);
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -49,7 +90,13 @@ export function XtermTerminalPane() {
   useEffect(() => {
     branchRef.current = branch;
     studioRef.current = studio;
+    themeRef.current = theme;
   });
+
+  // Recolour the terminal when the page theme changes.
+  useEffect(() => {
+    if (ready && termRef.current) termRef.current.options.theme = TERMINAL_THEMES[theme];
+  }, [ready, theme]);
 
   // Create the xterm.js instance once, after the mono font has loaded so cells measure right.
   useEffect(() => {
@@ -66,10 +113,10 @@ export function XtermTerminalPane() {
         convertEol: true,
         cursorBlink: true,
         fontFamily: `${family ? `${family}, ` : ""}ui-monospace, Menlo, monospace`,
-        fontSize: 12.5,
-        lineHeight: 1.2,
+        fontSize: 13.5,
+        lineHeight: 1.25,
         scrollback: 3000,
-        theme: THEME,
+        theme: TERMINAL_THEMES[themeRef.current],
       });
       const fit = new Fit();
       term.loadAddon(fit);
@@ -250,48 +297,35 @@ export function XtermTerminalPane() {
     };
   }, [ready, mode, wc, bootId]);
 
-  const chips: { label: string; run: () => void; tone: string }[] = [
-    { label: "git status", run: () => void runCommand("git status"), tone: "text-[#cbd5e1]" },
-    { label: "1. git add .", run: () => void runCommand("git add ."), tone: "text-[#10b981]" },
-    {
-      label: "2. git commit",
-      run: () => void runCommand(`git commit -m ${quoteMessage(commitMessage)}`),
-      tone: "text-[#10b981]",
-    },
-    { label: "3. git push", run: () => void runCommand(`git push origin ${branch}`), tone: "text-[#a855f7]" },
-    { label: "git checkout -b feat-ui", run: () => void runCommand("git checkout -b feat-ui"), tone: "text-[#a855f7]" },
-    { label: "git log --oneline --all", run: () => void runCommand("git log --oneline --all"), tone: "text-[#cbd5e1]" },
-    { label: "npm run dev", run: () => void startDevServer(), tone: "text-[#f59e0b]" },
+  // Only helpers the four goal steps do not already offer.
+  const helpers: { label: string; run: () => void }[] = [
+    { label: "git status", run: () => void runCommand("git status") },
+    { label: "git checkout -b feat-ui", run: () => void runCommand("git checkout -b feat-ui") },
+    { label: "npm run dev", run: () => void startDevServer() },
   ];
 
   const live = mode !== "booting";
 
   return (
-    <div className="flex min-h-0 flex-col border-t border-[#152238]">
-      <div className="flex items-center justify-between gap-3 border-b border-[#152238] bg-[#0b101e] px-3 py-2">
-        <p className="flex items-center gap-2 font-mono text-[11px] tracking-wider text-[#94a3b8] uppercase">
-          <SquareTerminal className="size-3.5 text-[#38bdf8]" aria-hidden="true" />
-          {mode === "container" ? "jsh · webcontainer" : mode === "fallback" ? "studio shell · built-in" : "terminal"}
+    <div className="flex min-h-0 flex-col border-t border-(--border-subtle)">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-(--border-subtle) bg-(--bg-panel) px-4 py-2.5">
+        <p className="gs-ui flex items-center gap-2 text-[13px] text-(--text-muted)">
+          <SquareTerminal className="size-4 text-(--accent-soft)" aria-hidden="true" />
+          Terminal
+          <span className="text-(--text-faint)">· {mode === "fallback" ? "built-in shell" : "~/portal"}</span>
         </p>
-        <p className="font-mono text-[11px] text-[#64748b]">~/portal</p>
+        <div className="flex flex-wrap gap-2" role="toolbar" aria-label="Helper commands">
+          {helpers.map((h) => (
+            <button key={h.label} type="button" disabled={!live} onClick={h.run} className="gs-cmd">
+              {h.label}
+            </button>
+          ))}
+        </div>
       </div>
-      <div className="flex flex-wrap gap-1.5 border-b border-[#152238] px-3 py-2" role="toolbar" aria-label="Quick commands">
-        {chips.map((chip) => (
-          <button
-            key={chip.label}
-            type="button"
-            disabled={!live}
-            onClick={chip.run}
-            className={`rounded border border-[#1e3a5f] bg-[#0f243c]/60 px-2 py-1 font-mono text-[11px] ${chip.tone} transition-colors hover:border-[#38bdf8] hover:bg-[#0f243c] disabled:opacity-40`}
-          >
-            {chip.label}
-          </button>
-        ))}
-      </div>
-      <div className="gs-term relative h-[280px] bg-[#05080f] px-2 py-1.5">
+      <div className="gs-term relative h-[300px] bg-(--code-bg) px-3 py-2">
         <div ref={hostRef} className="h-full w-full" />
         {mode === "booting" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#05080f]/90 font-mono text-xs text-[#94a3b8]">
+          <div className="gs-ui absolute inset-0 flex flex-col items-center justify-center gap-3 bg-(--code-bg) text-sm text-(--text-muted)">
             <span className="gs-spinner" aria-hidden="true" />
             <p role="status">{bootMessage}</p>
           </div>

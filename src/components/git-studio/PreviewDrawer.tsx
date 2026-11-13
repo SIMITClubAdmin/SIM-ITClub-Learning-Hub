@@ -31,20 +31,18 @@ export function PreviewDrawer() {
   const shownUrl = fallback ? `http://localhost:${DEV_PORT}/` : serverUrl;
 
   return (
-    <div className="border-t border-[#152238]">
+    <div className="border-t border-(--border-subtle)">
       <button
         type="button"
         onClick={() => setOpenChoice(!open)}
         aria-expanded={open}
-        className="flex w-full items-center justify-between gap-3 bg-[#0b101e] px-3 py-2 text-left font-mono text-[11px] tracking-wider text-[#94a3b8] uppercase hover:text-[#f8fafc]"
+        className="gs-ui flex w-full items-center justify-between gap-3 bg-(--bg-panel) px-4 py-2.5 text-left text-[13px] text-(--text-muted) hover:text-(--text-main)"
       >
         <span className="flex items-center gap-2">
-          <Eye className="size-3.5 text-[#f59e0b]" aria-hidden="true" />
+          <Eye className="size-4 text-(--git-modified)" aria-hidden="true" />
           Live preview
           <span
-            className={`rounded-sm border px-1.5 py-px text-[10px] ${
-              live ? "border-[#10b981]/50 text-[#10b981]" : devRunning ? "border-[#f59e0b]/50 text-[#f59e0b]" : "border-[#334155] text-[#64748b]"
-            }`}
+            className={`gs-badge ${live ? "text-(--git-local)" : devRunning ? "text-(--git-modified)" : "text-(--text-faint)"}`}
           >
             {live ? `:${DEV_PORT} running` : devRunning ? "starting…" : "stopped"}
           </span>
@@ -53,30 +51,19 @@ export function PreviewDrawer() {
       </button>
 
       {open && (
-        <div className="bg-[#070b14]">
+        <div className="bg-(--bg-surface)">
           {live ? (
             <>
-              <div className="flex items-center gap-2 border-y border-[#152238] px-3 py-1.5">
-                <span className="min-w-0 flex-1 truncate rounded-sm border border-[#152238] bg-[#05080f] px-2 py-1 font-mono text-[11px] text-[#94a3b8]">
+              <div className="flex items-center gap-2 border-y border-(--border-subtle) px-4 py-2">
+                <span className="gs-code min-w-0 flex-1 truncate rounded border border-(--border-subtle) bg-(--code-bg) px-2 py-1 text-[13px] text-(--text-muted)">
                   {shownUrl}
                 </span>
-                <button
-                  type="button"
-                  onClick={reloadPreview}
-                  aria-label="Reload preview"
-                  className="rounded-sm border border-[#152238] p-1.5 text-[#94a3b8] hover:border-[#38bdf8] hover:text-[#38bdf8]"
-                >
-                  <RefreshCw className="size-3.5" aria-hidden="true" />
+                <button type="button" onClick={reloadPreview} aria-label="Reload preview" className="gs-btn px-2">
+                  <RefreshCw className="size-4" aria-hidden="true" />
                 </button>
                 {!fallback && serverUrl && (
-                  <a
-                    href={serverUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label="Open preview in a new tab"
-                    className="rounded-sm border border-[#152238] p-1.5 text-[#94a3b8] hover:border-[#38bdf8] hover:text-[#38bdf8]"
-                  >
-                    <ExternalLink className="size-3.5" aria-hidden="true" />
+                  <a href={serverUrl} target="_blank" rel="noreferrer" aria-label="Open preview in a new tab" className="gs-btn px-2">
+                    <ExternalLink className="size-4" aria-hidden="true" />
                   </a>
                 )}
               </div>
@@ -99,22 +86,15 @@ export function PreviewDrawer() {
               )}
             </>
           ) : (
-            <div className="flex flex-col items-start gap-3 border-t border-[#152238] px-4 py-5">
-              <p className="text-sm text-[#94a3b8]">
-                No dev server yet. Start one and the running portal appears here, reloading as you edit.
-              </p>
-              <button
-                type="button"
-                disabled={mode === "booting" || devRunning}
-                onClick={() => void startDevServer()}
-                className="rounded border border-[#f59e0b]/60 bg-[#f59e0b]/10 px-3 py-1.5 font-mono text-xs text-[#f59e0b] hover:bg-[#f59e0b]/20 disabled:opacity-40"
-              >
+            <div className="flex flex-col items-start gap-3 border-t border-(--border-subtle) px-5 py-5">
+              <p className="text-sm text-(--text-muted)">No dev server yet. Start one and the running portal appears here, reloading as you edit.</p>
+              <button type="button" disabled={mode === "booting" || devRunning} onClick={() => void startDevServer()} className="gs-cmd">
                 ▶ npm run dev
               </button>
             </div>
           )}
           {devLog && (
-            <pre className="max-h-24 overflow-auto border-t border-[#152238] bg-[#05080f] px-3 py-2 font-mono text-[11px] leading-4 text-[#64748b]">
+            <pre className="gs-code max-h-28 overflow-auto border-t border-(--border-subtle) bg-(--code-bg) px-4 py-2 text-xs leading-5 text-(--text-muted)">
               {devLog.trim()}
             </pre>
           )}
