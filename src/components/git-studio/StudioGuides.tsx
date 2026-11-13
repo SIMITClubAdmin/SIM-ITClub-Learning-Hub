@@ -1,18 +1,34 @@
 "use client";
 
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, Lock, RotateCcw } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
+import { buildGate, GateContext, GatedCmd, normCmd, type StepCmd } from "./activity-gate";
 import { activity1Intro, rememberActivity1Intro } from "./engine/workspaces";
 import { gitEngine, useStudio, type CommandEvent } from "./WebContainerProvider";
 
-type Step = { label: ReactNode; hint?: ReactNode; cmds?: string[]; done: boolean };
+type Step = { label: ReactNode; hint?: ReactNode; cmds?: StepCmd[]; done: boolean };
 
-function RunPill({ cmd }: { cmd: string }) {
+function RunPill({ cmd, locked, done, glow }: { cmd: string; locked?: boolean; done?: boolean; glow?: boolean }) {
   const { runCommand, mode } = useStudio();
   return (
-    <button type="button" disabled={mode === "booting"} onClick={() => void runCommand(cmd)} className="gs-cmd" title="Run it in the terminal below">
-      {cmd}
-    </button>
+    <GatedCmd
+      label={cmd}
+      state={done ? "done" : locked ? "locked" : "ready"}
+      glow={glow}
+      disabled={mode === "booting"}
+      onRun={() => void runCommand(cmd)}
+      title={locked ? "Do the command before it first" : done ? "Done" : "Run it in the terminal below"}
+    />
+  );
+}
+
+function StepCmds({ cmds, glow }: { cmds: StepCmd[]; glow?: boolean }) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {cmds.map(normCmd).map((c) => (
+        <RunPill key={c.cmd} cmd={c.cmd} locked={c.locked} done={c.done} glow={glow} />
+      ))}
+    </div>
   );
 }
 
@@ -61,18 +77,136 @@ export function LiveChecklist({ title, minutes, intro, steps }: { title: string;
                   {step.done && <span className="sr-only"> (done)</span>}
                 </p>
                 {step.hint && !step.done && <p className="text-sm text-(--text-muted)">{step.hint}</p>}
-                {step.cmds && !step.done && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {step.cmds.map((c) => (
-                      <RunPill key={c} cmd={c} />
-                    ))}
-                  </div>
-                )}
+                {step.cmds && !step.done && <StepCmds cmds={step.cmds} />}
               </div>
             </li>
           );
         })}
       </ol>
+    </section>
+  );
+}
+
+/**
+ * Activities 1 and 2: one step at a time. Finished steps fold into green chips, the current step
+ * fills the card, and the next one only appears once the sandbox sees this one done.
+ */
+function ProgressiveChecklist({ title, intro, steps }: { title: string; intro?: ReactNode; steps: Step[] }) {
+  const { reset } = useStudio();
+  const [confirming, setConfirming] = useState(false);
+  const [peek, setPeek] = useState<number | null>(null);
+  const total = steps.length;
+  const current = steps.findIndex((s) => !s.done);
+  const finished = current === -1;
+  const doneCount = steps.filter((s) => s.done).length;
+  const step = finished ? null : steps[current];
+  const later = finished ? 0 : total - current - 1;
+
+  return (
+    <section aria-label={title} className="gs-card mb-5 p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h3 className="gs-heading text-xl font-semibold">{title}</h3>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="gs-ui rounded-sm border border-(--border-subtle) px-2 py-1 text-sm text-(--text-muted)" role="status">
+            {finished ? `✓ All ${total} steps done` : `Step ${current + 1} of ${total}`}
+          </p>
+          {confirming ? (
+            <span className="flex flex-wrap items-center gap-1.5 text-sm">
+              <span className="text-(--text-muted)">Start over with a fresh sandbox?</span>
+              <button
+                type="button"
+                className="gs-btn border-(--git-danger) text-(--git-danger)"
+                onClick={() => {
+                  setConfirming(false);
+                  setPeek(null);
+                  reset();
+                }}
+              >
+                Yes, reset
+              </button>
+              <button type="button" className="gs-btn" onClick={() => setConfirming(false)}>
+                Cancel
+              </button>
+            </span>
+          ) : (
+            <button type="button" className="gs-btn" onClick={() => setConfirming(true)}>
+              <RotateCcw className="size-4" aria-hidden="true" /> Reset activity
+            </button>
+          )}
+        </div>
+      </div>
+
+      <ol className="mt-4 grid gap-1" style={{ gridTemplateColumns: `repeat(${total}, minmax(0, 1fr))` }} aria-label={`${doneCount} of ${total} steps done`}>
+        {steps.map((s, i) => (
+          <li
+            key={i}
+            className={`h-1.5 rounded-full transition-colors ${s.done ? "bg-(--git-local)" : i === current ? "bg-(--accent-primary)" : "bg-(--border-subtle)"}`}
+          >
+            <span className="sr-only">
+              Step {i + 1}: {s.done ? "done" : i === current ? "current" : "not started"}
+            </span>
+          </li>
+        ))}
+      </ol>
+
+      {intro && <div className="mt-4 text-(--text-muted)">{intro}</div>}
+
+      {doneCount > 0 && (
+        <div className="mt-4 flex flex-col gap-2">
+          <ul className="flex flex-wrap gap-1.5" aria-label="Completed steps">
+            {steps.map((s, i) =>
+              s.done ? (
+                <li key={i}>
+                  <button
+                    type="button"
+                    aria-expanded={peek === i}
+                    onClick={() => setPeek(peek === i ? null : i)}
+                    className="gs-ui inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--git-local)_55%,transparent)] bg-[color-mix(in_srgb,var(--git-local)_12%,transparent)] px-2.5 py-0.5 text-xs font-bold text-(--git-local)"
+                  >
+                    <Check className="size-3" aria-hidden="true" /> Step {i + 1} completed
+                  </button>
+                </li>
+              ) : null,
+            )}
+          </ul>
+          {peek !== null && steps[peek]?.done && (
+            <p className="rounded border border-(--border-subtle) bg-(--bg-panel) px-3 py-2 text-sm text-(--text-muted)">
+              <span className="gs-ui mr-2 font-bold text-(--git-local)">Step {peek + 1} ✓</span>
+              {steps[peek].label}
+            </p>
+          )}
+        </div>
+      )}
+
+      <div aria-live="polite">
+        {step ? (
+          <div key={current} className="gs-step-in mt-4 flex items-start gap-4 rounded border border-(--accent-primary) bg-[color-mix(in_srgb,var(--accent-primary)_8%,var(--bg-surface))] px-5 py-4">
+            <span className="gs-ui mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-(--accent-primary) text-sm font-bold text-(--on-accent)" aria-hidden="true">
+              {current + 1}
+            </span>
+            <div className="flex min-w-0 flex-col gap-2.5">
+              <p className="gs-ui text-xs tracking-wider text-(--accent-text) uppercase">
+                Step {current + 1} of {total}
+              </p>
+              <p className="text-lg leading-snug">{step.label}</p>
+              {step.hint && <p className="text-sm text-(--text-muted)">{step.hint}</p>}
+              {step.cmds && <StepCmds cmds={step.cmds} glow />}
+            </div>
+          </div>
+        ) : (
+          <div className="gs-step-in mt-4 rounded border border-(--git-local) bg-[color-mix(in_srgb,var(--git-local)_10%,var(--bg-surface))] px-5 py-4">
+            <p className="gs-heading text-lg font-semibold text-(--git-local)">✓ Activity complete! All {total} steps done.</p>
+            <p className="mt-1 text-sm text-(--text-muted)">Click a green chip above to look back at a step, or reset the activity to try it again.</p>
+          </div>
+        )}
+      </div>
+
+      {later > 0 && (
+        <p className="gs-ui mt-3 flex items-center gap-1.5 text-xs text-(--text-faint)">
+          <Lock className="size-3" aria-hidden="true" />
+          {later === 1 ? "1 more step unlocks when this one is done." : `${later} more steps unlock one at a time.`}
+        </p>
+      )}
     </section>
   );
 }
@@ -84,13 +218,17 @@ const after = (facts: ReadonlyMap<string, number>, key: string) => facts.get(key
 const firstAt = (facts: ReadonlyMap<string, number>, test: (key: string) => boolean) =>
   Math.min(Number.POSITIVE_INFINITY, ...[...facts].filter(([key]) => test(key)).map(([, at]) => at));
 
-/** Activity 1 (slide 41): the basic Git command exercise, worded exactly as on the slide. */
-export function Activity1Guide() {
-  const { facts, commands, repo, repoRoot } = useStudio();
+/**
+ * Activity 1 (slide 41): the basic Git command exercise, worded exactly as on the slide.
+ * Wraps the studio so its command buttons only open when the current step needs them.
+ */
+export function Activity1Guide({ children }: { children: ReactNode }) {
+  const { facts, commands, repo, repoRoot, cwd } = useStudio();
   const file = "my-project/your-name.txt";
   const committed = facts.has("commit:my-project");
   const repoAt = after(facts, "repo:my-project");
   const commitAt = after(facts, "commit:my-project");
+  const inProject = cwd === "my-project";
 
   // Activity 2 starts from this introduction, so remember it once it is committed.
   const head = repo && repoRoot === "my-project" ? gitEngine.headId(repo) : null;
@@ -101,11 +239,16 @@ export function Activity1Guide() {
 
   const steps: Step[] = [
     { label: <>Create a new folder called <code className="gs-pill">my-project</code></>, cmds: ["mkdir my-project"], done: facts.has("dir:my-project") },
-    { label: <>Open the folder and type <code className="gs-pill">git init</code> in the terminal</>, cmds: ["cd my-project", "git init"], done: facts.has("repo:my-project") },
+    {
+      label: <>Open the folder and type <code className="gs-pill">git init</code> in the terminal</>,
+      hint: inProject ? <>You are in <code className="gs-pill">my-project</code>: now start a repository here.</> : <>First move into the folder, then start the repository.</>,
+      cmds: [{ cmd: "cd my-project", done: inProject }, { cmd: "git init", locked: !inProject }],
+      done: facts.has("repo:my-project"),
+    },
     {
       label: <>Create a new text file named <code className="gs-pill">your-name.txt</code></>,
       hint: <>Use New File above the editor, or type the command.</>,
-      cmds: ["touch your-name.txt"],
+      cmds: inProject ? ["touch your-name.txt"] : ["cd my-project", { cmd: "touch your-name.txt", locked: true }],
       done: facts.has(`file:${file}`),
     },
     {
@@ -119,17 +262,20 @@ export function Activity1Guide() {
     { label: <>View the commit history using <code className="gs-pill">git log</code></>, cmds: ["git log"], done: ran(commands, "log", (c) => c.root === "my-project" && c.at > commitAt) },
   ];
   return (
-    <LiveChecklist
-      title="Slide checklist · 8 steps"
-      intro={<p>Work through the steps in the terminal and editor below. Each step ticks itself when the sandbox sees it done.</p>}
-      steps={steps}
-    />
+    <GateContext.Provider value={buildGate(steps)}>
+      <ProgressiveChecklist
+        title="Slide checklist · 8 steps"
+        intro={<p>Work through the steps in the terminal and editor below. Each step ticks itself when the sandbox sees it done, and the next one appears.</p>}
+        steps={steps}
+      />
+      {children}
+    </GateContext.Provider>
   );
 }
 
-/** Activity 2 (slide 68): branching and merging, worded exactly as on the slide. */
-export function Activity2Guide() {
-  const { facts, commands, repo } = useStudio();
+/** Activity 2 (slide 68): branching and merging, worded exactly as on the slide. Gates the studio like Activity 1. */
+export function Activity2Guide({ children }: { children: ReactNode }) {
+  const { facts, commands, repo, status } = useStudio();
   const [carried] = useState(() => activity1Intro() !== null);
   const isNewBranch = (prefix: string) => (key: string) => key.startsWith(prefix) && key !== `${prefix}main` && key !== `${prefix}master`;
   const madeAt = firstAt(facts, isNewBranch("branch:my-project:"));
@@ -137,6 +283,7 @@ export function Activity2Guide() {
   const returnedAt = after(facts, "returned:my-project");
   const listedSince = (since: number) => ran(commands, "branch", (c) => c.args.length === 0 && c.root === "my-project" && c.at > since);
   const name = (repo && Object.keys(repo.branches).find((b) => b !== "main" && b !== "master")) ?? "hobby";
+  const staged = status?.staged.some((c) => c.path.endsWith("your-name.txt")) ?? false;
   const steps: Step[] = [
     { label: <>Create a new branch using <code className="gs-pill">git branch &lt;branch-name&gt;</code></>, cmds: ["git branch hobby"], done: Number.isFinite(madeAt) },
     { label: <>Check the list of branches using <code className="gs-pill">git branch</code></>, cmds: ["git branch"], done: listedSince(madeAt) },
@@ -156,7 +303,11 @@ export function Activity2Guide() {
           Commit the change using <code className="gs-pill">git add your-name.txt</code>, <code className="gs-pill">git commit -m &quot;add hobby in branch&quot;</code>
         </>
       ),
-      cmds: ["git add your-name.txt", 'git commit -m "add hobby in branch"'],
+      hint: staged ? <>Staged. Now commit it.</> : <>Stage the file first; the commit opens once it is staged.</>,
+      cmds: [
+        { cmd: "git add your-name.txt", done: staged },
+        { cmd: 'git commit -m "add hobby in branch"', locked: !staged },
+      ],
       done: facts.has("branchcommit:my-project"),
     },
     {
@@ -168,25 +319,28 @@ export function Activity2Guide() {
     { label: <>Check branches again using <code className="gs-pill">git branch</code> to confirm you are now on main.</>, cmds: ["git branch"], done: listedSince(returnedAt) },
   ];
   return (
-    <LiveChecklist
-      title="Slide checklist · 7 steps"
-      intro={
-        <p>
-          The sandbox already has <code className="gs-pill">my-project</code> from Activity 1 on <code className="gs-pill">main</code>, with{" "}
-          {carried ? (
-            <>
-              the <code className="gs-pill">your-name.txt</code> you wrote
-            </>
-          ) : (
-            <>
-              a sample <code className="gs-pill">your-name.txt</code>
-            </>
-          )}{" "}
-          committed as &quot;Initial commit&quot;.
-        </p>
-      }
-      steps={steps}
-    />
+    <GateContext.Provider value={buildGate(steps)}>
+      <ProgressiveChecklist
+        title="Slide checklist · 7 steps"
+        intro={
+          <p>
+            The sandbox already has <code className="gs-pill">my-project</code> from Activity 1 on <code className="gs-pill">main</code>, with{" "}
+            {carried ? (
+              <>
+                the <code className="gs-pill">your-name.txt</code> you wrote
+              </>
+            ) : (
+              <>
+                a sample <code className="gs-pill">your-name.txt</code>
+              </>
+            )}{" "}
+            committed as &quot;Initial commit&quot;.
+          </p>
+        }
+        steps={steps}
+      />
+      {children}
+    </GateContext.Provider>
   );
 }
 

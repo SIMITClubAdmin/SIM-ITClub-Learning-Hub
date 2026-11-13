@@ -7,7 +7,9 @@ import type { ITheme, Terminal } from "@xterm/xterm";
 import { Square, SquareTerminal } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useAppearance } from "@/lib/appearance";
+import { caretMoved, registerCaret } from "@/lib/cursor-caret";
 import type { PaletteId } from "@/lib/appearance-config";
+import { cmdState, gateTitle, GatedCmd, useGate, type CmdState } from "./activity-gate";
 import { quoteMessage, stripAnsi, useStudio } from "./WebContainerProvider";
 
 const DARK_ANSI = {
@@ -34,6 +36,8 @@ const DARK_ANSI = {
 const TERMINAL_THEMES: Record<PaletteId, ITheme> = {
   navy: { ...DARK_ANSI, background: "#05081a", cursor: "#4fd8eb", cursorAccent: "#05081a", selectionBackground: "#1e3a5f" },
   matrix: { ...DARK_ANSI, foreground: "#dcfce7", background: "#020503", cursor: "#22c55e", cursorAccent: "#020503", selectionBackground: "#14532d" },
+  sakura: { ...DARK_ANSI, foreground: "#fdf2f8", background: "#0b0510", cursor: "#f472b6", cursorAccent: "#0b0510", selectionBackground: "#4a1d3a" },
+  winter: { ...DARK_ANSI, foreground: "#f0f9ff", background: "#040a14", cursor: "#38bdf8", cursorAccent: "#040a14", selectionBackground: "#1e3a5f" },
   "purple-dark": { ...DARK_ANSI, background: "#09080f", cursor: "#a855f7", cursorAccent: "#09080f", selectionBackground: "#3b2a63" },
   "red-dark": { ...DARK_ANSI, background: "#0a0607", cursor: "#ef4444", cursorAccent: "#0a0607", selectionBackground: "#4c1d24" },
   // Light: every ANSI colour is darkened, and "white" text becomes slate, so nothing vanishes.
@@ -69,6 +73,7 @@ export function XtermTerminalPane() {
   const studio = useStudio();
   const { mode, wc, session, bootMessage, repo, cwd, workspace, commitMessage, runCommand, startDevServer, stopDevServer, serverUrl, devRunning } = studio;
   const { palette } = useAppearance();
+  const gate = useGate();
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -90,6 +95,8 @@ export function XtermTerminalPane() {
     let disposed = false;
     let observer: ResizeObserver | null = null;
     let term: Terminal | null = null;
+    let unregisterCaret: (() => void) | null = null;
+    let caretWatch: { dispose(): void }[] = [];
     (async () => {
       const [{ Terminal: XTerm }, { FitAddon: Fit }] = await Promise.all([import("@xterm/xterm"), import("@xterm/addon-fit")]);
       await document.fonts?.ready;
@@ -123,11 +130,30 @@ export function XtermTerminalPane() {
         }
       });
       observer.observe(host);
+
+      // Hand the custom cursor the typing caret, so its [ ] frame follows what the student types.
+      const t = term;
+      const caretRect = () => {
+        const screen = host.querySelector(".xterm-screen");
+        if (!screen) return null;
+        const buffer = t.buffer.active;
+        const row = buffer.baseY + buffer.cursorY - buffer.viewportY;
+        if (row < 0 || row >= t.rows) return null;
+        const r = screen.getBoundingClientRect();
+        if (!r.width || !r.height) return null;
+        const cellW = r.width / t.cols;
+        const cellH = r.height / t.rows;
+        return { x: r.left + Math.min(buffer.cursorX, t.cols - 1) * cellW, y: r.top + row * cellH, w: cellW, h: cellH };
+      };
+      unregisterCaret = registerCaret(host.parentElement ?? host, caretRect);
+      caretWatch = [t.onCursorMove(caretMoved), t.onScroll(caretMoved), t.onResize(caretMoved), t.onWriteParsed(caretMoved)];
       setReady(true);
     })();
     return () => {
       disposed = true;
       observer?.disconnect();
+      unregisterCaret?.();
+      caretWatch.forEach((d) => d.dispose());
       term?.dispose();
       termRef.current = null;
       fitRef.current = null;
@@ -319,13 +345,16 @@ export function XtermTerminalPane() {
 
   const on = mode !== "booting";
   const serverOn = Boolean(serverUrl) || devRunning;
-  const helpers: { label: string; run: () => void }[] = [
-    { label: "git status", run: () => void runCommand("git status") },
-    { label: "git add .", run: () => void runCommand("git add .") },
-    { label: "git commit", run: () => void runCommand(`git commit -m ${quoteMessage(commitMessage)}`) },
-    { label: "git push", run: () => void runCommand(branch && branch !== "detached" ? `git push origin ${branch}` : "git push") },
-    { label: "git switch -c feat-ui", run: () => void runCommand("git switch -c feat-ui") },
-  ];
+  // In Activities 1 and 2 the toolbar holds the activity's own commands, each open only during its step.
+  const helpers: { label: string; run: () => void; state: CmdState; title?: string }[] = gate
+    ? gate.commands.map((cmd) => ({ label: cmd, run: () => void runCommand(cmd), state: cmdState(gate, cmd), title: gateTitle(gate, cmd) }))
+    : [
+        { label: "git status", run: () => void runCommand("git status"), state: "ready" },
+        { label: "git add .", run: () => void runCommand("git add ."), state: "ready" },
+        { label: "git commit", run: () => void runCommand(`git commit -m ${quoteMessage(commitMessage)}`), state: "ready" },
+        { label: "git push", run: () => void runCommand(branch && branch !== "detached" ? `git push origin ${branch}` : "git push"), state: "ready" },
+        { label: "git switch -c feat-ui", run: () => void runCommand("git switch -c feat-ui"), state: "ready" },
+      ];
 
   return (
     <div className="flex min-h-0 flex-col border-t border-(--border-subtle)">
@@ -338,11 +367,9 @@ export function XtermTerminalPane() {
             {mode === "fallback" ? " · built-in shell" : ""}
           </span>
         </p>
-        <div className="flex flex-wrap gap-2" role="toolbar" aria-label="Helper commands">
+        <div className="flex flex-wrap gap-2" role="toolbar" aria-label={gate ? "Activity commands, opened one step at a time" : "Helper commands"}>
           {helpers.map((h) => (
-            <button key={h.label} type="button" disabled={!on} onClick={h.run} className="gs-cmd">
-              {h.label}
-            </button>
+            <GatedCmd key={h.label} label={h.label} state={h.state} glow={!!gate} disabled={!on} onRun={h.run} title={h.title} />
           ))}
           {workspace.allowDev &&
             (serverOn ? (

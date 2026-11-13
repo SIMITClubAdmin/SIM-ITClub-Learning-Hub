@@ -1,24 +1,20 @@
 "use client";
 
 import { useEffect } from "react";
-import { hasSavedAppearance, saveAppearance, useAppearance } from "@/lib/appearance";
-import { applyToDocument, FONTS, PALETTES, WORLDS, type Appearance } from "@/lib/appearance-config";
+import { setAppearanceOwner, useAppearance } from "@/lib/appearance";
+import { applyToDocument, type StoredAppearance } from "@/lib/appearance-config";
 import { createClient } from "@/lib/supabase/client";
 
-/** Reads a saved profile value back into a valid Appearance, ignoring anything unknown. */
-export function fromProfile(raw: unknown): Partial<Appearance> {
-  if (!raw || typeof raw !== "object") return {};
-  const r = raw as Record<string, unknown>;
-  const out: Partial<Appearance> = {};
-  if (FONTS.some((f) => f.id === r.font)) out.font = r.font as Appearance["font"];
-  if (PALETTES.some((p) => p.id === r.palette)) out.palette = r.palette as Appearance["palette"];
-  if (WORLDS.some((w) => w.id === r.world)) out.world = r.world as Appearance["world"];
-  return out;
+/** Keeps a copy of the member's look in their Supabase profile, so every device they use gets it. */
+export async function saveAppearanceToProfile(value: StoredAppearance) {
+  const { error } = await createClient().auth.updateUser({ data: { hub_appearance: value } });
+  return !error;
 }
 
 /**
  * Mounted once in the root layout. Keeps <html>'s appearance attributes in step with the
- * saved choice, and on a device that has never chosen, adopts the one in the member's profile.
+ * choice showing, and follows sign-in: each account gets its own saved look (the newer of
+ * this browser's copy and the profile's), and signing out goes back to the guest look.
  */
 export function ThemeCustomizationProvider() {
   const { font, palette, world } = useAppearance();
@@ -30,10 +26,28 @@ export function ThemeCustomizationProvider() {
   useEffect(() => {
     let unsubscribe = () => {};
     try {
-      const { data } = createClient().auth.onAuthStateChange((event, session) => {
+      const supabase = createClient();
+      const { data } = supabase.auth.onAuthStateChange((event, session) => {
+        if (event === "SIGNED_OUT" || (event === "INITIAL_SESSION" && !session)) {
+          setAppearanceOwner(null);
+          return;
+        }
         if (!session || (event !== "INITIAL_SESSION" && event !== "SIGNED_IN")) return;
-        const saved = fromProfile(session.user.user_metadata?.hub_appearance);
-        if (Object.keys(saved).length && !hasSavedAppearance()) saveAppearance(saved);
+        const user = session.user;
+        const upload = setAppearanceOwner(user.id, user.user_metadata?.hub_appearance);
+        // Supabase calls must not run inside this callback, so they wait a tick.
+        setTimeout(async () => {
+          try {
+            if (upload) await saveAppearanceToProfile(upload);
+            // The session's copy of the profile can be an hour old: check the live one once.
+            if (event === "INITIAL_SESSION") {
+              const { data: fresh } = await supabase.auth.getUser();
+              if (fresh.user?.id === user.id) setAppearanceOwner(user.id, fresh.user.user_metadata?.hub_appearance);
+            }
+          } catch {
+            // Offline: the browser copy still applies.
+          }
+        }, 0);
       });
       unsubscribe = () => data.subscription.unsubscribe();
     } catch {

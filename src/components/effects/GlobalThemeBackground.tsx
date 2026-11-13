@@ -3,9 +3,14 @@
 import { useAppearance } from "@/lib/appearance";
 import { MatrixRainBackground } from "./MatrixRainBackground";
 import { PixelGridBackground } from "./PixelGridBackground";
+import { SakuraBackground } from "./SakuraBackground";
+import { WinterBackground } from "./WinterBackground";
 
-/** The site background: the original pixel grid, or the Code theme's matrix rain. */
+/** The site background for the chosen theme world. */
 export function GlobalThemeBackground() {
   const { world } = useAppearance();
-  return world === "matrix" ? <MatrixRainBackground /> : <PixelGridBackground />;
+  if (world === "matrix") return <MatrixRainBackground />;
+  if (world === "sakura") return <SakuraBackground />;
+  if (world === "winter") return <WinterBackground />;
+  return <PixelGridBackground />;
 }

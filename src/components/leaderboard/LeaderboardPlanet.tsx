@@ -2,7 +2,8 @@
 
 import { useEffect, useRef } from "react";
 
-export type LeaderboardEntry = { name: string; score: number };
+/** tagline: set on the account page, shown only while the member is in the top 3. */
+export type LeaderboardEntry = { name: string; score: number; tagline?: string };
 
 // The moon is a circle R wide-units across, in cqw (1% of the page width), so it keeps
 // its shape at any width and the astronauts can be placed exactly on its curve.
@@ -79,6 +80,11 @@ function Astronaut({ entry, rank }: { entry: LeaderboardEntry; rank: number }) {
   return (
     <div className="flex flex-col items-center">
       <p className="max-w-56 truncate font-display text-xl font-semibold sm:text-2xl">{entry.name}</p>
+      {entry.tagline && (
+        <p className="lb-tagline mt-1.5 max-w-60 border border-(--border-accent)/60 bg-bg/85 px-2.5 py-0.5 text-center text-sm leading-snug text-(--accent-text) italic">
+          <span className="sr-only">Tagline: </span>“{entry.tagline}”
+        </p>
+      )}
       <p
         className="lb-trophy-tag mt-2 flex items-center gap-2 border border-[#ffd166]/70 bg-bg/90 px-3 py-1 font-mono text-base text-[#ffd166]"
         aria-label={`${entry.score} correct answers`}

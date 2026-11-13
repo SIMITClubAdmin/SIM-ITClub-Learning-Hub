@@ -227,7 +227,8 @@ export function WebContainerProvider({ variant, children }: { variant: StudioVar
   const [devLog, setDevLog] = useState("");
   const [devRunning, setDevRunning] = useState(false);
   const [previewNonce, setPreviewNonce] = useState(0);
-  const [commitMessage, setCommitMessage] = useState("feat: update portal UI");
+  // Each activity starts with the commit message its slide uses.
+  const [commitMessage, setCommitMessage] = useState(variant === "activity1" ? "Initial commit" : variant === "activity2" ? "add hobby in branch" : "feat: update portal UI");
   const [speed, setSpeed] = useState<Speed>(1);
 
   const boxRef = useRef<Box | null>(null);

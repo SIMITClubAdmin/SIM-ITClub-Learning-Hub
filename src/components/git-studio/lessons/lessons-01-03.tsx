@@ -1,6 +1,6 @@
 import { StudioLoader } from "../StudioLoader";
 import { Callout, Card, CliVsDesktop, Menu, Pill, Section, Steps } from "./ui";
-import { MrtTrain, SavePointTimeline } from "./widgets";
+import { LetterPost, SavePointTimeline } from "./widgets";
 
 export function IntroductionLesson() {
   return (
@@ -156,20 +156,34 @@ export function CoreWorkflowLesson() {
         </div>
       </Section>
 
-      <Section id="mrt-analogy" index={4} title="Analogy 2: the MRT station">
-        <p className="text-(--text-muted)">
-          Your computer is the MRT station you&apos;re at (say Lavender EW11). The local repository is the platform, and the people are the changes you
-          made. Try the three commands:
-        </p>
-        <MrtTrain />
+      <Section id="letter-analogy" index={4} title="Analogy 2: Sending a Letter">
+        <p className="text-(--text-muted)">Saving your work with Git is like writing a letter and posting it:</p>
+        <div className="grid gap-5 md:grid-cols-2">
+          <Card title="Working directory" tag="Notepad on your desk" tone="var(--git-modified)">
+            Drafting and editing pages on your notepad. You can cross things out and rewrite freely: nothing is sealed yet.
+          </Card>
+          <Card title={<>Staging area · <Pill>git add</Pill></>} tag="Putting pages into an envelope" tone="var(--git-local)">
+            Picking the finished pages you want to send and sliding them into an open envelope (<Pill>git add</Pill>). You can still add or remove pages
+            before sealing it.
+          </Card>
+          <Card title={<>Local repository · <Pill>git commit</Pill></>} tag="Sealing & stamping the envelope" tone="var(--accent-text)">
+            Sealing the envelope shut and writing a clear summary label on the front (<Pill>git commit -m &quot;message&quot;</Pill>). It is now a permanent,
+            sealed snapshot stored safely in your local outbox.
+          </Card>
+          <Card title={<>Remote repository · <Pill>git push</Pill></>} tag="Dropping it into the postbox to GitHub" tone="var(--git-remote)">
+            Dropping your sealed envelope(s) into the postbox (<Pill>git push</Pill>) so the postal service delivers them to the central mailbox (
+            <strong className="text-(--text-main)">GitHub</strong>), where your whole team can read them.
+          </Card>
+        </div>
+        <p className="text-(--text-muted)">Try the three commands, in order:</p>
+        <LetterPost />
         <h3 className="gs-heading text-xl font-semibold">How to check?</h3>
         <div className="grid gap-5 md:grid-cols-2">
-          <Card title={<Pill>git status</Pill>} tag="The arrival board" tone="var(--git-modified)">
-            Like checking the information board on the platform: <span className="gs-ui text-(--text-main)">Marina South Pier · 3 mins</span>. It shows what is
-            waiting right now.
+          <Card title={<Pill>git status</Pill>} tag="What's on your desk?" tone="var(--git-modified)">
+            Checking which pages are still loose on your desk and which are already inside the open envelope.
           </Card>
-          <Card title={<Pill>git log</Pill>} tag="The timetable" tone="var(--accent-text)">
-            Like looking at the history of trains that have already departed.
+          <Card title={<Pill>git log</Pill>} tag="Your logbook" tone="var(--accent-text)">
+            Flipping through your logbook of the sealed envelopes you have already recorded.
           </Card>
         </div>
       </Section>

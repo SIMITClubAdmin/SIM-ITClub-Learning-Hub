@@ -2,6 +2,7 @@
 
 import { ChevronDown, Gauge, Maximize2, Minimize2, RotateCcw } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
+import { GatedCmd, readyCommand, useGate } from "./activity-gate";
 import { CodeEditorPane } from "./CodeEditorPane";
 import type { StudioVariant } from "./engine/workspaces";
 import { GitDagVisualizer } from "./GitDagVisualizer";
@@ -19,13 +20,24 @@ export default function GitStudio({ kind }: { kind: StudioKind }) {
   return (
     // A new level is a fresh workspace, so the provider remounts with its key.
     <WebContainerProvider key={variant} variant={variant}>
-      {kind === "activity1" && <Activity1Guide />}
-      {kind === "activity2" && <Activity2Guide />}
-      {kind === "game" && <GameGuide level={level} setLevel={setLevel} />}
-      {kind === "advanced" && <AdvancedGuide />}
-      {kind === "portal" && <PortalGuide />}
-      <StudioShell />
-      {kind === "portal" && <BonusChallenges />}
+      {/* Activities 1 and 2 wrap the studio: its command buttons open one step at a time. */}
+      {kind === "activity1" ? (
+        <Activity1Guide>
+          <StudioShell />
+        </Activity1Guide>
+      ) : kind === "activity2" ? (
+        <Activity2Guide>
+          <StudioShell />
+        </Activity2Guide>
+      ) : (
+        <>
+          {kind === "game" && <GameGuide level={level} setLevel={setLevel} />}
+          {kind === "advanced" && <AdvancedGuide />}
+          {kind === "portal" && <PortalGuide />}
+          <StudioShell />
+          {kind === "portal" && <BonusChallenges />}
+        </>
+      )}
     </WebContainerProvider>
   );
 }
@@ -121,25 +133,38 @@ function StudioShell() {
 
 function GuidedActionBar() {
   const { runCommand, mode } = useStudio();
+  const gate = useGate();
   const actions = [
-    { label: "1. Edit a file", command: null },
-    { label: "2. Stage it · git add .", command: "git add ." },
-    { label: "3. Commit a snapshot", command: 'git commit -m "Workshop save point"' },
-    { label: "4. Push to GitHub", command: "git push" },
+    { label: "1. Edit a file", prefix: "", command: null },
+    { label: "2. Stage it · git add .", prefix: "git add", command: "git add ." },
+    { label: "3. Commit a snapshot", prefix: "git commit", command: 'git commit -m "Workshop save point"' },
+    { label: "4. Push to GitHub", prefix: "git push", command: "git push" },
   ];
   return (
     <ol className="mb-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4" aria-label="Git workflow">
-      {actions.map((action) => (
-        <li key={action.label} className="min-w-0">
-          {action.command ? (
-            <button type="button" disabled={mode === "booting"} onClick={() => void runCommand(action.command!)} className="gs-cmd w-full justify-start">
-              {action.label}
-            </button>
-          ) : (
-            <span className="flex min-h-9 items-center rounded border border-(--border-subtle) bg-(--bg-panel) px-3 text-[13px] text-(--text-muted)">{action.label}</span>
-          )}
-        </li>
-      ))}
+      {actions.map((action) => {
+        // In an activity, an action only opens when the current step needs that kind of command.
+        const run = action.command ? readyCommand(gate, action.prefix, action.command) : null;
+        return (
+          <li key={action.label} className="min-w-0">
+            {action.command ? (
+              <GatedCmd
+                label={action.label}
+                state={run ? "ready" : "locked"}
+                glow={!!gate}
+                disabled={mode === "booting"}
+                onRun={() => {
+                  if (run) void runCommand(run);
+                }}
+                title={run ? `Runs ${run}` : "Opens when a step needs it"}
+                className="w-full justify-start"
+              />
+            ) : (
+              <span className="flex min-h-9 items-center rounded border border-(--border-subtle) bg-(--bg-panel) px-3 text-[13px] text-(--text-muted)">{action.label}</span>
+            )}
+          </li>
+        );
+      })}
     </ol>
   );
 }

@@ -16,6 +16,8 @@ export const FONTS = [
 export const PALETTES = [
   { id: "navy", label: "Cyber Navy", hint: "Default", base: "#070b1f", accent: "#4fd8eb" },
   { id: "matrix", label: "Matrix Green", hint: "Dark · Code theme", base: "#040805", accent: "#22c55e" },
+  { id: "sakura", label: "Sakura Pink", hint: "Dark · Sakura theme", base: "#0d0711", accent: "#f472b6" },
+  { id: "winter", label: "Winter Frost", hint: "Dark · Winter theme", base: "#060d1a", accent: "#38bdf8" },
   { id: "purple-dark", label: "Purple & Black", hint: "Dark", base: "#07060e", accent: "#a855f7" },
   { id: "red-dark", label: "Red & Black", hint: "Dark", base: "#080506", accent: "#ef4444" },
   { id: "purple-light", label: "Purple & White", hint: "Light mode", base: "#f8f7fc", accent: "#7c3aed" },
@@ -24,15 +26,32 @@ export const PALETTES = [
 export const WORLDS = [
   { id: "pixel", label: "Default Pixel Grid", emoji: "▦", hint: "Animated pixel grid, [ · ] reticle cursor" },
   { id: "matrix", label: "Code Theme (Matrix Rain)", emoji: ">_", hint: "Falling code rain, [ >_ ] terminal cursor" },
+  { id: "sakura", label: "Sakura Theme", emoji: "🌸", hint: "Cherry blossom tree and drifting petals, blossom cursor" },
+  { id: "winter", label: "Winter Theme", emoji: "❄️", hint: "Snow, penguins and a Christmas tree, snowflake cursor" },
 ] as const;
 
 export type FontId = (typeof FONTS)[number]["id"];
 export type PaletteId = (typeof PALETTES)[number]["id"];
 export type WorldId = (typeof WORLDS)[number]["id"];
 export type Appearance = { font: FontId; palette: PaletteId; world: WorldId };
+/** A saved choice: at is when it was made, so the newest copy (browser or profile) wins. */
+export type StoredAppearance = Partial<Appearance> & { at?: number };
 
 export const DEFAULT_APPEARANCE: Appearance = { font: "site", palette: "navy", world: "pixel" };
-export const KEYS = { font: "hub-font", palette: "hub-palette", world: "hub-world" } as const;
+/** Theme worlds that bring their own palette when picked. */
+export const WORLD_PALETTE: Partial<Record<WorldId, PaletteId>> = { matrix: "matrix", sakura: "sakura", winter: "winter" };
+
+/**
+ * Browser storage: each account keeps its own copy under itcamp_theme_<user id>, signed-out
+ * visitors use itcamp_theme_guest, and itcamp_theme_active names whose copy is showing, so the
+ * script below can apply it before first paint.
+ */
+export const STORAGE_PREFIX = "itcamp_theme_";
+export const GUEST = "guest";
+export const ACTIVE_KEY = "itcamp_theme_active";
+/** Where choices lived before they were kept per account. Read once, for the guest copy. */
+export const LEGACY_KEYS = { font: "hub-font", palette: "hub-palette", world: "hub-world" } as const;
+
 export const IDS = {
   font: FONTS.map((f) => f.id) as string[],
   palette: PALETTES.map((p) => p.id) as string[],
@@ -50,10 +69,10 @@ export function applyToDocument(appearance: Appearance) {
   }
 }
 
-/** Runs during HTML parsing, before first paint, on every full page load. */
-export const APPEARANCE_SCRIPT = `(function(){try{var d=document.documentElement,s=localStorage;${(Object.keys(KEYS) as (keyof Appearance)[])
-  .map(
-    (k) =>
-      `var ${k}=s.getItem(${JSON.stringify(KEYS[k])});if(${JSON.stringify(IDS[k])}.indexOf(${k})>-1&&${k}!==${JSON.stringify(DEFAULT_APPEARANCE[k])})d.setAttribute(${JSON.stringify(ATTRS[k])},${k});`,
-  )
-  .join("")}}catch(e){}})()`;
+const KINDS = (Object.keys(ATTRS) as (keyof Appearance)[]).map((k) => [k, ATTRS[k], IDS[k], DEFAULT_APPEARANCE[k]]);
+
+/**
+ * Runs during HTML parsing, before first paint, on every full page load: applies the active
+ * account's copy, else this browser's guest copy (else the old pre-account keys).
+ */
+export const APPEARANCE_SCRIPT = `(function(){try{var d=document.documentElement,s=localStorage,o=s.getItem(${JSON.stringify(ACTIVE_KEY)})||${JSON.stringify(GUEST)};function g(k){try{var v=JSON.parse(s.getItem(${JSON.stringify(STORAGE_PREFIX)}+k)||"null");return v&&typeof v==="object"?v:null}catch(e){return null}}var a=g(o)||g(${JSON.stringify(GUEST)})||{font:s.getItem(${JSON.stringify(LEGACY_KEYS.font)}),palette:s.getItem(${JSON.stringify(LEGACY_KEYS.palette)}),world:s.getItem(${JSON.stringify(LEGACY_KEYS.world)})},c=${JSON.stringify(KINDS)};for(var i=0;i<c.length;i++){var v=a[c[i][0]];if(c[i][2].indexOf(v)>-1&&v!==c[i][3])d.setAttribute(c[i][1],v)}}catch(e){}})()`;
