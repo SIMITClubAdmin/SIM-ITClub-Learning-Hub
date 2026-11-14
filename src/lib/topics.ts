@@ -70,31 +70,31 @@ export const TOPICS: Topic[] = [
   },
 ];
 
-// Lesson 2: one challenge per workshop activity (questions in src/lib/quizzes.ts). The whole
-// lesson opens once Lesson 1 is finished; inside it, each activity opens after the one before.
+// Lesson 2: the slides' three mini challenges (questions in src/lib/quizzes.ts). The whole
+// lesson opens once Lesson 1 is finished; inside it, each challenge opens after the one before.
 const GIT_TOPICS: Topic[] = [
   {
     slug: "git-basics",
-    name: "Git basics",
+    name: "Git & GitHub",
     short: "GIT",
-    summary: "Set up my-project with git init, add, commit and log, plus the three states of Git.",
+    summary: "The three states of Git, the book and letter analogies, and Activity 1: init, add, commit and log.",
     lockedReason: null,
     lessons: [],
   },
   {
     slug: "branches",
-    name: "Branching",
+    name: "Branching & Merging",
     short: "BRANCH",
-    summary: "Make a hobby branch, switch to it and back, then publish a branch to GitHub.",
-    lockedReason: "Finish Activity 1 to unlock",
+    summary: "What a branch is and why, best practices, creating and publishing branches, and Activity 2.",
+    lockedReason: "Finish Mini Challenge 1 to unlock",
     lessons: [],
   },
   {
     slug: "github",
     name: "Merging & PRs",
     short: "MERGE",
-    summary: "Merges, pull requests, the part1.txt conflict and the branching game.",
-    lockedReason: "Finish Activity 2 to unlock",
+    summary: "git merge, pull requests from opening to clean-up, the part1.txt conflict and Learn Git Branching.",
+    lockedReason: "Finish Mini Challenge 2 to unlock",
     lessons: [],
   },
 ];
