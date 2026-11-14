@@ -6,19 +6,18 @@ import { MODULES } from "@/lib/topics";
 
 export const metadata: Metadata = { title: "Learn · ITCamp Learning Hub" };
 
-// The Git planet opens the Git & GitHub studio, so it is open here even though it stays
-// locked in Challenge (no Git quizzes yet). Each moon jumps to its part of the page.
+// The Git planet opens the Git & GitHub studio, so it is open here even though Challenge
+// locks it until Lesson 1 is finished. Each moon is one workshop activity, like its challenge,
+// and jumps to the lessons leading up to that activity.
 const GIT_MOON_LESSONS: Record<string, { title: string; href: string }[]> = {
   "git-basics": [
     { title: "Introduction to Git & GitHub", href: "/learn/git/introduction" },
     { title: "The core workflow", href: "/learn/git/core-workflow" },
+    { title: "Working with GitHub + Activity 1", href: "/learn/git/working-with-github" },
   ],
-  branches: [
-    { title: "Branching & merging", href: "/learn/git/branching" },
-    { title: "Pull requests & merge conflicts", href: "/learn/git/pull-requests-conflicts" },
-  ],
+  branches: [{ title: "Branching & merging + Activity 2", href: "/learn/git/branching" }],
   github: [
-    { title: "Working with GitHub", href: "/learn/git/working-with-github" },
+    { title: "Pull requests & merge conflicts + Activity 3", href: "/learn/git/pull-requests-conflicts" },
     { title: "Tips & cheatsheet", href: "/learn/git/tips-cheatsheet" },
   ],
 };

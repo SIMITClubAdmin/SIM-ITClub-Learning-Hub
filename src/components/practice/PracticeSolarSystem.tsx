@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { starsFor, type BestScores } from "@/lib/progress";
-import { hasQuiz, QUESTIONS_PER_QUIZ } from "@/lib/quiz-meta";
+import { hasQuiz, QUIZ_INFO, questionsIn } from "@/lib/quiz-meta";
 import { useAppearance } from "@/lib/appearance";
 import { planetLook } from "@/lib/planet-looks";
 import type { CourseModule, PlanetPalette } from "@/lib/topics";
@@ -311,8 +311,9 @@ export function PracticeSolarSystem({ modules, best = {} }: { modules: CourseMod
                   <div className="flex items-center justify-between gap-3">
                     <p className="font-mono text-[11px] tracking-wider text-accent uppercase">
                       Mission {String(ti + 1).padStart(2, "0")}
+                      {hasQuiz(topic.slug) && QUIZ_INFO[topic.slug].activity ? ` · Activity ${QUIZ_INFO[topic.slug].activity}` : ""}
                     </p>
-                    <Stars count={starsFor(best[topic.slug])} />
+                    <Stars count={starsFor(best[topic.slug], questionsIn(topic.slug))} />
                   </div>
                   <p className={`mt-1 font-display text-xl font-semibold ${locked ? "text-dim" : ""}`}>{topic.name}</p>
                   <p className="mt-1 text-sm text-dim">{topic.summary}</p>
@@ -322,7 +323,7 @@ export function PracticeSolarSystem({ modules, best = {} }: { modules: CourseMod
                         ? ""
                         : best[topic.slug] === undefined
                           ? "Best: not attempted"
-                          : `Best: ${best[topic.slug]} / ${QUESTIONS_PER_QUIZ}`}
+                          : `Best: ${best[topic.slug]} / ${questionsIn(topic.slug)}`}
                     </span>
                     {locked ? (
                       <span className="flex items-center gap-1.5 font-mono text-xs text-dim">

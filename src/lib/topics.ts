@@ -30,6 +30,8 @@ export type CourseModule = {
   title: string;
   /** Why the whole planet is locked, or null when it is open. */
   lockedReason: string | null;
+  /** The lesson's challenges exist, so its lock opens once every topic in the lesson before it is finished. */
+  opensAfterPrevious?: boolean;
   palette: PlanetPalette;
   topics: Topic[];
 };
@@ -68,30 +70,31 @@ export const TOPICS: Topic[] = [
   },
 ];
 
-// Example second lesson, so the multi-planet Practice page has somewhere to go.
+// Lesson 2: one challenge per workshop activity (questions in src/lib/quizzes.ts). The whole
+// lesson opens once Lesson 1 is finished; inside it, each activity opens after the one before.
 const GIT_TOPICS: Topic[] = [
   {
     slug: "git-basics",
     name: "Git basics",
     short: "GIT",
-    summary: "Save versions of your project with commits.",
-    lockedReason: "Finish Lesson 1 to unlock",
+    summary: "Set up my-project with git init, add, commit and log, plus the three states of Git.",
+    lockedReason: null,
     lessons: [],
   },
   {
     slug: "branches",
-    name: "Branches",
+    name: "Branching",
     short: "BRANCH",
-    summary: "Try ideas safely on a branch, then merge them.",
-    lockedReason: "Finish Lesson 1 to unlock",
+    summary: "Make a hobby branch, switch to it and back, then publish a branch to GitHub.",
+    lockedReason: "Finish Activity 1 to unlock",
     lessons: [],
   },
   {
     slug: "github",
-    name: "GitHub",
-    short: "HUB",
-    summary: "Push your code online and work with teammates.",
-    lockedReason: "Finish Lesson 1 to unlock",
+    name: "Merging & PRs",
+    short: "MERGE",
+    summary: "Merges, pull requests, the part1.txt conflict and the branching game.",
+    lockedReason: "Finish Activity 2 to unlock",
     lessons: [],
   },
 ];
@@ -116,8 +119,9 @@ export const MODULES: CourseModule[] = [
   {
     slug: "git",
     number: 2,
-    title: "Git and GitHub",
+    title: "Git & GitHub",
     lockedReason: "Finish Lesson 1 to unlock",
+    opensAfterPrevious: true,
     palette: {
       base: "#8a3a2c",
       bands: ["#c2553f", "#f2a47a", "#a8432f", "#ffc49e", "#b44a35", "#e8835f"],

@@ -5,12 +5,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { GroupPicker } from "@/components/account/GroupPicker";
+import { InlineCode } from "@/components/practice/InlineCode";
 import { Quiz } from "@/components/practice/Quiz";
 import { formatDateTime } from "@/lib/format";
 import { GUEST_COOKIE } from "@/lib/guest";
 import { bestScores, withProgress } from "@/lib/progress";
 import { MAX_ATTEMPTS } from "@/lib/quiz-meta";
-import { findQuestion, QUIZZES } from "@/lib/quizzes";
+import { answerFor, findQuestion, QUIZZES } from "@/lib/quizzes";
 import { loadLearner, needsGroup } from "@/lib/supabase/learner";
 import { createClient } from "@/lib/supabase/server";
 import { MODULES } from "@/lib/topics";
@@ -180,14 +181,21 @@ export default async function QuizPage(props: PageProps<"/practice/[slug]">) {
                             <span className={answer.is_correct ? "text-accent" : "text-[#ffb38a]"}>
                               {answer.is_correct ? "✓" : "✗"}
                             </span>{" "}
-                            Q{answer.position}. {question?.question ?? answer.question_id}
+                            Q{answer.position}. {question ? <InlineCode text={question.question} /> : answer.question_id}
                           </p>
                           <p className="ml-5 text-dim">
-                            Your answer: <span className="font-mono text-ink">{answer.chosen}</span>
+                            {/* A typed answer is shown exactly as written; choices may hold `code`. */}
+                            Your answer:{" "}
+                            <span className="font-mono text-ink">
+                              {question?.kind === "short" ? answer.chosen : <InlineCode text={answer.chosen} />}
+                            </span>
                             {!answer.is_correct && question && (
                               <>
                                 {" "}
-                                · Correct: <span className="font-mono text-ink">{question.choices[0]}</span>
+                                · Correct:{" "}
+                                <span className="font-mono text-ink">
+                                  {question.kind === "short" ? answerFor(question) : <InlineCode text={answerFor(question)} />}
+                                </span>
                               </>
                             )}
                           </p>

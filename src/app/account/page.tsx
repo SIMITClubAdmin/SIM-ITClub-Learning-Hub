@@ -9,14 +9,20 @@ import { AppearanceSettings } from "@/components/appearance/AppearanceSettings";
 import { AccountForm } from "@/components/auth/AccountForm";
 import { boardPosition, cleanTagline, type BoardRow } from "@/lib/leaderboard";
 import { bestScores } from "@/lib/progress";
-import { MAX_ATTEMPTS, QUESTIONS_PER_QUIZ, QUIZ_TITLES } from "@/lib/quiz-meta";
+import { hasQuiz, MAX_ATTEMPTS, questionsIn, quizLabel } from "@/lib/quiz-meta";
 import { loadLearner, needsGroup } from "@/lib/supabase/learner";
 import { createClient } from "@/lib/supabase/server";
+import { MODULES } from "@/lib/topics";
 
 export const metadata: Metadata = { title: "Account · ITCamp Learning Hub" };
 
 // Shows the signed-in member's own details, so this page renders per request.
 export const instant = false;
+
+/** The challenges in each lesson, in course order: HTML, CSS and JavaScript, then Git & GitHub. */
+const LESSON_QUIZZES = MODULES.map((m) => ({ number: m.number, title: m.title, slugs: m.topics.map((t) => t.slug).filter(hasQuiz) })).filter(
+  (lesson) => lesson.slugs.length > 0,
+);
 
 export default async function AccountPage() {
   await connection();
@@ -104,21 +110,37 @@ export default async function AccountPage() {
           Questions you got right, counting your best attempt of each challenge ({MAX_ATTEMPTS} attempts each).
         </p>
         <LeaderboardPosition position={position} onLeaderboard={onLeaderboard} isAdmin={isAdmin} />
-        <ul className="flex flex-col gap-1.5">
-          {Object.entries(QUIZ_TITLES).map(([slug, title]) => {
-            const used = finished.filter((a) => a.quiz_slug === slug).length;
-            return (
-              <li key={slug} className="flex justify-between gap-3">
-                <Link href={`/practice/${slug}`} className="underline underline-offset-4">
-                  {title}
-                </Link>
-                <span className="font-mono text-sm text-dim">
-                  {best[slug] === undefined ? "not attempted" : `${best[slug]} / ${QUESTIONS_PER_QUIZ}`} · {used}/{MAX_ATTEMPTS} used
+        {LESSON_QUIZZES.map((lesson) => {
+          const got = lesson.slugs.reduce((sum, slug) => sum + (best[slug] ?? 0), 0);
+          const outOf = lesson.slugs.reduce((sum, slug) => sum + questionsIn(slug), 0);
+          return (
+            <div key={lesson.number} className="flex flex-col gap-1.5">
+              <p className="flex justify-between gap-3 border-b border-grid pb-1 font-mono text-xs tracking-wider text-dim uppercase">
+                <span>
+                  Lesson {lesson.number} · {lesson.title}
                 </span>
-              </li>
-            );
-          })}
-        </ul>
+                <span className="shrink-0">
+                  {got} / {outOf}
+                </span>
+              </p>
+              <ul className="flex flex-col gap-1.5">
+                {lesson.slugs.map((slug) => {
+                  const used = finished.filter((a) => a.quiz_slug === slug).length;
+                  return (
+                    <li key={slug} className="flex justify-between gap-3">
+                      <Link href={`/practice/${slug}`} className="underline underline-offset-4">
+                        {quizLabel(slug)}
+                      </Link>
+                      <span className="shrink-0 font-mono text-sm text-dim">
+                        {best[slug] === undefined ? "not attempted" : `${best[slug]} / ${questionsIn(slug)}`} · {used}/{MAX_ATTEMPTS} used
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        })}
       </section>
 
       <AccountForm

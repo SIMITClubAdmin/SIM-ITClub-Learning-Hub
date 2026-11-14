@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { answerQuestion, startQuiz, type Feedback, type Round } from "@/app/practice/actions";
-import { MAX_ATTEMPTS } from "@/lib/quiz-meta";
+import { InlineCode } from "@/components/practice/InlineCode";
+import { hasQuiz, MAX_ATTEMPTS, QUIZ_INFO } from "@/lib/quiz-meta";
+import { SHORT_ANSWER_MAX } from "@/lib/short-answer";
 import { useSfx } from "@/lib/use-sfx";
 
 const LETTERS = ["A", "B", "C", "D"];
@@ -29,9 +31,12 @@ export function Quiz({ slug, title, lesson, mode, attemptNo = 1, resuming = fals
   // The choice being checked by the server, shown straight away so a click never feels ignored.
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState("");
+  // What the member has typed for a short-answer question.
+  const [typed, setTyped] = useState("");
   const headingRef = useRef<HTMLHeadingElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
   const answersRef = useRef<HTMLUListElement>(null);
+  const shortRef = useRef<HTMLFormElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const spacerRef = useRef<HTMLDivElement>(null);
   const { play } = useSfx();
@@ -42,7 +47,7 @@ export function Quiz({ slug, title, lesson, mode, attemptNo = 1, resuming = fals
   // Once the feedback bar appears: keep every answer visible above it, and move keyboard focus to Next.
   useEffect(() => {
     if (!hasAnswered) return;
-    const answers = answersRef.current?.getBoundingClientRect();
+    const answers = (answersRef.current ?? shortRef.current)?.getBoundingClientRect();
     const barHeight = barRef.current?.offsetHeight;
     if (spacerRef.current && barHeight) spacerRef.current.style.height = `${barHeight + 16}px`;
     if (answers && barHeight) {
@@ -71,7 +76,7 @@ export function Quiz({ slug, title, lesson, mode, attemptNo = 1, resuming = fals
   }
 
   async function pick(choice: string) {
-    if (!round || busy || feedback[index]) return;
+    if (!round || busy || feedback[index] || !choice.trim()) return;
     setBusy(true);
     setPending(choice);
     setError("");
@@ -89,14 +94,20 @@ export function Quiz({ slug, title, lesson, mode, attemptNo = 1, resuming = fals
 
   function next() {
     play("click");
+    setTyped("");
     setIndex((i) => i + 1);
     requestAnimationFrame(() => headingRef.current?.focus());
   }
 
+  const info = hasQuiz(slug) ? QUIZ_INFO[slug] : null;
+
   if (!round) {
     return (
       <section className="border border-violet bg-bg p-6 sm:p-10">
-        <p className="font-mono text-sm tracking-wider text-accent uppercase">Lesson {lesson} challenge</p>
+        <p className="font-mono text-sm tracking-wider text-accent uppercase">
+          Lesson {lesson}
+          {info?.activity ? ` · Activity ${info.activity}` : ""} challenge
+        </p>
         <h1 className="mt-2 text-5xl font-semibold">{title} challenge</h1>
         {mode === "member" ? (
           <p className="mt-4 max-w-prose text-lg text-dim">
@@ -109,6 +120,7 @@ export function Quiz({ slug, title, lesson, mode, attemptNo = 1, resuming = fals
             leaderboard.
           </p>
         )}
+        {info?.note && <p className="mt-3 max-w-prose text-dim">{info.note}</p>}
         {error && (
           <p role="alert" className="mt-4 border border-[#ffb38a] px-3.5 py-3">
             {error}
@@ -144,11 +156,18 @@ export function Quiz({ slug, title, lesson, mode, attemptNo = 1, resuming = fals
               <li key={question.id} className="border border-grid p-4 text-base">
                 <p className="font-medium">
                   <span className={f?.correct ? "text-accent" : "text-[#ffb38a]"}>{f?.correct ? "✓" : "✗"}</span>{" "}
-                  {question.question}
+                  <InlineCode text={question.question} />
                 </p>
                 {f && !f.correct && (
                   <p className="mt-1 text-dim">
-                    Answer: <span className="text-ink">{f.answer}</span>
+                    Answer:{" "}
+                    {question.kind === "short" ? (
+                      <code className="font-mono text-ink">{f.answer}</code>
+                    ) : (
+                      <span className="text-ink">
+                        <InlineCode text={f.answer} />
+                      </span>
+                    )}
                   </p>
                 )}
               </li>
@@ -193,8 +212,17 @@ export function Quiz({ slug, title, lesson, mode, attemptNo = 1, resuming = fals
         <div className="h-full bg-(--accent-primary) transition-[width]" style={{ width: `${(index / total) * 100}%` }} />
       </div>
 
-      <h1 ref={headingRef} tabIndex={-1} className="mt-6 text-3xl font-semibold outline-none sm:text-4xl">
-        {question.question}
+      {question.scenario && (
+        <p className="mt-6 max-w-prose text-lg text-dim sm:text-xl">
+          <InlineCode text={question.scenario} />
+        </p>
+      )}
+      <h1
+        ref={headingRef}
+        tabIndex={-1}
+        className={`${question.scenario ? "mt-3" : "mt-6"} text-3xl font-semibold outline-none sm:text-4xl`}
+      >
+        <InlineCode text={question.question} />
       </h1>
       {question.code && (
         <pre className="mt-5 overflow-x-auto border border-grid bg-grid/40 p-5 font-mono text-base sm:text-lg">
@@ -213,7 +241,62 @@ export function Quiz({ slug, title, lesson, mode, attemptNo = 1, resuming = fals
         </figure>
       )}
 
-      {/* Two answers per row on wider screens, so a question fits without scrolling. */}
+      {question.kind === "short" ? (
+        // Short answer: type the command. The server tidies spaces and quotes before marking.
+        <form
+          ref={shortRef}
+          className="mt-6"
+          onSubmit={(e) => {
+            e.preventDefault();
+            pick(typed);
+          }}
+        >
+          <label htmlFor={`answer-${question.id}`} className="font-mono text-xs tracking-wider text-dim uppercase">
+            Type the command
+          </label>
+          <div className="mt-1.5 flex flex-col gap-3 sm:flex-row">
+            <div
+              className={`flex min-w-0 flex-1 items-center gap-3 border px-5 py-4 ${
+                !current
+                  ? "border-violet/60 focus-within:border-accent"
+                  : current.correct
+                    ? "border-accent bg-accent/15"
+                    : "border-[#ffb38a] bg-[#ffb38a]/10"
+              }`}
+            >
+              <span aria-hidden="true" className="font-mono text-base text-accent sm:text-lg">
+                $
+              </span>
+              <input
+                id={`answer-${question.id}`}
+                type="text"
+                value={current ? current.chosen : typed}
+                onChange={(e) => setTyped(e.target.value)}
+                readOnly={!!current || busy}
+                maxLength={SHORT_ANSWER_MAX}
+                autoComplete="off"
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+                placeholder="git ..."
+                className="w-full min-w-0 bg-transparent font-mono text-base text-ink outline-none placeholder:text-dim/60 sm:text-lg"
+              />
+              {current && <span className="sr-only">{current.correct ? "(correct)" : "(your answer)"}</span>}
+            </div>
+            {!current && (
+              <button type="submit" disabled={busy || !typed.trim()} className="cta shrink-0 disabled:opacity-60">
+                {busy ? "Checking…" : "Check answer"}
+              </button>
+            )}
+          </div>
+          {current && !current.correct && (
+            <p className="mt-3 text-dim">
+              Answer: <code className="border border-accent bg-accent/10 px-2 py-0.5 font-mono text-ink">{current.answer}</code>
+            </p>
+          )}
+        </form>
+      ) : (
+      /* Two answers per row on wider screens, so a question fits without scrolling. */
       <ul ref={answersRef} className="mt-6 grid gap-3 md:grid-cols-2 md:gap-4">
         {question.choices.map((choice, ci) => {
           const isAnswer = !!current && choice === current.answer;
@@ -233,7 +316,9 @@ export function Quiz({ slug, title, lesson, mode, attemptNo = 1, resuming = fals
                 className={`flex w-full items-start gap-4 border px-5 py-4 text-left disabled:cursor-default ${look}`}
               >
                 <span className="font-mono text-base text-accent sm:text-lg">{LETTERS[ci]}</span>
-                <span className="font-mono text-base whitespace-pre-wrap sm:text-lg">{choice}</span>
+                <span className="font-mono text-base whitespace-pre-wrap sm:text-lg">
+                  <InlineCode text={choice} />
+                </span>
                 {isPending && <span className="ml-auto shrink-0 font-mono text-xs tracking-wider text-accent uppercase">Checking…</span>}
                 {isAnswer && <span className="sr-only">(correct answer)</span>}
                 {isPick && !isAnswer && <span className="sr-only">(your answer)</span>}
@@ -242,6 +327,7 @@ export function Quiz({ slug, title, lesson, mode, attemptNo = 1, resuming = fals
           );
         })}
       </ul>
+      )}
 
       {error && (
         <p role="alert" className="mt-4 border border-[#ffb38a] px-3.5 py-3">
@@ -265,7 +351,9 @@ export function Quiz({ slug, title, lesson, mode, attemptNo = 1, resuming = fals
                 <p className={`font-display text-2xl font-semibold ${current.correct ? "text-accent" : "text-[#ffb38a]"}`}>
                   {current.correct ? "Correct!" : "Not quite."}
                 </p>
-                <p className="mt-1 text-lg text-dim">{current.explain}</p>
+                <p className="mt-1 text-lg text-dim">
+                  <InlineCode text={current.explain} />
+                </p>
               </div>
               <button ref={nextRef} type="button" onClick={next} className="cta cta--lg shrink-0">
                 {index + 1 === total ? "See my score" : "Next question"}

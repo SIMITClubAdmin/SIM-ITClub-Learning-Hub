@@ -4,7 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { formatDateTime } from "@/lib/format";
-import { QUIZ_TITLES } from "@/lib/quiz-meta";
+import { QUIZ_INFO, quizLabel } from "@/lib/quiz-meta";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Results · ITCamp Learning Hub" };
@@ -54,7 +54,7 @@ export default async function ResultsPage() {
     member.points += row.best_score ?? 0;
     members.set(key, member);
   }
-  const quizzes = Object.entries(QUIZ_TITLES);
+  const quizzes = Object.keys(QUIZ_INFO).map((slug) => [slug, quizLabel(slug)] as const);
   const rows = [...members.values()];
 
   return (

@@ -2,29 +2,47 @@
  * The question bank. SERVER ONLY: it holds the answers, so never import it from a
  * "use client" file. Browser code uses src/lib/quiz-meta.ts instead.
  *
- * Each attempt draws QUESTIONS_PER_QUIZ questions from a bank (see src/lib/draw.ts).
+ * Each attempt draws questionsIn(slug) questions from a bank (see src/lib/draw.ts).
  * Rules for editing during a cohort:
  *   - Never change or reuse an id: saved answers point at it.
  *   - The first choice is the right answer; the quiz shuffles them before showing.
  *   - More questions per bank = less overlap between teammates.
+ *   - Text in `backticks` in a question, choice or explanation is shown as code.
  */
-import { QUIZ_TITLES } from "@/lib/quiz-meta";
+import { questionsIn, QUIZ_INFO } from "@/lib/quiz-meta";
+import { matchesAnswer } from "@/lib/short-answer";
 
-export type QuizQuestion = {
+type QuestionBase = {
   /** Unique and permanent. Saved with every answer. */
   id: string;
   /** Group of related questions. An attempt prefers questions from different topics. */
   topic: string;
+  /** The situation the question is about, shown above it in normal-size text. */
+  scenario?: string;
   question: string;
   /** Code shown under the question, if any. */
   code?: string;
   /** What the browser shows for the code, as a full HTML page. Scripts never run in it. */
   preview?: string;
-  /** The first choice is the right answer. */
-  choices: [string, string, string, string];
   /** Shown after the member answers. */
   explain: string;
 };
+
+/** Multiple choice. */
+export type ChoiceQuestion = QuestionBase & {
+  kind?: "choice";
+  /** The first choice is the right answer. */
+  choices: [string, string, string, string];
+};
+
+/** Short answer: the member types a command. Marked by src/lib/short-answer.ts. */
+export type ShortQuestion = QuestionBase & {
+  kind: "short";
+  /** Every accepted answer. The first is the one shown as the answer. */
+  answers: [string, ...string[]];
+};
+
+export type QuizQuestion = ChoiceQuestion | ShortQuestion;
 
 export type Quiz = { slug: string; title: string; lesson: number; questions: QuizQuestion[] };
 
@@ -475,13 +493,287 @@ document.querySelector("#btn").addEventListener("click", function () {});`,
   },
 ];
 
-/** Quizzes by topic slug. Titles come from quiz-meta so the browser can show them too. */
-export const QUIZZES: Record<string, Quiz> = {
-  html: { slug: "html", title: QUIZ_TITLES.html, lesson: 1, questions: HTML_QUESTIONS },
-  css: { slug: "css", title: QUIZ_TITLES.css, lesson: 1, questions: CSS_QUESTIONS },
-  javascript: { slug: "javascript", title: QUIZ_TITLES.javascript, lesson: 1, questions: JS_QUESTIONS },
+// Lesson 2 (Git & GitHub): one challenge per workshop activity, written from the Lesson 2
+// slides and the studio's activity checklists. Every attempt asks all six, in a shuffled order.
+
+const GIT_ACTIVITY_1: QuizQuestion[] = [
+  {
+    id: "git-a1-edit-after-add",
+    topic: "staging",
+    scenario:
+      'In Activity 1 you create `your-name.txt`, write "Hi, I am Alex", save, and run Step 6: `git add .`. Before Step 7, you add a second line, "I study CS", and press Ctrl+S, without running `git add .` again.',
+    question: 'What does `git commit -m "Initial commit"` save?',
+    choices: [
+      'Only "Hi, I am Alex": the version `git add .` staged. The second line stays unstaged in your Working Directory.',
+      "Both lines, because `git add .` keeps watching `your-name.txt` and stages new edits until you commit.",
+      "Nothing: Git stops the commit with an error because `your-name.txt` changed after it was staged.",
+      "Neither line, because pressing Ctrl+S in VS Code takes the file back out of the Staging Area.",
+    ],
+    explain:
+      "`git add .` stages the file exactly as it is at that moment, like sliding a page into an open envelope. Later edits stay in your Working Directory until you run `git add` again.",
+  },
+  {
+    id: "git-a1-skip-add",
+    topic: "states",
+    scenario:
+      'In Activity 1 you run `git init` (Step 2), then create and save `your-name.txt` (Steps 3 and 4). You skip Step 6 (`git add .`) and go straight to `git commit -m "Initial commit"`.',
+    question: "What happens when you commit without `git add .`?",
+    choices: [
+      "No commit is made. Git says `nothing added to commit but untracked files present`, and `your-name.txt` stays untracked.",
+      "Git stages and commits `your-name.txt` by itself, since it's the only file in `my-project`.",
+      "Git makes an empty commit and deletes `your-name.txt`.",
+      "Git pushes `your-name.txt` straight to GitHub instead.",
+    ],
+    explain:
+      "A new file starts out untracked. Until `git add` moves it into the Staging Area, `git commit` has nothing to seal into a snapshot.",
+  },
+  {
+    id: "git-a1-status-before-after",
+    topic: "status",
+    scenario:
+      "In Activity 1 you run `git status` at Step 5 (right after saving `your-name.txt`), then again right after Step 6 (`git add .`).",
+    question: "How does the line for `your-name.txt` change between the two checks?",
+    choices: [
+      "Step 5: red, under `Untracked files`. After Step 6: green, under `Changes to be committed` as `new file: your-name.txt`.",
+      "Step 5: green, under `Changes to be committed`. After Step 6 it disappears, because `git add .` already committed it.",
+      "Step 5: yellow, under `Modified files`. After Step 6: listed under `Pushed to origin/main`.",
+      "No change: `git status` shows exactly the same output until you run `git commit`.",
+    ],
+    explain:
+      "Before `git add .`, a new file is listed in red under Untracked files. `git add .` moves it to the Staging Area, so it turns green under Changes to be committed.",
+  },
+  {
+    id: "git-a1-letter-push",
+    topic: "workflow",
+    scenario:
+      'The Sending a Letter analogy: one envelope is sealed in your outbox (the "Initial commit" commit). A revised page of `your-name.txt` is in an open envelope (staged with `git add`). You are still writing a third line at your desk.',
+    question: "If you run `git push` now, what reaches GitHub?",
+    choices: [
+      'Only the sealed envelope ("Initial commit"). The open envelope and the draft on your desk stay on your laptop.',
+      "The sealed envelope and the open envelope. Only the draft on your desk stays behind.",
+      "All three, because `git push` uploads your whole project folder.",
+      "Nothing: `git push` fails while the Staging Area isn't empty.",
+    ],
+    explain:
+      "`git push` only sends commits: the sealed envelopes in your local repository (`.git`). Staged work and unstaged edits stay on your laptop until you commit them.",
+  },
+  {
+    id: "git-a1-init",
+    topic: "commands",
+    kind: "short",
+    question:
+      "Activity 1, Step 2: you've opened your new `my-project` folder. Type the 2-word command that starts a new local Git repository (it makes the hidden `.git` folder).",
+    answers: ["git init"],
+    explain: "`git init` turns the current folder into a Git repository by creating the hidden `.git` folder, where Git keeps every commit.",
+  },
+  {
+    id: "git-a1-commit-initial",
+    topic: "commands",
+    kind: "short",
+    question: "Activity 1, Step 7: type the command that commits your staged `your-name.txt` with the exact message Initial commit.",
+    answers: ['git commit -m "Initial commit"'],
+    explain: '`-m` sets the commit message, and the quotes keep the two words together: `git commit -m "Initial commit"`.',
+  },
+];
+
+const GIT_ACTIVITY_2: QuizQuestion[] = [
+  {
+    id: "git-a2-branch-no-switch",
+    topic: "switching",
+    scenario:
+      'Activity 2: you are on `main`. You run Step 1 (`git branch hobby`) but skip Step 3 (`git checkout hobby`). Then you add your hobby line to `your-name.txt` and run Step 5: `git add your-name.txt` and `git commit -m "add hobby in branch"`.',
+    question: "Where does the commit land, and what does `git branch` show?",
+    choices: [
+      "On `main`, and `git branch` still shows `* main`: `git branch hobby` only made the branch, it didn't switch to it.",
+      "On `hobby`, and `git branch` shows `* hobby`, because `git branch hobby` creates the branch and switches to it.",
+      "On both `main` and `hobby`, because `hobby` was made from `main` and they share commits.",
+      "Nowhere: Git refuses with a detached HEAD error until you run `git checkout hobby`.",
+    ],
+    explain:
+      "Step 1 (`git branch <branch-name>`) only creates the branch. Step 3 (`git checkout <branch-name>`) moves you onto it. Skip Step 3 and you are still committing to `main`.",
+  },
+  {
+    id: "git-a2-checkout-main-file",
+    topic: "isolation",
+    scenario:
+      'You follow Activity 2 Steps 1 to 5 properly: you make and switch to `hobby`, add "My hobby is gaming" to `your-name.txt`, save, and commit it with `git add your-name.txt` and `git commit -m "add hobby in branch"`. Then Step 6: `git checkout main`.',
+    question: "What is in `your-name.txt` in your editor now?",
+    choices: [
+      "Only your self-introduction from Activity 1. The hobby line is gone from the file, because `main` doesn't have the `hobby` commit.",
+      'Your introduction and "My hobby is gaming", because a saved file stays the same whichever branch you are on.',
+      "Nothing: `your-name.txt` is deleted from `main` until you run `git merge hobby`.",
+      "Conflict markers (`<<<<<<< HEAD`), because `main` and `hobby` now have different versions of the file.",
+    ],
+    explain:
+      "Switching branches makes your files match that branch's latest commit. On `main`, `your-name.txt` only has your Activity 1 introduction. The hobby line is safe on `hobby`.",
+  },
+  {
+    id: "git-a2-best-practice",
+    topic: "teamwork",
+    question: "By the workshop's Best Practices for Branching, which of these is the wrong way to work on a team project?",
+    choices: [
+      "Pushing finished commits straight to `main` so teammates get them faster, without a Pull Request.",
+      "Naming branches after what they do, like `feature/navbar` or `fix/footer-link`.",
+      "Starting each new branch from an up-to-date `main`, right after running `git pull`.",
+      "Merging finished features into `main` often, through reviewed Pull Requests.",
+    ],
+    explain:
+      "Never push straight to `main`. Push your own feature branch (`git push -u origin <branch>`), then open a Pull Request so a teammate can review it before it merges.",
+  },
+  {
+    id: "git-a2-switch-c",
+    topic: "commands",
+    kind: "short",
+    question:
+      "Activity 2 took two commands to create and switch (`git branch`, then `git checkout`). Type the single command, using `switch` and its short flag, that creates a branch called `feature/navbar` and switches to it.",
+    answers: ["git switch -c feature/navbar"],
+    explain: "`git switch -c feature/navbar` creates the branch and moves you onto it in one go. `-c` stands for create.",
+  },
+  {
+    id: "git-a2-commit-hobby",
+    topic: "commands",
+    kind: "short",
+    question: "Activity 2, Step 5: `your-name.txt` is staged. Type the commit command with the exact message from the Activity 2 instructions.",
+    answers: ['git commit -m "add hobby in branch"'],
+    explain: 'The Activity 2 slide uses the message add hobby in branch, all in lower case: `git commit -m "add hobby in branch"`.',
+  },
+  {
+    id: "git-a2-push-u",
+    topic: "remote",
+    kind: "short",
+    question:
+      "Type the command that publishes your local branch `feature/navbar` to the `origin` remote for the first time, using the `-u` flag so Git tracks it.",
+    answers: ["git push -u origin feature/navbar", "git push --set-upstream origin feature/navbar"],
+    explain:
+      "`-u` (short for `--set-upstream`) links your branch to `origin/feature/navbar`, so from then on a plain `git push` or `git pull` knows where to go.",
+  },
+];
+
+const GIT_ACTIVITY_3: QuizQuestion[] = [
+  {
+    id: "git-a3-conflict-part1",
+    topic: "conflicts",
+    scenario: "You are on `main` and run `git merge branch-b`. Git stops with `CONFLICT (content): Merge conflict in part1.txt`, and `part1.txt` now looks like the file below.",
+    question: "Why did it conflict, and what finishes the merge once you've edited `part1.txt`?",
+    code: `Hello my name is Michelle.
+<<<<<<< HEAD (Current Change)
+Hello world!
+=======
+Hello ITC!
+>>>>>>> branch-b (Incoming Change)`,
+    choices: [
+      "`main` (HEAD) and `branch-b` both changed line 2 of `part1.txt`. Remove the markers, then Ctrl+S → `git add` → `git commit`.",
+      "`branch-b` changed a different file from `main`. After editing, press Ctrl+S → `git push` to finish.",
+      "You didn't run `git stash` before merging. After editing, `git merge --abort` keeps your fix.",
+      '"Hello ITC!" ends in an exclamation mark. After editing, `git branch -d branch-b` finishes the merge.',
+    ],
+    explain:
+      "A conflict happens when two branches change the same line of the same file: here, line 2 of `part1.txt`. Save your edited file (Ctrl+S), stage it (`git add`), then `git commit` to make the merge commit.",
+  },
+  {
+    id: "git-a3-game-merge-blue",
+    topic: "merging",
+    scenario: "The Activity 3 branching game runs the commands below in order. The last one prints Fast forwarding...",
+    question: 'After `git merge blue`, which commits are on `main`, and where is "add red color to button"?',
+    code: `git checkout -b blue
+git commit -m "add blue color to button"
+git checkout main
+git checkout -b red
+git commit -m "add red color to button"
+git checkout blue
+git commit -m "add border to button"
+git checkout main
+git merge blue`,
+    choices: [
+      '`main` has "add blue color to button" and "add border to button". The red commit stays on `red` only.',
+      "`main` has all three commits, because merging `blue` also merges the branches next to it.",
+      "None: `git merge blue` fails with a merge conflict because `red` exists.",
+      '`main` only has "add border to button". The first blue commit is skipped.',
+    ],
+    explain:
+      "`main` got no new commits after `blue` branched off, so `git merge blue` just fast-forwards `main` along `blue`'s two commits. `red` was branched separately, so its commit stays on `red`.",
+  },
+  {
+    id: "git-a3-fake-teamwork",
+    topic: "remote",
+    scenario:
+      "In the second Activity 3 game level you run `git clone`. Then `git fakeTeamwork main 2` adds two teammate commits to GitHub's `main` (`o/main`), and you make one commit on your own `main`.",
+    question: "Why can't you just run `git push`, and what is the right order?",
+    choices: [
+      "Your `main` and `o/main` have diverged. Run `git pull` first to bring in the 2 remote commits, then `git push`.",
+      "You need `git push --force` to overwrite your teammates' 2 commits on `o/main`.",
+      "Run `git clone` again to get the 2 new commits, then `git commit`.",
+      "Delete your local `main` with `git branch -d main` and start again.",
+    ],
+    explain:
+      "GitHub has commits you don't have yet, so it rejects your push. `git pull` downloads them and merges them into your `main`; then `git push` can send the combined history.",
+  },
+  {
+    id: "git-a3-pr-base-compare",
+    topic: "pull-requests",
+    scenario: "You pushed `feature/attendance-import` to GitHub and clicked Compare & pull request.",
+    question: "Which set-up and clean-up matches the workshop slides?",
+    choices: [
+      "`base: main` ← `compare: feature/attendance-import`. After approval and the purple Merged badge, Delete branch; everyone then runs `git pull` on `main`.",
+      "`base: feature/attendance-import` ← `compare: main`. After it merges, click Revert on GitHub to clean up the branch.",
+      "`base: main` ← `compare: main`. Keep the feature branch forever, or `main` loses the merged code.",
+      "No set-up: Pull Requests merge on your laptop by themselves, without a reviewer or a `git pull`.",
+    ],
+    explain:
+      "`base` is where the work goes (`main`) and `compare` is your branch. The purple Merged badge means the work is in `main`, so the branch can be deleted, and everyone runs `git pull` on `main` to get it.",
+  },
+  {
+    id: "git-a3-branch-d",
+    topic: "commands",
+    kind: "short",
+    question: "Activity 3 branching game: `blue` is merged into `main`. Type the command, using the `-d` flag, that deletes your local `blue` branch.",
+    answers: ["git branch -d blue"],
+    explain:
+      "`git branch -d blue` deletes a branch only once it is merged, so no work is lost. That's why the game's `git branch -d red` is refused: `red` isn't merged.",
+  },
+  {
+    id: "git-a3-revert",
+    topic: "undo",
+    kind: "short",
+    question:
+      "From the Additional Tips slide: instead of `git push --force`, which rewrites history, type the command that safely undoes the pushed commit `5738b26` with a new commit that reverses it.",
+    answers: ["git revert 5738b26"],
+    explain:
+      "`git revert 5738b26` adds a new commit that does the opposite of `5738b26`. History is kept, so teammates who already pulled aren't affected.",
+  },
+];
+
+const BANKS: Record<string, QuizQuestion[]> = {
+  html: HTML_QUESTIONS,
+  css: CSS_QUESTIONS,
+  javascript: JS_QUESTIONS,
+  "git-basics": GIT_ACTIVITY_1,
+  branches: GIT_ACTIVITY_2,
+  github: GIT_ACTIVITY_3,
 };
+
+/** Quizzes by topic slug. Titles and lessons come from quiz-meta so the browser can show them too. */
+export const QUIZZES: Record<string, Quiz> = Object.fromEntries(
+  Object.entries(QUIZ_INFO).map(([slug, info]) => [slug, { slug, title: info.title, lesson: info.lesson, questions: BANKS[slug] }]),
+);
+
+// A bank smaller than one attempt would leave attempts short, so fail the build instead.
+for (const quiz of Object.values(QUIZZES)) {
+  if (!quiz.questions || quiz.questions.length < questionsIn(quiz.slug)) {
+    throw new Error(`The ${quiz.slug} quiz needs at least ${questionsIn(quiz.slug)} questions.`);
+  }
+}
 
 export function findQuestion(quiz: Quiz, id: string) {
   return quiz.questions.find((q) => q.id === id);
+}
+
+/** The right answer as it is shown to the member. */
+export function answerFor(question: QuizQuestion) {
+  return question.kind === "short" ? question.answers[0] : question.choices[0];
+}
+
+/** Whether an answer is right. A short answer is compared after tidying (see short-answer.ts). */
+export function isCorrect(question: QuizQuestion, chosen: string) {
+  return question.kind === "short" ? matchesAnswer(chosen, question.answers) : chosen === question.choices[0];
 }
