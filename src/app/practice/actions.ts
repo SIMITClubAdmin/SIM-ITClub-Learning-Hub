@@ -6,16 +6,20 @@ import { drawForGuest, drawForMember, shuffle } from "@/lib/draw";
 import { GUEST_COOKIE } from "@/lib/guest";
 import { isGroupNumber } from "@/lib/groups";
 import { withProgress } from "@/lib/progress";
-import { MAX_ATTEMPTS, QUESTIONS_PER_QUIZ } from "@/lib/quiz-meta";
-import { findQuestion, QUIZZES, type Quiz } from "@/lib/quizzes";
+import { MAX_ATTEMPTS, questionsIn } from "@/lib/quiz-meta";
+import { answerFor, findQuestion, isCorrect, QUIZZES, type Quiz } from "@/lib/quizzes";
+import { cleanTyped, SHORT_ANSWER_MAX } from "@/lib/short-answer";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadLearner, needsGroup } from "@/lib/supabase/learner";
 import { loadProgress } from "@/lib/supabase/progress";
 import { createClient } from "@/lib/supabase/server";
 import { MODULES } from "@/lib/topics";
 
-/** A question as the browser sees it: shuffled choices and no answer. */
-export type PublicQuestion = { id: string; question: string; code?: string; preview?: string; choices: string[] };
+/** A question as the browser sees it: no answer, and multiple choice comes with its choices shuffled. */
+export type PublicQuestion = { id: string; scenario?: string; question: string; code?: string; preview?: string } & (
+  | { kind: "choice"; choices: string[] }
+  | { kind: "short" }
+);
 
 /** Feedback for one answered question. */
 export type Feedback = { chosen: string; correct: boolean; answer: string; explain: string };
@@ -40,7 +44,8 @@ function toPublic(quiz: Quiz, ids: string[]): PublicQuestion[] | null {
   for (const id of ids) {
     const q = findQuestion(quiz, id);
     if (!q) return null;
-    questions.push({ id: q.id, question: q.question, code: q.code, preview: q.preview, choices: shuffle(q.choices) });
+    const base = { id: q.id, scenario: q.scenario, question: q.question, code: q.code, preview: q.preview };
+    questions.push(q.kind === "short" ? { ...base, kind: "short" } : { ...base, kind: "choice", choices: shuffle(q.choices) });
   }
   return questions;
 }
@@ -48,7 +53,7 @@ function toPublic(quiz: Quiz, ids: string[]): PublicQuestion[] | null {
 function feedbackFor(quiz: Quiz, questionId: string, chosen: string): Feedback | null {
   const q = findQuestion(quiz, questionId);
   if (!q) return null;
-  return { chosen, correct: chosen === q.choices[0], answer: q.choices[0], explain: q.explain };
+  return { chosen, correct: isCorrect(q, chosen), answer: answerFor(q), explain: q.explain };
 }
 
 async function isGuest() {
@@ -73,7 +78,7 @@ export async function startQuiz(slug: string): Promise<StartResult> {
 
   if (!user) {
     if (!(await isGuest())) return { ok: false, error: "Log in, or continue as a guest, to try this quiz." };
-    const questions = toPublic(quiz, drawForGuest(quiz.questions, QUESTIONS_PER_QUIZ));
+    const questions = toPublic(quiz, drawForGuest(quiz.questions, questionsIn(slug)));
     if (!questions) return { ok: false, error: "Could not load the questions." };
     return { ok: true, round: { mode: "guest", attemptId: null, attemptNo: null, questions, answered: questions.map(() => null) } };
   }
@@ -118,13 +123,13 @@ export async function startQuiz(slug: string): Promise<StartResult> {
     // Teammates get different questions by group and seat; a registered guest has no group.
     const ids =
       learner.group_number && learner.group_seat
-        ? drawForMember(quiz.questions, QUESTIONS_PER_QUIZ, {
+        ? drawForMember(quiz.questions, questionsIn(slug), {
             slug,
             group: learner.group_number,
             seat: learner.group_seat,
             attempt: attemptNo,
           })
-        : drawForGuest(quiz.questions, QUESTIONS_PER_QUIZ);
+        : drawForGuest(quiz.questions, questionsIn(slug));
     const insert = await admin
       .from("quiz_attempts")
       .insert({ user_id: user.id, topic_slug: slug, attempt_no: attemptNo, question_ids: ids, total: ids.length })
@@ -159,8 +164,9 @@ export async function startQuiz(slug: string): Promise<StartResult> {
 }
 
 /**
- * Grades one answer. Members: saved straight away and can't be changed, so refreshing
- * the page never gives a second try. Guests: graded only.
+ * Grades one answer: a choice, or a typed command for a short-answer question. Members:
+ * saved straight away and can't be changed, so refreshing the page never gives a second
+ * try. Guests: graded only.
  */
 export async function answerQuestion(
   slug: string,
@@ -171,7 +177,15 @@ export async function answerQuestion(
 ): Promise<AnswerResult> {
   const quiz = QUIZZES[slug];
   const question = quiz && findQuestion(quiz, questionId);
-  if (!quiz || !question || !question.choices.includes(chosen)) return { ok: false, error: "That answer is not valid." };
+  if (!quiz || !question || typeof chosen !== "string") return { ok: false, error: "That answer is not valid." };
+  if (question.kind === "short") {
+    // Saved as typed, on one line, so the record shows what the member wrote.
+    chosen = cleanTyped(chosen);
+    if (!chosen) return { ok: false, error: "Type your answer first." };
+    if (chosen.length > SHORT_ANSWER_MAX) return { ok: false, error: `Keep your answer under ${SHORT_ANSWER_MAX} characters.` };
+  } else if (!question.choices.includes(chosen)) {
+    return { ok: false, error: "That answer is not valid." };
+  }
   const feedback = feedbackFor(quiz, questionId, chosen)!;
 
   const supabase = await createClient();

@@ -116,6 +116,14 @@ export function drawForMember(
   { slug, group, seat, attempt }: { slug: string; group: number; seat: number; attempt: number },
 ): string[] {
   const size = Math.min(count, bank.length);
+  // A quiz that asks its whole bank (the Git activities) has only one set, so there is
+  // nothing to spread: each member and attempt just gets its own fixed order.
+  if (size === bank.length) {
+    return shuffle(
+      bank.map((q) => q.id),
+      seeded(hash(`${slug}:${group}:${seat}:a${attempt}`)),
+    );
+  }
   const firsts: Sequence = { used: new Map(), seen: new Set() };
   const firstSets: string[][] = [];
   if (attempt <= 1 || MAX_ATTEMPTS < 2) {
