@@ -71,7 +71,7 @@ const STUDIO_OSC = 7777;
 
 export function XtermTerminalPane() {
   const studio = useStudio();
-  const { mode, wc, session, bootMessage, repo, cwd, workspace, commitMessage, runCommand, startDevServer, stopDevServer, serverUrl, devRunning } = studio;
+  const { mode, wc, session, bootMessage, repo, cwd, workspace, commitMessage, runCommand, startDevServer, stopDevServer, serverUrl, devRunning, hints } = studio;
   const { palette } = useAppearance();
   const gate = useGate();
   const hostRef = useRef<HTMLDivElement>(null);
@@ -346,7 +346,10 @@ export function XtermTerminalPane() {
   const on = mode !== "booting";
   const serverOn = Boolean(serverUrl) || devRunning;
   // In Activities 1 and 2 the toolbar holds the activity's own commands, each open only during its step.
-  const helpers: { label: string; run: () => void; state: CmdState; title?: string }[] = gate
+  // The Skull Trials have no shortcuts at all: every command is typed.
+  const helpers: { label: string; run: () => void; state: CmdState; title?: string }[] = !hints
+    ? []
+    : gate
     ? gate.commands.map((cmd) => ({ label: cmd, run: () => void runCommand(cmd), state: cmdState(gate, cmd), title: gateTitle(gate, cmd) }))
     : [
         { label: "git status", run: () => void runCommand("git status"), state: "ready" },

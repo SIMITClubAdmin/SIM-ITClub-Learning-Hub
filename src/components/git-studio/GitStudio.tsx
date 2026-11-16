@@ -7,16 +7,40 @@ import { CodeEditorPane } from "./CodeEditorPane";
 import type { StudioVariant } from "./engine/workspaces";
 import { GitDagVisualizer } from "./GitDagVisualizer";
 import { PreviewDrawer } from "./PreviewDrawer";
+import type { TitleId } from "@/lib/skull-trials";
+import { SkullTrialGuide } from "./SkullTrialGuide";
 import { Activity1Guide, Activity2Guide, AdvancedGuide, GameGuide, PortalGuide } from "./StudioGuides";
 import { ThreeTreePipeline } from "./ThreeTreePipeline";
-import { useStudio, WebContainerProvider } from "./WebContainerProvider";
+import { gitEngine, useStudio, WebContainerProvider } from "./WebContainerProvider";
 import { XtermTerminalPane } from "./XtermTerminalPane";
 
-export type StudioKind = "portal" | "activity1" | "activity2" | "game" | "advanced";
+export type StudioKind = "portal" | "activity1" | "activity2" | "game" | "advanced" | "skull1" | "skull2" | "skull3" | "skull4" | "skull5";
 
-export default function GitStudio({ kind }: { kind: StudioKind }) {
+/** The Skull Trials' studio: a preloaded repository, no hints and no command shortcuts. */
+const SKULL_KINDS = { skull1: 1, skull2: 2, skull3: 3, skull4: 4, skull5: 5 } as const;
+
+export default function GitStudio({
+  kind,
+  owner = null,
+  signedIn = false,
+  knownTitles,
+}: {
+  kind: StudioKind;
+  owner?: string | null;
+  signedIn?: boolean;
+  /** Skull Trials: titles already on the profile. */
+  knownTitles?: TitleId[];
+}) {
   const [level, setLevel] = useState(1);
   const variant: StudioVariant = kind === "game" ? (`game${level}` as StudioVariant) : kind;
+  if (kind in SKULL_KINDS) {
+    return (
+      <WebContainerProvider key={variant} variant={variant} hints={false}>
+        <SkullTrialGuide trialId={SKULL_KINDS[kind as keyof typeof SKULL_KINDS]} owner={owner} signedIn={signedIn} knownTitles={knownTitles} />
+        <StudioShell />
+      </WebContainerProvider>
+    );
+  }
   return (
     // A new level is a fresh workspace, so the provider remounts with its key.
     <WebContainerProvider key={variant} variant={variant}>
@@ -43,7 +67,7 @@ export default function GitStudio({ kind }: { kind: StudioKind }) {
 }
 
 function StudioShell() {
-  const { mode, speed, setSpeed, reset, fallbackReason } = useStudio();
+  const { mode, speed, setSpeed, reset, fallbackReason, hints } = useStudio();
   const [expanded, setExpanded] = useState(false);
 
   // Escape leaves the expanded view (the preview theater handles its own Escape first).
@@ -118,7 +142,7 @@ function StudioShell() {
 
       {/* Top: what Git sees. Middle: the code. Bottom: the terminal and preview. */}
       <div className="border-b border-(--border-subtle) p-5">
-        <GuidedActionBar />
+        {hints && <GuidedActionBar />}
         <ThreeTreePipeline />
       </div>
       <GitDagVisualizer />
@@ -169,6 +193,33 @@ function GuidedActionBar() {
   );
 }
 
+/** Makes a teammate push one commit to GitHub's main, so the next push is rejected until you pull. */
+function TeammatePushButton() {
+  const { teammatePush, mode, repo } = useStudio();
+  return (
+    <button
+      type="button"
+      disabled={mode === "booting" || !repo?.remote.main}
+      onClick={() =>
+        void teammatePush((state) => {
+          const files = gitEngine.treeOf(state, state.remote.main ?? null);
+          return gitEngine.teammateCommit(state, "main", {
+            message: "Teammate update",
+            author: "Teammate <teammate@itclub.dev>",
+            files: { ...files, "teamwork.txt": `${files["teamwork.txt"] ?? ""}A teammate was here.
+` },
+            time: Date.now(),
+          });
+        }, "A teammate just pushed a new commit to GitHub (origin/main)!")
+      }
+      className="gs-cmd"
+      title="A teammate pushes one commit to GitHub"
+    >
+      Simulate a teammate push
+    </button>
+  );
+}
+
 function Cmd({ command }: { command: string }) {
   const { runCommand, mode } = useStudio();
   return (
@@ -202,7 +253,7 @@ function BonusChallenges() {
       title: "Teammates pushed too",
       body: (
         <>
-          <Cmd command="git fakeTeamwork main 2" /> then try <Cmd command="git push" /> (rejected!), <Cmd command="git pull" /> and push again.
+          <TeammatePushButton /> then try <Cmd command="git push" /> (rejected!), <Cmd command="git pull" /> and push again.
         </>
       ),
     },

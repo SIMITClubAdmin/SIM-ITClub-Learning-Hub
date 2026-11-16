@@ -2,6 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 import { cleanTagline, TAGLINE_MAX } from "@/lib/leaderboard";
+import { useLocalTitles } from "@/lib/skull-titles-store";
+import { cleanTitleIds, EQUIPPED_KEY, SKULL_TITLES, skullTitle, titleText, TITLES_KEY, type TitleId } from "@/lib/skull-trials";
 import { createClient } from "@/lib/supabase/client";
 
 type Props = {
@@ -11,9 +13,15 @@ type Props = {
   initialTagline: string;
   /** Admins are kept off the leaderboard. */
   onLeaderboard: boolean;
+  /** Skull titles saved on the profile. Titles unlocked in this browser are added on top. */
+  unlockedTitles: TitleId[];
+  initialTitle: TitleId | null;
 };
 
-export function AccountForm({ userId, initialName, initialTagline, onLeaderboard }: Props) {
+export function AccountForm({ userId, initialName, initialTagline, onLeaderboard, unlockedTitles, initialTitle }: Props) {
+  const local = useLocalTitles(userId);
+  const unlocked = cleanTitleIds([...unlockedTitles, ...local]);
+  const [title, setTitle] = useState<TitleId | "">(initialTitle ?? "");
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -47,12 +55,16 @@ export function AccountForm({ userId, initialName, initialTagline, onLeaderboard
     }
     // The header reads the name from the session, so keep it in step. The tagline lives in the
     // profile too, where the leaderboard reads it for the top 3.
-    const { error: profileError } = await supabase.auth.updateUser({ data: { display_name: displayName, hub_tagline: tagline } });
+    // Skull titles live there too: every title unlocked so far, and the one to show.
+    const equipped = title && unlocked.includes(title) ? title : null;
+    const { error: profileError } = await supabase.auth.updateUser({
+      data: { display_name: displayName, hub_tagline: tagline, [TITLES_KEY]: unlocked, [EQUIPPED_KEY]: equipped },
+    });
     if (profileError) {
-      show("Your display name was saved, but not your tagline. Please try again.", true);
+      show("Your display name was saved, but not your tagline or title. Please try again.", true);
       return;
     }
-    show(tagline ? "Display name and tagline saved." : "Display name saved.", false);
+    show(tagline || equipped ? "Your account settings are saved." : "Display name saved.", false);
   }
 
   return (
@@ -89,6 +101,36 @@ export function AccountForm({ userId, initialName, initialTagline, onLeaderboard
           {!onLeaderboard && " Your account is kept off the leaderboard, so it won't show there."}
         </span>
       </label>
+      <fieldset className="flex flex-col gap-2">
+        <legend className="mb-2">Equipped Skull Title</legend>
+        <div className="flex flex-col gap-1.5">
+          <label className="flex items-center gap-3 border border-violet/60 bg-bg/85 px-3.5 py-2.5">
+            <input type="radio" name="skullTitle" value="" checked={title === ""} onChange={() => setTitle("")} />
+            <span>No title</span>
+          </label>
+          {SKULL_TITLES.map((t) => {
+            const open = unlocked.includes(t.id);
+            return (
+              <label
+                key={t.id}
+                className={`flex flex-wrap items-center gap-x-3 gap-y-1 border px-3.5 py-2.5 ${open ? "border-violet/60 bg-bg/85" : "border-grid bg-bg/60 opacity-60"}`}
+              >
+                <input type="radio" name="skullTitle" value={t.id} checked={title === t.id} disabled={!open} onChange={() => setTitle(t.id)} />
+                <span className={open ? "font-mono text-(--accent-text)" : "font-mono text-dim"}>{titleText(t.id)}</span>
+                {!open && (
+                  <span className="text-sm text-dim">
+                    🔒 Solve Optional Skull Trial {t.trial} to unlock
+                    {t.requires && ` (it opens after Skull Trial ${skullTitle(t.requires).trial})`}
+                  </span>
+                )}
+              </label>
+            );
+          })}
+        </div>
+        <span className="text-sm text-dim">
+          Your equipped Skull Title is displayed next to your name on the Leaderboard when you are in the Top 3 (#1, #2, or #3).
+        </span>
+      </fieldset>
       {message && (
         <p role={isError ? "alert" : "status"} className="border border-accent bg-bg/85 px-3.5 py-3">
           {message}

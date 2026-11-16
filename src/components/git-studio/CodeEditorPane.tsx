@@ -135,7 +135,7 @@ function NewFile({ onCreated }: { onCreated: (name: string) => void }) {
 }
 
 export function CodeEditorPane() {
-  const { files, status, updateFile, saveFile, flushWrites, mode, workspace, folder, repo, commitMessage, setCommitMessage, runCommand } = useStudio();
+  const { files, status, updateFile, saveFile, flushWrites, mode, workspace, folder, repo, commitMessage, setCommitMessage, runCommand, hints } = useStudio();
   // In an activity, the Commit button only opens at a commit step.
   const gate = useGate();
   const commitOpen = readyCommand(gate, "git commit", "commit") !== null;
@@ -274,7 +274,8 @@ export function CodeEditorPane() {
         </div>
       )}
 
-      {repo && (
+      {/* A one-click commit is a shortcut, so the Skull Trials leave it out. */}
+      {repo && hints && (
         <form
           className="flex items-center gap-2 border-t border-(--border-subtle) bg-(--bg-panel) px-4 py-2.5"
           onSubmit={(e) => {

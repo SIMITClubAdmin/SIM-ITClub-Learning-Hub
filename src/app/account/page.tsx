@@ -9,6 +9,7 @@ import { AppearanceSettings } from "@/components/appearance/AppearanceSettings";
 import { AccountForm } from "@/components/auth/AccountForm";
 import { boardPosition, cleanTagline, type BoardRow } from "@/lib/leaderboard";
 import { bestScores } from "@/lib/progress";
+import { cleanTitleIds, EQUIPPED_KEY, equippedTitle, TITLES_KEY } from "@/lib/skull-trials";
 import { hasQuiz, MAX_ATTEMPTS, questionsIn, quizLabel } from "@/lib/quiz-meta";
 import { loadLearner, needsGroup } from "@/lib/supabase/learner";
 import { createClient } from "@/lib/supabase/server";
@@ -149,6 +150,8 @@ export default async function AccountPage() {
         initialTagline={cleanTagline(user.user_metadata?.hub_tagline)}
         // Guests and admins are kept off the leaderboard.
         onLeaderboard={onLeaderboard}
+        unlockedTitles={cleanTitleIds(user.user_metadata?.[TITLES_KEY])}
+        initialTitle={equippedTitle(user.user_metadata?.[EQUIPPED_KEY], user.user_metadata?.[TITLES_KEY])}
       />
 
       <AppearanceSettings signedIn />

@@ -231,9 +231,9 @@ export function PullRequestsLesson() {
 
       <Section id="activity-3" index={4} title="Activity 3 · the branching game" wide>
         <p className="max-w-4xl text-(--text-muted)">
-          In class we play <a className="text-(--accent-text) underline underline-offset-4" href="https://learngitbranching.js.org/" target="_blank" rel="noreferrer">learngitbranching.js.org</a>.
-          These four levels practise the same moves right here: blue and red branches, a fast-forward merge, deleting branches, and a remote sync with{" "}
-          <Pill>git fakeTeamwork</Pill>.
+          These four levels practise the moves from the slides: blue and red branches, a fast-forward merge, deleting branches, and a remote sync with
+          Jeff&apos;s portfolio: <Pill>git clone</Pill>, then <Pill>git pull</Pill> and <Pill>git push</Pill> once Jeff has pushed too. For extra practice,
+          try <a className="text-(--accent-text) underline underline-offset-4" href="https://learngitbranching.js.org/" target="_blank" rel="noreferrer">learngitbranching.js.org</a>.
         </p>
         <StudioLoader kind="game" />
       </Section>

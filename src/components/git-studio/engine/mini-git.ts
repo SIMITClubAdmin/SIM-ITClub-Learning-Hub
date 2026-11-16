@@ -568,9 +568,6 @@ export function createMiniGit() {
     "   pull       Fetch and merge from origin",
     "   remote     Show or add the remote:  git remote add origin <url>",
     "",
-    `${CYAN}Practice${RESET}`,
-    "   fakeTeamwork [branch] [n]   Pretend teammates pushed n commits to GitHub",
-    "",
   ].join("\n");
 
   function run(argv: string[], input: RepoState, io: GitIo): GitResult {
@@ -1277,47 +1274,6 @@ export function createMiniGit() {
         return done();
       }
 
-      case "fakeTeamwork": {
-        if (!s.remoteUrl) {
-          fail("fatal: no GitHub remote to fake teamwork on. Clone a repository first.", 128);
-          return done();
-        }
-        const branch = positional.find((p) => !/^\d+$/.test(p)) ?? "main";
-        const n = Math.min(10, Math.max(1, Number(positional.find((p) => /^\d+$/.test(p)) ?? 1)));
-        let tip = s.remote[branch];
-        if (!tip) {
-          fail(`fatal: GitHub has no branch '${branch}' yet.`, 128);
-          return done();
-        }
-        const made: string[] = [];
-        for (let i = 0; i < n; i++) {
-          const parentFiles = treeOf(s, tip);
-          const id = `C${s.next}`;
-          s.next++;
-          const time = io.now();
-          const message = `Teammate update ${i + 1}`;
-          const files = { ...parentFiles, "teamwork.txt": `${parentFiles["teamwork.txt"] ?? ""}Teammate change ${id}\n` };
-          s.commits[id] = {
-            id,
-            sha: makeSha(`${id}\n${message}\n${tip}\n${time}`),
-            message,
-            parents: [tip],
-            branch,
-            time,
-            author: "Teammate <teammate@itclub.dev>",
-            files,
-          };
-          s.order.push(id);
-          made.push(id);
-          tip = id;
-        }
-        s.remote[branch] = tip;
-        changed = true;
-        print(`${MAGENTA}Simulated ${plural(n, "teammate commit")} pushed to GitHub's ${branch}: ${made.join(", ")}${RESET}`);
-        print(`${DIM}  Your origin/${branch} has not seen them yet. Run git pull (or git fetch) to bring them down.${RESET}`);
-        return done();
-      }
-
       case "stash": {
         s.stash = s.stash ?? [];
         const sub = positional[0] ?? "push";
@@ -1757,6 +1713,32 @@ export function createMiniGit() {
     }
   }
 
+  /**
+   * A teammate's commit on GitHub: adds a commit on top of origin/<branch> as GitHub has it, so
+   * this machine only sees it after git pull (or fetch). The studio calls this from the page
+   * (Activity 3, the portal bonus, the Skull Trials); it is not a git command students type.
+   */
+  function teammateCommit(input: RepoState, branch: string, commit: { message: string; author: string; files: Files; time: number }): RepoState | null {
+    const tip = input.remote[branch];
+    if (!tip || !input.commits[tip]) return null;
+    const s = clone(input);
+    const id = `C${s.next}`;
+    s.next++;
+    s.commits[id] = {
+      id,
+      sha: makeSha(`${id}\n${commit.message}\n${tip}\n${commit.time}\n${JSON.stringify(commit.files)}`),
+      message: commit.message,
+      parents: [tip],
+      branch,
+      time: commit.time,
+      author: commit.author,
+      files: { ...commit.files },
+    };
+    s.order.push(id);
+    s.remote[branch] = id;
+    return s;
+  }
+
   /** Splits a command line the way a shell would, honouring single and double quotes. */
   function splitArgs(line: string) {
     const args: string[] = [];
@@ -1797,6 +1779,7 @@ export function createMiniGit() {
     missing,
     unpushedCount,
     splitArgs,
+    teammateCommit,
     colors: { RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, DIM, BOLD, RESET },
   };
 }

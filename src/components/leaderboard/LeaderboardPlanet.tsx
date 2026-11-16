@@ -2,8 +2,8 @@
 
 import { useEffect, useRef } from "react";
 
-/** tagline: set on the account page, shown only while the member is in the top 3. */
-export type LeaderboardEntry = { name: string; score: number; tagline?: string };
+/** tagline and title (an equipped Skull title, e.g. "💀 git novice"): set on the account page, shown only while the member is in the top 3. */
+export type LeaderboardEntry = { name: string; score: number; tagline?: string; title?: string };
 
 // The moon is a circle R wide-units across, in cqw (1% of the page width), so it keeps
 // its shape at any width and the astronauts can be placed exactly on its curve.
@@ -79,7 +79,14 @@ function Astronaut({ entry, rank }: { entry: LeaderboardEntry; rank: number }) {
   const flag = rank === 1 ? "#4fd8eb" : rank === 2 ? "#d4caff" : "#ffb38a";
   return (
     <div className="flex flex-col items-center">
-      <p className="max-w-56 truncate font-display text-xl font-semibold sm:text-2xl">{entry.name}</p>
+      <div className="flex max-w-72 flex-wrap items-center justify-center gap-x-2 gap-y-1">
+        <p className="max-w-56 truncate font-display text-xl font-semibold sm:text-2xl">{entry.name}</p>
+        {entry.title && (
+          <span className="lb-title shrink-0 border border-[#ff6b6b]/70 bg-bg/90 px-2 py-0.5 font-mono text-xs font-semibold whitespace-nowrap text-[#ff8a8a]">
+            <span className="sr-only">Title: </span>[{entry.title}]
+          </span>
+        )}
+      </div>
       {entry.tagline && (
         <p className="lb-tagline mt-1.5 max-w-60 border border-(--border-accent)/60 bg-bg/85 px-2.5 py-0.5 text-center text-sm leading-snug text-(--accent-text) italic">
           <span className="sr-only">Tagline: </span>“{entry.tagline}”

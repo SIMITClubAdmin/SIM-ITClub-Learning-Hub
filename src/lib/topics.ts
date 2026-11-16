@@ -93,7 +93,7 @@ const GIT_TOPICS: Topic[] = [
     slug: "github",
     name: "Merging & PRs",
     short: "MERGE",
-    summary: "git merge, pull requests from opening to clean-up, the part1.txt conflict and Learn Git Branching.",
+    summary: "git merge, pull requests from opening to clean-up, the part1.txt conflict and syncing Jeff's portfolio.",
     lockedReason: "Finish Mini Challenge 2 to unlock",
     lessons: [],
   },

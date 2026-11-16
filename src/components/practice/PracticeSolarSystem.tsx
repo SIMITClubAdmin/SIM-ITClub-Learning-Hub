@@ -6,6 +6,8 @@ import { starsFor, type BestScores } from "@/lib/progress";
 import { hasQuiz, QUIZ_INFO, questionsIn } from "@/lib/quiz-meta";
 import { useAppearance } from "@/lib/appearance";
 import { planetLook } from "@/lib/planet-looks";
+import { useLocalTitles } from "@/lib/skull-titles-store";
+import { cleanTitleIds, lockedReason, SKULL_TRIALS, titleText, trialHref, type TitleId } from "@/lib/skull-trials";
 import type { CourseModule, PlanetPalette } from "@/lib/topics";
 
 // Same scene as the Learn solar system: tilted orbits around a sun.
@@ -112,7 +114,20 @@ function Stars({ count }: { count: number }) {
  * One planet per lesson orbits a Practice sun. Clicking a planet zooms the camera
  * into it and lists that lesson's practice sets.
  */
-export function PracticeSolarSystem({ modules, best = {} }: { modules: CourseModule[]; best?: BestScores }) {
+export function PracticeSolarSystem({
+  modules,
+  best = {},
+  owner = null,
+  serverTitles = [],
+}: {
+  modules: CourseModule[];
+  best?: BestScores;
+  owner?: string | null;
+  /** Skull titles saved on the profile; the ones unlocked in this browser are added. */
+  serverTitles?: TitleId[];
+}) {
+  const localTitles = useLocalTitles(owner);
+  const solvedTitles = cleanTitleIds([...serverTitles, ...localTitles]);
   const [open, setOpen] = useState<number | null>(null);
   const [hovered, setHovered] = useState<number | null>(null);
   const [focus, setFocus] = useState({ x: 50, y: 50 });
@@ -343,6 +358,47 @@ export function PracticeSolarSystem({ modules, best = {} }: { modules: CourseMod
               );
             })}
           </ol>
+          {lesson.slug === "git" && (
+            <section aria-labelledby="skull-trials-heading" className="mt-6 border-t border-grid pt-5">
+              <h3 id="skull-trials-heading" className="font-mono text-xs tracking-widest text-[#ff8a8a] uppercase">
+                Optional boss challenges — Skull Trials
+              </h3>
+              <p className="mt-1 text-sm text-dim">Hands-on in the Git studio. No hints, no cheatsheet. Each one unlocks a leaderboard title.</p>
+              <ol className="mt-3 flex flex-col gap-3">
+                {SKULL_TRIALS.map((trial) => {
+                  const solved = solvedTitles.includes(trial.reward);
+                  // Advanced and Expert open one tier at a time.
+                  const locked = lockedReason(trial, solvedTitles);
+                  return (
+                    <li key={trial.id} className={`border p-4 ${locked ? "border-grid bg-bg/60" : "border-[#ff6b6b]/50 bg-[#ff6b6b]/5"}`}>
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-mono text-[11px] tracking-wider text-[#ff8a8a] uppercase">
+                          <span aria-hidden="true">{"💀".repeat(trial.id)} </span>
+                          Skull Trial {trial.id} · {trial.difficulty}
+                        </p>
+                        {solved && <span className="font-mono text-xs text-accent">✓ Solved</span>}
+                      </div>
+                      <p className={`mt-1 font-display text-lg font-semibold ${locked ? "text-dim" : ""}`}>{trial.name}</p>
+                      <div className="mt-3 flex items-center justify-between gap-3">
+                        <span className="font-mono text-xs text-dim">Unlocks [{titleText(trial.reward)}]</span>
+                        {locked ? (
+                          <span className="flex items-center gap-1.5 text-right font-mono text-xs text-dim" title={locked}>
+                            <Lock className="size-3.5 shrink-0" />
+                            {locked}
+                          </span>
+                        ) : (
+                          // The trials run the studio, which needs a full page load for its isolation headers.
+                          <a href={trialHref(trial.id)} className="cta">
+                            {solved ? "Play again" : "Enter"}
+                          </a>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            </section>
+          )}
         </aside>
       )}
     </div>
