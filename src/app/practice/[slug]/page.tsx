@@ -5,9 +5,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { GroupPicker } from "@/components/account/GroupPicker";
+import { GitCheatsheetFrame } from "@/components/practice/GitCheatsheet";
 import { InlineCode } from "@/components/practice/InlineCode";
 import { Quiz } from "@/components/practice/Quiz";
 import { formatDateTime } from "@/lib/format";
+import { gitCheatsheetTab } from "@/lib/git-cheatsheet";
 import { GUEST_COOKIE } from "@/lib/guest";
 import { bestScores, withProgress } from "@/lib/progress";
 import { MAX_ATTEMPTS, quizHeading } from "@/lib/quiz-meta";
@@ -35,13 +37,25 @@ type AttemptRow = {
   quiz_answers: AnswerRow[];
 };
 
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({ slug, children }: { slug: string; children: React.ReactNode }) {
+  const back = (
+    <Link href="/practice" className="font-mono text-sm tracking-wider text-dim uppercase hover:text-accent">
+      ← All challenges
+    </Link>
+  );
+  // The Git challenges get the Git command cheatsheet; the other tracks have no reference yet.
+  const cheatsheetTab = gitCheatsheetTab(slug);
+  if (cheatsheetTab) {
+    return (
+      <GitCheatsheetFrame back={back} veil={<PageVeil />} startTab={cheatsheetTab}>
+        {children}
+      </GitCheatsheetFrame>
+    );
+  }
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-3 sm:px-8">
       <PageVeil />
-      <Link href="/practice" className="font-mono text-sm tracking-wider text-dim uppercase hover:text-accent">
-        ← All challenges
-      </Link>
+      {back}
       <div className="mt-3 flex flex-col gap-6">{children}</div>
     </main>
   );
@@ -62,7 +76,7 @@ export default async function QuizPage(props: PageProps<"/practice/[slug]">) {
   if (!user) {
     const guest = (await cookies()).get(GUEST_COOKIE)?.value === "1";
     return (
-      <Shell>
+      <Shell slug={slug}>
         {guest ? (
           <Quiz slug={slug} title={quiz.title} lesson={quiz.lesson} mode="guest" />
         ) : (
@@ -95,7 +109,7 @@ export default async function QuizPage(props: PageProps<"/practice/[slug]">) {
     .find((t) => t.slug === slug)?.lockedReason;
   if (lockedReason) {
     return (
-      <Shell>
+      <Shell slug={slug}>
         <section className="border border-violet bg-bg p-6 sm:p-8">
           <p className="font-mono text-sm tracking-wider text-accent uppercase">Locked</p>
           <h1 className="mt-2 text-4xl font-semibold">{quizHeading(slug)}</h1>
@@ -114,7 +128,7 @@ export default async function QuizPage(props: PageProps<"/practice/[slug]">) {
   const best = finished.length ? Math.max(...finished.map((a) => a.score)) : null;
 
   return (
-    <Shell>
+    <Shell slug={slug}>
       {needsGroup(learner) ? (
         <>
           <section className="border border-violet bg-bg p-6 sm:p-8">
