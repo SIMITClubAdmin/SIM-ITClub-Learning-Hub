@@ -1,9 +1,9 @@
 "use client";
 
 import { Check, ChevronDown, Lock, RotateCcw } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { buildGate, GateContext, GatedCmd, normCmd, type StepCmd } from "./activity-gate";
-import { activity1Intro, rememberActivity1Intro } from "./engine/workspaces";
+import { activity1Intro, hasJeffPush, JEFF_FOLDER, JEFF_REPO_URL, rememberActivity1Intro, withJeffPush } from "./engine/workspaces";
 import { gitEngine, useStudio, type CommandEvent } from "./WebContainerProvider";
 
 type Step = { label: ReactNode; hint?: ReactNode; cmds?: StepCmd[]; done: boolean };
@@ -388,12 +388,30 @@ export function AdvancedGuide() {
   return <LiveChecklist title="Try it: advanced Git" steps={steps} intro={<p>Commit IDs like <code className="gs-pill">C3</code> work anywhere a hash would.</p>} />;
 }
 
-/** Activity 3: the branching game levels (blue/red branches, fast-forward, delete, remote sync). */
-export const GAME_LEVELS = [
+/** A level hint: a command to run, or something to do in the editor. */
+type GameHint = string | { edit: string };
+const EDIT_AND_SAVE: GameHint = { edit: "Edit a file in the editor, then save (Ctrl+S)" };
+
+/**
+ * Activity 3: the branching game levels (blue/red branches, fast-forward, delete, remote sync).
+ * Hints only use commands from the slides: no echo, no &&, no commit -a. Edits happen in the editor.
+ */
+export const GAME_LEVELS: { title: string; goal: string; hints: GameHint[] }[] = [
   {
     title: "Level 1 · Branch out",
     goal: "Make two branches, blue and red, and give each its own commit.",
-    hints: ["git branch blue", "git switch blue", 'echo blue > blue.txt && git add . && git commit -m "blue work"', "git switch -c red main", 'echo red > red.txt && git add . && git commit -m "red work"'],
+    hints: [
+      "git branch blue",
+      "git switch blue",
+      EDIT_AND_SAVE,
+      "git add .",
+      'git commit -m "blue work"',
+      "git switch main",
+      "git switch -c red",
+      EDIT_AND_SAVE,
+      "git add .",
+      'git commit -m "red work"',
+    ],
   },
   {
     title: "Level 2 · Fast-forward merge",
@@ -407,24 +425,17 @@ export const GAME_LEVELS = [
   },
   {
     title: "Level 4 · Remote sync",
-    goal: "Clone the hackathon repo, let teammates push, then make your own commit, pull and push so GitHub has everyone's work.",
-    hints: [
-      "git clone https://github.com/SIMITClubAdmin/hackxperience.git",
-      "cd hackxperience",
-      "git fakeTeamwork main 2",
-      'echo "my idea" >> faq.md && git commit -am "Add my idea"',
-      "git pull",
-      "git push",
-    ],
+    goal: "Clone Jeff's portfolio and go into its folder. Jeff pushes a commit to GitHub straight after, so make your own commit, then pull and push so GitHub has both.",
+    hints: [`git clone ${JEFF_REPO_URL}`, `cd ${JEFF_FOLDER}`, EDIT_AND_SAVE, "git add .", 'git commit -m "Add my idea"', "git pull", "git push"],
   },
-] as const;
+];
 
 export function gameLevelDone(level: number, ctx: ReturnType<typeof useStudio>) {
-  const { repo, repoRoot, facts, commands } = ctx;
+  const { repo, repoRoot, facts } = ctx;
   if (level === 4) {
-    if (repoRoot !== "hackxperience" || !repo) return false;
+    if (repoRoot !== JEFF_FOLDER || !repo) return false;
     const local = repo.branches.main;
-    return facts.has("teammates:hackxperience") && facts.has("pushed:hackxperience") && repo.remote.main === local && gitEngine.trk(repo).main === local && ran(commands, "fakeTeamwork");
+    return hasJeffPush(repo) && facts.has(`pushed:${JEFF_FOLDER}`) && repo.remote.main === local && gitEngine.trk(repo).main === local;
   }
   if (!repo || repoRoot !== "game") return false;
   const onMain = gitEngine.reachable(repo, repo.branches.main);
@@ -436,10 +447,25 @@ export function gameLevelDone(level: number, ctx: ReturnType<typeof useStudio>) 
   return !repo.branches.blue && Boolean(repo.branches.red);
 }
 
+/** Level 4: once the student is inside their clone of Jeff's portfolio, Jeff pushes a commit to GitHub. */
+function useJeffPush(active: boolean) {
+  const { repo, repoRoot, teammatePush } = useStudio();
+  const busy = useRef(false);
+  useEffect(() => {
+    if (!active || busy.current || repoRoot !== JEFF_FOLDER || !repo || !repo.remote.main || hasJeffPush(repo)) return;
+    busy.current = true;
+    void teammatePush((state) => withJeffPush(state), "Teammate Jeff just pushed a new commit to GitHub (origin/main)!").finally(() => {
+      busy.current = false;
+    });
+  }, [active, repo, repoRoot, teammatePush]);
+  return active && repoRoot === JEFF_FOLDER && !!repo && hasJeffPush(repo);
+}
+
 export function GameGuide({ level, setLevel }: { level: number; setLevel: (n: number) => void }) {
   const studio = useStudio();
   const info = GAME_LEVELS[level - 1];
   const done = gameLevelDone(level, studio);
+  const jeffPushed = useJeffPush(level === 4);
   return (
     <section aria-label="Branching game" className="gs-card mb-5 p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -462,14 +488,25 @@ export function GameGuide({ level, setLevel }: { level: number; setLevel: (n: nu
       <div className="mt-4 flex flex-col gap-3">
         <p className="gs-heading text-lg font-semibold">{info.title}</p>
         <p className="text-(--text-muted)">{info.goal}</p>
+        {jeffPushed && (
+          <p role="status" className="rounded border border-(--git-remote) bg-[color-mix(in_srgb,var(--git-remote)_12%,var(--bg-surface))] px-4 py-2.5 text-sm">
+            <span aria-hidden="true">📣 </span>Teammate Jeff just pushed a new commit to GitHub (<code className="gs-pill">origin/main</code>)!
+          </p>
+        )}
         <details className="gs-details">
           <summary className="gs-ui flex items-center gap-1.5 text-sm text-(--accent-text)">
             Show the commands <ChevronDown className="gs-chevron size-4 transition-transform" aria-hidden="true" />
           </summary>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {info.hints.map((h) => (
-              <RunPill key={h} cmd={h} />
-            ))}
+            {info.hints.map((h, i) =>
+              typeof h === "string" ? (
+                <RunPill key={i} cmd={h} />
+              ) : (
+                <span key={i} className="gs-ui inline-flex items-center rounded border border-dashed border-(--border-subtle) px-2.5 py-1 text-[13px] text-(--text-muted)">
+                  ✎ {h.edit}
+                </span>
+              ),
+            )}
           </div>
         </details>
         <p role="status" className={`gs-ui text-sm font-bold ${done ? "text-(--git-local)" : "text-(--text-muted)"}`}>

@@ -495,7 +495,7 @@ document.querySelector("#btn").addEventListener("click", function () {});`,
 
 // Lesson 2 (Git & GitHub): the three mini challenges from the Lesson 2 slides, each asked
 // whole in a shuffled order. They stay within what the slides teach up to Mini Challenge 3:
-// nothing from the Additional Tips slides (slide 65 onwards).
+// nothing from the Additional Tips slides (slide 63 onwards, Learn Git Branching included).
 
 const GIT_ACTIVITY_1: QuizQuestion[] = [
   {
@@ -719,7 +719,7 @@ Hello ITC!
   {
     id: "git-a3-game-fast-forward",
     topic: "merging",
-    scenario: "The first Learn Git Branching level in Activity 3 runs the commands below in order. The last one prints Fast forwarding...",
+    scenario: "You run the commands below in order, starting on `main`. The last one prints Fast forwarding...",
     question: "Why does Git fast-forward here, and which commits are on `main` right after the merge?",
     code: `git commit -m "add text"
 git commit -m "add a button"
@@ -745,16 +745,16 @@ git merge blue`,
     id: "git-a3-fake-teamwork",
     topic: "remote",
     scenario:
-      "In the second Learn Git Branching level you run `git clone`. A teammate then pushes 2 new commits to GitHub's `main` (`git fakeTeamwork main 2` moves `o/main`), and you make 1 commit on your own `main`.",
-    question: "Why can't you `git push` straight away, and which 2 commands from the slide finish the sync?",
+      "In Activity 3 you run `git clone https://github.com/aeomantic/Jeff-s-Portfolio-Website.git`. Right after, teammate Jeff pushes a new commit to GitHub's `main` (`origin/main`), and you make 1 commit on your own `main`.",
+    question: "Why can't you `git push` straight away, and which 2 commands finish the sync?",
     choices: [
-      "`o/main` has 2 commits your `main` doesn't. Run `git pull` first to fetch and merge them, then `git push`.",
+      "`origin/main` has Jeff's commit, which your `main` doesn't. Run `git pull` first to fetch and merge it, then `git push`.",
       "`git push` needs a fresh copy first: run `git clone` again before every push, then `git push`.",
-      "The order is wrong: run `git push` first to upload your commit, then `git pull` to get theirs.",
+      "The order is wrong: run `git push` first to upload your commit, then `git pull` to get Jeff's.",
       "Your `main` is out of date, so delete it with `git branch -d main`, then push again.",
     ],
     explain:
-      "Pull before you push when teammates have updated the remote. `git pull` downloads the 2 commits from `o/main` and merges them with yours, so `git push` can upload the combined history.",
+      "Pull before you push when teammates have updated GitHub. `git pull` downloads Jeff's commit from `origin/main` and merges it with yours, so `git push` can upload the combined history.",
   },
   {
     id: "git-a3-merge-cli",
@@ -770,7 +770,7 @@ git merge blue`,
     topic: "commands",
     kind: "short",
     question:
-      "Learn Git Branching, Activity 3: `blue` is merged into `main`. Type the command, using the `-d` flag, that deletes your local `blue` branch.",
+      "Activity 3 branching game: `blue` is merged into `main`. Type the command, using the `-d` flag, that deletes your local `blue` branch.",
     answers: ["git branch -d blue"],
     explain: "`git branch -d blue` deletes the branch name only once it is merged, so no work is lost: `blue`'s commits are already in `main`.",
   },

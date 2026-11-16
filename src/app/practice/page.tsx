@@ -40,7 +40,7 @@ export default async function PracticePage() {
           inert={!canUse}
           aria-hidden={!canUse || undefined}
         >
-          <PracticeSolarSystem modules={modules} best={progress.best} />
+          <PracticeSolarSystem modules={modules} best={progress.best} owner={user?.id ?? null} />
         </div>
       </div>
 

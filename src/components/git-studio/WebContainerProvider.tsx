@@ -67,6 +67,13 @@ type StudioContextValue = {
   handleOsc: (kind: string, payload: string) => void;
   onInterrupt: () => void;
   reset: () => void;
+  /** False in the Skull Trials: no clickable command shortcuts anywhere in the studio. */
+  hints: boolean;
+  /**
+   * A teammate pushes to GitHub: `make` turns the current repository state into the new one (or
+   * null to leave it), and `note` is printed in the terminal. Resolves true when it pushed.
+   */
+  teammatePush: (make: (state: RepoState) => RepoState | null, note: string) => Promise<boolean>;
 };
 
 const StudioContext = createContext<StudioContextValue | null>(null);
@@ -208,7 +215,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string) {
   });
 }
 
-export function WebContainerProvider({ variant, children }: { variant: StudioVariant; children: ReactNode }) {
+export function WebContainerProvider({ variant, hints = true, children }: { variant: StudioVariant; hints?: boolean; children: ReactNode }) {
   const [workspace, setWorkspace] = useState<Workspace>(() => buildWorkspace(variant));
   const [mode, setMode] = useState<StudioMode>("booting");
   const [bootMessage, setBootMessage] = useState("Booting WebContainer…");
@@ -602,6 +609,24 @@ export function WebContainerProvider({ variant, children }: { variant: StudioVar
     [recordCommand, refresh, startDevServer],
   );
 
+  const teammatePush = useCallback(
+    async (make: (state: RepoState) => RepoState | null, note: string) => {
+      const box = boxRef.current;
+      const root = rootRef.current;
+      if (!box || root === null) return false;
+      const statePath = joinPath(root, ".git/studio.json");
+      const text = await box.read(statePath);
+      if (!text) return false;
+      const next = make(JSON.parse(text) as RepoState);
+      if (!next) return false;
+      await box.write(statePath, JSON.stringify(next));
+      terminalRef.current?.note(`\x1b[35m${note}\x1b[0m`);
+      await refresh();
+      return true;
+    },
+    [refresh],
+  );
+
   const finishPush = useCallback((id: number) => {
     setPushEvent((event) => (event?.id === id ? null : event));
   }, []);
@@ -783,6 +808,8 @@ export function WebContainerProvider({ variant, children }: { variant: StudioVar
       handleOsc,
       onInterrupt,
       reset,
+      hints,
+      teammatePush,
     }),
     [
       variant,
@@ -824,6 +851,8 @@ export function WebContainerProvider({ variant, children }: { variant: StudioVar
       handleOsc,
       onInterrupt,
       reset,
+      hints,
+      teammatePush,
     ],
   );
 

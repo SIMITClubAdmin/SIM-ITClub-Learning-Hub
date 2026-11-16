@@ -256,7 +256,8 @@ export function GitDagVisualizer() {
 }
 
 function CommitGraph({ repo }: { repo: RepoState }) {
-  const { pushEvent, finishPush, speed } = useStudio();
+  // In the Skull Trials (hints off) the labels name no commands.
+  const { pushEvent, finishPush, speed, hints } = useStudio();
   const wrapRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(640);
   const [pick, setPick] = useState<{ id: string; head: string | null } | null>(null);
@@ -439,10 +440,12 @@ function CommitGraph({ repo }: { repo: RepoState }) {
           >
             {pushEvent
               ? pushEvent.direction === "up"
-                ? `⇡ Receiving ${pushEvent.commits.length} commit${pushEvent.commits.length === 1 ? "" : "s"} · git pull`
-                : `⇣ Sending ${pushEvent.commits.length} commit${pushEvent.commits.length === 1 ? "" : "s"} · git push origin ${pushBranch}`
+                ? `⇡ Receiving ${pushEvent.commits.length} commit${pushEvent.commits.length === 1 ? "" : "s"}${hints ? " · git pull" : ""}`
+                : `⇣ Sending ${pushEvent.commits.length} commit${pushEvent.commits.length === 1 ? "" : "s"}${hints ? ` · git push origin ${pushBranch}` : ""}`
               : hasRemote
-                ? `HTTPS / SSH tunnel · git push origin ${pushBranch} · git pull`
+                ? hints
+                  ? `HTTPS / SSH tunnel · git push origin ${pushBranch} · git pull`
+                  : "HTTPS / SSH tunnel"
                 : "No tunnel yet: this repository has no remote"}
           </p>
         </div>
@@ -453,12 +456,12 @@ function CommitGraph({ repo }: { repo: RepoState }) {
           </p>
           <p role="status" className="flex flex-wrap justify-end gap-2">
             {!hasRemote ? (
-              <span className="gs-badge bg-(--bg-surface) text-(--text-muted)">No remote · git remote add origin &lt;url&gt;</span>
+              <span className="gs-badge bg-(--bg-surface) text-(--text-muted)">No remote{hints && <> · git remote add origin &lt;url&gt;</>}</span>
             ) : (
               <>
                 {behind > 0 && (
                   <span className="gs-badge bg-(--bg-surface) font-bold text-(--git-remote)">
-                    ⬇ {behind} new on GitHub (git pull)
+                    ⬇ {behind} new on GitHub{hints && " (git pull)"}
                   </span>
                 )}
                 <span className={`gs-badge bg-(--bg-surface) font-bold ${unpushed ? "text-(--git-modified)" : "text-(--git-local)"}`}>

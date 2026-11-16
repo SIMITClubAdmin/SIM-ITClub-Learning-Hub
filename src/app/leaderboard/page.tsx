@@ -3,6 +3,7 @@ import { AuthForm } from "@/components/auth/AuthForm";
 import { BigLock } from "@/components/auth/BigLock";
 import { LeaderboardPlanet, type LeaderboardEntry } from "@/components/leaderboard/LeaderboardPlanet";
 import { cleanTagline, sortBoard, type BoardRow } from "@/lib/leaderboard";
+import { EQUIPPED_KEY, equippedTitle, titleText, TITLES_KEY } from "@/lib/skull-trials";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -11,9 +12,9 @@ export const instant = false;
 
 // Made-up names to preview the layout with ?demo, until real scores exist.
 const DEMO: LeaderboardEntry[] = [
-  { name: "Astro Ada", score: 1240, tagline: "Commit early, push often" },
-  { name: "Byte Ben", score: 1105, tagline: "Merge conflicts fear me" },
-  { name: "Comet Cass", score: 980, tagline: "git push --to-the-moon" },
+  { name: "Astro Ada", score: 1240, tagline: "Commit early, push often", title: titleText("expert") },
+  { name: "Byte Ben", score: 1105, tagline: "Merge conflicts fear me", title: titleText("amateur") },
+  { name: "Comet Cass", score: 980, tagline: "git push --to-the-moon", title: titleText("novice") },
   { name: "Dev Dana", score: 760 },
   { name: "Echo Eli", score: 540 },
   { name: "Flux Fay", score: 495 },
@@ -51,12 +52,13 @@ export default async function LeaderboardPage({ searchParams }: PageProps<"/lead
   let entries: LeaderboardEntry[] = DEMO;
   if (demo === undefined) {
     const rows = sortBoard((data ?? []) as BoardRow[]);
-    // Only the top 3 show a tagline: an incentive to climb.
-    const taglines = await topTaglines(rows.slice(0, 3).map((r) => r.display_name));
+    // Only the top 3 show a tagline and a Skull title: an incentive to climb.
+    const extras = await topExtras(rows.slice(0, 3).map((r) => r.display_name));
     entries = rows.map((row, i) => ({
       name: row.display_name,
       score: row.points,
-      tagline: i < 3 ? taglines.get(row.display_name) : undefined,
+      tagline: i < 3 ? extras.get(row.display_name)?.tagline : undefined,
+      title: i < 3 ? extras.get(row.display_name)?.title : undefined,
     }));
   }
   return (
@@ -67,11 +69,12 @@ export default async function LeaderboardPage({ searchParams }: PageProps<"/lead
 }
 
 /**
- * The taglines the top 3 set on their account page. They live in each member's auth profile,
- * which only the server's admin client can read for other people.
+ * The taglines and equipped Skull titles the top 3 set on their account page. They live in each
+ * member's auth profile, which only the server's admin client can read for other people. A title
+ * shows only if the member has unlocked it.
  */
-async function topTaglines(names: string[]) {
-  const found = new Map<string, string>();
+async function topExtras(names: string[]) {
+  const found = new Map<string, { tagline?: string; title?: string }>();
   const admin = createAdminClient();
   if (!admin || names.length === 0) return found;
   try {
@@ -80,13 +83,15 @@ async function topTaglines(names: string[]) {
     await Promise.all(
       rows.map(async (row) => {
         const { data: result } = await admin.auth.admin.getUserById(row.user_id);
-        const tagline = cleanTagline(result.user?.user_metadata?.hub_tagline);
-        if (tagline) found.set(row.display_name, tagline);
+        const meta = result.user?.user_metadata;
+        const tagline = cleanTagline(meta?.hub_tagline);
+        const title = equippedTitle(meta?.[EQUIPPED_KEY], meta?.[TITLES_KEY]);
+        if (tagline || title) found.set(row.display_name, { tagline: tagline || undefined, title: title ? titleText(title) : undefined });
       }),
     );
   } catch (error) {
-    // The board still shows without taglines.
-    console.error("leaderboard: could not read taglines", error);
+    // The board still shows without taglines and titles.
+    console.error("leaderboard: could not read taglines and titles", error);
   }
   return found;
 }

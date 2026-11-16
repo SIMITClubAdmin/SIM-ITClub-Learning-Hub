@@ -8,17 +8,16 @@ const nextConfig: NextConfig = {
   logging: { serverFunctions: false },
   partialPrefetching: true,
   // The Git & GitHub studio boots a StackBlitz WebContainer, which needs a cross-origin
-  // isolated page. Only that route gets these headers, so images, fonts and embeds on
-  // every other page load exactly as before.
+  // isolated page. Only the studio's routes (the Git track and the Skull Trials) get these
+  // headers, so images, fonts and embeds on every other page load exactly as before.
   async headers() {
+    const isolation = [
+      { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
+      { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+    ];
     return [
-      {
-        source: "/learn/git/:path*",
-        headers: [
-          { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
-          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
-        ],
-      },
+      { source: "/learn/git/:path*", headers: isolation },
+      { source: "/practice/skull/:path*", headers: isolation },
     ];
   },
   turbopack: {

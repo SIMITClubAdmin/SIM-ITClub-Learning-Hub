@@ -3,7 +3,7 @@
  * <placeholders>, so students still have to apply the right names and flags to each question.
  *
  * Only what the Lesson 2 slides teach up to Mini Challenge 3, plus the CLI vs GitHub Desktop
- * table from the Cheatsheet slide (72). Nothing else from the Additional Tips slides (65-71).
+ * table from the two Cheatsheet slides (71-72). Nothing else from the Additional Tips slides (63-70).
  *
  * Text in `backticks` is shown as code.
  */
