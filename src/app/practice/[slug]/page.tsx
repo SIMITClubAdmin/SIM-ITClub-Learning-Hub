@@ -10,7 +10,7 @@ import { Quiz } from "@/components/practice/Quiz";
 import { formatDateTime } from "@/lib/format";
 import { GUEST_COOKIE } from "@/lib/guest";
 import { bestScores, withProgress } from "@/lib/progress";
-import { MAX_ATTEMPTS } from "@/lib/quiz-meta";
+import { MAX_ATTEMPTS, quizHeading } from "@/lib/quiz-meta";
 import { answerFor, findQuestion, QUIZZES } from "@/lib/quizzes";
 import { loadLearner, needsGroup } from "@/lib/supabase/learner";
 import { createClient } from "@/lib/supabase/server";
@@ -21,7 +21,7 @@ export const instant = false;
 
 export async function generateMetadata(props: PageProps<"/practice/[slug]">): Promise<Metadata> {
   const quiz = QUIZZES[(await props.params).slug];
-  return { title: quiz ? `${quiz.title} challenge · ITCamp Learning Hub` : "Challenge · ITCamp Learning Hub" };
+  return { title: quiz ? `${quizHeading(quiz.slug)} · ITCamp Learning Hub` : "Challenge · ITCamp Learning Hub" };
 }
 
 type AnswerRow = { position: number; question_id: string; chosen: string; is_correct: boolean; answered_at: string };
@@ -98,7 +98,7 @@ export default async function QuizPage(props: PageProps<"/practice/[slug]">) {
       <Shell>
         <section className="border border-violet bg-bg p-6 sm:p-8">
           <p className="font-mono text-sm tracking-wider text-accent uppercase">Locked</p>
-          <h1 className="mt-2 text-4xl font-semibold">{quiz.title} challenge</h1>
+          <h1 className="mt-2 text-4xl font-semibold">{quizHeading(slug)}</h1>
           <p className="mt-3 text-lg text-dim">{lockedReason} first, then come back for this mission.</p>
           <Link href="/practice" className="cta mt-6">
             Back to Challenge
@@ -118,7 +118,7 @@ export default async function QuizPage(props: PageProps<"/practice/[slug]">) {
       {needsGroup(learner) ? (
         <>
           <section className="border border-violet bg-bg p-6 sm:p-8">
-            <h1 className="text-4xl font-semibold">{quiz.title} challenge</h1>
+            <h1 className="text-4xl font-semibold">{quizHeading(slug)}</h1>
             <p className="mt-3 text-lg text-dim">
               Teammates get different questions, so we need your ITCamp group before you start.
             </p>
@@ -139,7 +139,7 @@ export default async function QuizPage(props: PageProps<"/practice/[slug]">) {
       ) : (
         <section className="border border-violet bg-bg p-6 sm:p-10">
           <p className="font-mono text-sm tracking-wider text-accent uppercase">Mission complete</p>
-          <h1 className="mt-2 text-5xl font-semibold">{quiz.title} challenge</h1>
+          <h1 className="mt-2 text-5xl font-semibold">{quizHeading(slug)}</h1>
           <p className="mt-4 text-lg text-dim">
             You have used both attempts. Your score for this quiz is your best one: {best} / {finished[0].total}.
           </p>

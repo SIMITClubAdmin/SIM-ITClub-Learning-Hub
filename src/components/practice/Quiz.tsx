@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { answerQuestion, startQuiz, type Feedback, type Round } from "@/app/practice/actions";
 import { InlineCode } from "@/components/practice/InlineCode";
-import { hasQuiz, MAX_ATTEMPTS, QUIZ_INFO } from "@/lib/quiz-meta";
+import { hasQuiz, MAX_ATTEMPTS, QUIZ_INFO, quizHeading } from "@/lib/quiz-meta";
 import { SHORT_ANSWER_MAX } from "@/lib/short-answer";
 import { useSfx } from "@/lib/use-sfx";
 
@@ -104,11 +104,8 @@ export function Quiz({ slug, title, lesson, mode, attemptNo = 1, resuming = fals
   if (!round) {
     return (
       <section className="border border-violet bg-bg p-6 sm:p-10">
-        <p className="font-mono text-sm tracking-wider text-accent uppercase">
-          Lesson {lesson}
-          {info?.activity ? ` · Activity ${info.activity}` : ""} challenge
-        </p>
-        <h1 className="mt-2 text-5xl font-semibold">{title} challenge</h1>
+        <p className="font-mono text-sm tracking-wider text-accent uppercase">Lesson {lesson} challenge</p>
+        <h1 className="mt-2 text-5xl font-semibold">{info ? quizHeading(slug) : `${title} challenge`}</h1>
         {mode === "member" ? (
           <p className="mt-4 max-w-prose text-lg text-dim">
             Attempt {attemptNo} of {MAX_ATTEMPTS}. Each answer is saved as soon as you pick it and can&apos;t be

@@ -7,8 +7,8 @@ import { MODULES } from "@/lib/topics";
 export const metadata: Metadata = { title: "Learn · ITCamp Learning Hub" };
 
 // The Git planet opens the Git & GitHub studio, so it is open here even though Challenge
-// locks it until Lesson 1 is finished. Each moon is one workshop activity, like its challenge,
-// and jumps to the lessons leading up to that activity.
+// locks it until Lesson 1 is finished. Each moon matches one mini challenge and jumps to the
+// lessons (and activity) that challenge covers.
 const GIT_MOON_LESSONS: Record<string, { title: string; href: string }[]> = {
   "git-basics": [
     { title: "Introduction to Git & GitHub", href: "/learn/git/introduction" },

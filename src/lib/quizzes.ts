@@ -493,8 +493,9 @@ document.querySelector("#btn").addEventListener("click", function () {});`,
   },
 ];
 
-// Lesson 2 (Git & GitHub): one challenge per workshop activity, written from the Lesson 2
-// slides and the studio's activity checklists. Every attempt asks all six, in a shuffled order.
+// Lesson 2 (Git & GitHub): the three mini challenges from the Lesson 2 slides, each asked
+// whole in a shuffled order. They stay within what the slides teach up to Mini Challenge 3:
+// nothing from the Additional Tips slides (slide 65 onwards).
 
 const GIT_ACTIVITY_1: QuizQuestion[] = [
   {
@@ -651,10 +652,11 @@ const GIT_ACTIVITY_2: QuizQuestion[] = [
 
 const GIT_ACTIVITY_3: QuizQuestion[] = [
   {
-    id: "git-a3-conflict-part1",
+    id: "git-a3-accept-incoming",
     topic: "conflicts",
-    scenario: "You are on `main` and run `git merge branch-b`. Git stops with `CONFLICT (content): Merge conflict in part1.txt`, and `part1.txt` now looks like the file below.",
-    question: "Why did it conflict, and what finishes the merge once you've edited `part1.txt`?",
+    scenario:
+      "On `main` you run `git merge branch-b`, and Git stops with `CONFLICT (content): Merge conflict in part1.txt`. The file now looks like the one below.",
+    question: "You click Accept Incoming Change in VS Code. What is in `part1.txt` now, and what are the next 3 steps?",
     code: `Hello my name is Michelle.
 <<<<<<< HEAD (Current Change)
 Hello world!
@@ -662,20 +664,66 @@ Hello world!
 Hello ITC!
 >>>>>>> branch-b (Incoming Change)`,
     choices: [
-      "`main` (HEAD) and `branch-b` both changed line 2 of `part1.txt`. Remove the markers, then Ctrl+S → `git add` → `git commit`.",
-      "`branch-b` changed a different file from `main`. After editing, press Ctrl+S → `git push` to finish.",
-      "You didn't run `git stash` before merging. After editing, `git merge --abort` keeps your fix.",
-      '"Hello ITC!" ends in an exclamation mark. After editing, `git branch -d branch-b` finishes the merge.',
+      'Line 1: "Hello my name is Michelle." Line 2: "Hello ITC!". Then Ctrl+S → `git add .` → `git commit -m "merge conflict"`.',
+      'Line 1: "Hello my name is Michelle." Line 2: "Hello world!". Then Ctrl+S → `git merge branch-b` → `git push`.',
+      'Line 1: "Hello my name is Michelle." Line 2: "Hello ITC!". Then `git commit -m "merge conflict"` at once, with no save or `git add`.',
+      'Line 1: "Hello my name is Michelle." Line 2: "Hello world!" Line 3: "Hello ITC!". Then Ctrl+S and click Merge pull request.',
     ],
     explain:
-      "A conflict happens when two branches change the same line of the same file: here, line 2 of `part1.txt`. Save your edited file (Ctrl+S), stage it (`git add`), then `git commit` to make the merge commit.",
+      "`HEAD (Current Change)` is `main`'s line, Hello world!, and `branch-b (Incoming Change)` is Hello ITC!. Accepting the incoming change keeps Hello ITC!. Then save (Ctrl+S), stage the fixed file (`git add .`) and seal the merge with `git commit`.",
   },
   {
-    id: "git-a3-game-merge-blue",
+    id: "git-a3-conflict-why",
+    topic: "conflicts",
+    scenario:
+      'On `main`, `part1.txt` has one line: "Hello my name is Michelle." You make `branch-a` and add line 2, "Hello world." A teammate makes `branch-b` from the same `main` and adds a different line 2, "Hello ITC!". You merge `branch-a` into `main` (it works), then run `git merge branch-b`.',
+    question: "Why did `branch-a` merge cleanly, but `branch-b` caused a merge conflict?",
+    choices: [
+      "Once `branch-a` merged, `main` had its own line 2. `branch-b` changed that same line of `part1.txt` differently, so Git can't choose.",
+      "Git lets only one branch merge into `main` per day without a Pull Request, so the second merge is blocked.",
+      "`branch-b` was made after `branch-a`, and Git can't merge a newer branch into an older branch.",
+      "`git merge` only combines `.html` files cleanly. It always stops with a conflict on `.txt` files.",
+    ],
+    explain:
+      "Git combines changes by itself unless two branches change the same line of the same file in different ways. `branch-a` added line 2 while `main` had none, so it merged cleanly. Then `branch-b`'s line 2 clashed with it, so Git stops and asks you to choose.",
+  },
+  {
+    id: "git-a3-pr-merge-on-github",
+    topic: "pull-requests",
+    scenario: "You pushed your commits on `feature/navbar` to GitHub and clicked Compare & pull request.",
+    question: "Which statement about this Pull Request is true, according to the workshop slides?",
+    choices: [
+      "Set `base: main` ← `compare: feature/navbar`, check it says No conflicts, get a teammate to approve, then merge it on GitHub.",
+      "Set `base: feature/navbar` ← `compare: main`. The merge then happens on your laptop before it uploads to GitHub.",
+      "Clicking Create pull request merges the branch into `main` at once, before a reviewer can open Files changed.",
+      "Once the PR shows the purple Merged badge, everyone's local `main` updates by itself, with no `git pull` needed.",
+    ],
+    explain:
+      "`base: main` is where the work goes and `compare` is your branch. A teammate reviews and approves, the merge happens on GitHub (not on your laptop), and then everyone switches to `main` and runs `git pull`.",
+  },
+  {
+    id: "git-a3-delete-branch-safe",
+    topic: "pull-requests",
+    scenario:
+      "Your Pull Request for `feature/attendance-import` is approved and merged on GitHub, and shows the purple Merged badge. You click Delete branch on the PR page.",
+    question: "What happens to the commits you made on `feature/attendance-import`?",
+    choices: [
+      "They're safe: they are part of `main` now. Deleted the branch by mistake? Click Restore branch on the PR page.",
+      "They disappear from `main` as well, because the branch they were made on no longer exists.",
+      "GitHub moves them into a temporary draft area, then deletes them for good after 24 hours.",
+      "They stay on GitHub, but deleting the branch also deletes the project folder on your laptop.",
+    ],
+    explain:
+      "The purple Merged badge means every commit from the branch is already in `main`. Delete branch only removes the old branch name, and the PR page has a Restore branch button if you need it back.",
+  },
+  {
+    id: "git-a3-game-fast-forward",
     topic: "merging",
-    scenario: "The Activity 3 branching game runs the commands below in order. The last one prints Fast forwarding...",
-    question: 'After `git merge blue`, which commits are on `main`, and where is "add red color to button"?',
-    code: `git checkout -b blue
+    scenario: "The first Learn Git Branching level in Activity 3 runs the commands below in order. The last one prints Fast forwarding...",
+    question: "Why does Git fast-forward here, and which commits are on `main` right after the merge?",
+    code: `git commit -m "add text"
+git commit -m "add a button"
+git checkout -b blue
 git commit -m "add blue color to button"
 git checkout main
 git checkout -b red
@@ -685,61 +733,46 @@ git commit -m "add border to button"
 git checkout main
 git merge blue`,
     choices: [
-      '`main` has "add blue color to button" and "add border to button". The red commit stays on `red` only.',
-      "`main` has all three commits, because merging `blue` also merges the branches next to it.",
-      "None: `git merge blue` fails with a merge conflict because `red` exists.",
-      '`main` only has "add border to button". The first blue commit is skipped.',
+      "`main` got no new commits after `blue` branched off (the red one went on `red`), so it moves up to take both blue commits.",
+      "`git merge blue` merges `blue` and `red` into `main` together, so `main` gets all three new commits.",
+      '`git merge blue` skips "add blue color to button" and copies only "add border to button" onto `main`.',
+      "`blue` was deleted before the merge, so Git just moves `main` to where `blue` used to point.",
     ],
     explain:
-      "`main` got no new commits after `blue` branched off, so `git merge blue` just fast-forwards `main` along `blue`'s two commits. `red` was branched separately, so its commit stays on `red`.",
+      'When `blue` branched off, `main` was at "add a button", and the red commit went onto `red`, not `main`. So `main` has nothing `blue` lacks, and Git fast-forwards `main` to `blue`\'s latest commit: "add blue color to button" and "add border to button" are now on `main`.',
   },
   {
     id: "git-a3-fake-teamwork",
     topic: "remote",
     scenario:
-      "In the second Activity 3 game level you run `git clone`. Then `git fakeTeamwork main 2` adds two teammate commits to GitHub's `main` (`o/main`), and you make one commit on your own `main`.",
-    question: "Why can't you just run `git push`, and what is the right order?",
+      "In the second Learn Git Branching level you run `git clone`. A teammate then pushes 2 new commits to GitHub's `main` (`git fakeTeamwork main 2` moves `o/main`), and you make 1 commit on your own `main`.",
+    question: "Why can't you `git push` straight away, and which 2 commands from the slide finish the sync?",
     choices: [
-      "Your `main` and `o/main` have diverged. Run `git pull` first to bring in the 2 remote commits, then `git push`.",
-      "You need `git push --force` to overwrite your teammates' 2 commits on `o/main`.",
-      "Run `git clone` again to get the 2 new commits, then `git commit`.",
-      "Delete your local `main` with `git branch -d main` and start again.",
+      "`o/main` has 2 commits your `main` doesn't. Run `git pull` first to fetch and merge them, then `git push`.",
+      "`git push` needs a fresh copy first: run `git clone` again before every push, then `git push`.",
+      "The order is wrong: run `git push` first to upload your commit, then `git pull` to get theirs.",
+      "Your `main` is out of date, so delete it with `git branch -d main`, then push again.",
     ],
     explain:
-      "GitHub has commits you don't have yet, so it rejects your push. `git pull` downloads them and merges them into your `main`; then `git push` can send the combined history.",
+      "Pull before you push when teammates have updated the remote. `git pull` downloads the 2 commits from `o/main` and merges them with yours, so `git push` can upload the combined history.",
   },
   {
-    id: "git-a3-pr-base-compare",
-    topic: "pull-requests",
-    scenario: "You pushed `feature/attendance-import` to GitHub and clicked Compare & pull request.",
-    question: "Which set-up and clean-up matches the workshop slides?",
-    choices: [
-      "`base: main` ← `compare: feature/attendance-import`. After approval and the purple Merged badge, Delete branch; everyone then runs `git pull` on `main`.",
-      "`base: feature/attendance-import` ← `compare: main`. After it merges, click Revert on GitHub to clean up the branch.",
-      "`base: main` ← `compare: main`. Keep the feature branch forever, or `main` loses the merged code.",
-      "No set-up: Pull Requests merge on your laptop by themselves, without a reviewer or a `git pull`.",
-    ],
+    id: "git-a3-merge-cli",
+    topic: "commands",
+    kind: "short",
+    question: "You've switched back to `main` with `git switch main`. Type the command that merges `branch-a` into your current branch.",
+    answers: ["git merge branch-a"],
     explain:
-      "`base` is where the work goes (`main`) and `compare` is your branch. The purple Merged badge means the work is in `main`, so the branch can be deleted, and everyone runs `git pull` on `main` to get it.",
+      "`git merge branch-a` brings `branch-a`'s commits into the branch you are on. Switch to the branch you want to merge into (here `main`) first.",
   },
   {
     id: "git-a3-branch-d",
     topic: "commands",
     kind: "short",
-    question: "Activity 3 branching game: `blue` is merged into `main`. Type the command, using the `-d` flag, that deletes your local `blue` branch.",
-    answers: ["git branch -d blue"],
-    explain:
-      "`git branch -d blue` deletes a branch only once it is merged, so no work is lost. That's why the game's `git branch -d red` is refused: `red` isn't merged.",
-  },
-  {
-    id: "git-a3-revert",
-    topic: "undo",
-    kind: "short",
     question:
-      "From the Additional Tips slide: instead of `git push --force`, which rewrites history, type the command that safely undoes the pushed commit `5738b26` with a new commit that reverses it.",
-    answers: ["git revert 5738b26"],
-    explain:
-      "`git revert 5738b26` adds a new commit that does the opposite of `5738b26`. History is kept, so teammates who already pulled aren't affected.",
+      "Learn Git Branching, Activity 3: `blue` is merged into `main`. Type the command, using the `-d` flag, that deletes your local `blue` branch.",
+    answers: ["git branch -d blue"],
+    explain: "`git branch -d blue` deletes the branch name only once it is merged, so no work is lost: `blue`'s commits are already in `main`.",
   },
 ];
 

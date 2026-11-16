@@ -310,8 +310,9 @@ export function PracticeSolarSystem({ modules, best = {} }: { modules: CourseMod
                 >
                   <div className="flex items-center justify-between gap-3">
                     <p className="font-mono text-[11px] tracking-wider text-accent uppercase">
-                      Mission {String(ti + 1).padStart(2, "0")}
-                      {hasQuiz(topic.slug) && QUIZ_INFO[topic.slug].activity ? ` · Activity ${QUIZ_INFO[topic.slug].activity}` : ""}
+                      {hasQuiz(topic.slug) && QUIZ_INFO[topic.slug].mini
+                        ? `Mini Challenge ${QUIZ_INFO[topic.slug].mini}`
+                        : `Mission ${String(ti + 1).padStart(2, "0")}`}
                     </p>
                     <Stars count={starsFor(best[topic.slug], questionsIn(topic.slug))} />
                   </div>
