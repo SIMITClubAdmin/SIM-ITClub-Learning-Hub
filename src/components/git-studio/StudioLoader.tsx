@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import type { TitleId } from "@/lib/skull-trials";
 import type { StudioKind } from "./GitStudio";
 
 function StudioSkeleton() {
@@ -19,6 +20,6 @@ const GitStudio = dynamic(() => import("./GitStudio"), { ssr: false, loading: St
  * The Git sandbox, set up for one lesson's activity. Only one per page (one WebContainer per tab).
  * The Skull Trials also pass who is solving it (owner: user id, null for guests).
  */
-export function StudioLoader({ kind, owner, signedIn }: { kind: StudioKind; owner?: string | null; signedIn?: boolean }) {
-  return <GitStudio kind={kind} owner={owner} signedIn={signedIn} />;
+export function StudioLoader({ kind, owner, signedIn, knownTitles }: { kind: StudioKind; owner?: string | null; signedIn?: boolean; knownTitles?: TitleId[] }) {
+  return <GitStudio kind={kind} owner={owner} signedIn={signedIn} knownTitles={knownTitles} />;
 }

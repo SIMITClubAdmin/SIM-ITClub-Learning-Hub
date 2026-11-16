@@ -61,7 +61,9 @@ export function indexHtmlOk(html: string) {
   return !MARKERS.test(html) && flat.includes("<h1>Jeff · Full-Stack Developer</h1>") && flat.includes('<p id="skills">HTML, CSS, JavaScript, Git</p>');
 }
 
-const CHECKS: Record<1 | 2 | 3, (s: TrialSnapshot) => boolean> = {
+export type TrialId = 1 | 2 | 3 | 4 | 5;
+
+const CHECKS: Record<TrialId, (s: TrialSnapshot) => boolean> = {
   // Only main is left, it has the hero heading, it is clean and it is on GitHub.
   1: (s) => {
     const { repo } = s;
@@ -98,8 +100,61 @@ const CHECKS: Record<1 | 2 | 3, (s: TrialSnapshot) => boolean> = {
       mainPushed(repo)
     );
   },
+  // main has the footer fix copied from feature/redesign (not merged), the About wipe undone by a
+  // new commit with GitHub's history kept, and is pushed; feature/redesign is untouched.
+  4: (s) => {
+    const { repo } = s;
+    const mainTip = repo.branches.main;
+    const main = engine.treeOf(repo, mainTip ?? null);
+    const html = main["index.html"] ?? "";
+    const redesign = repo.branches["feature/redesign"];
+    return (
+      !MARKERS.test(html) &&
+      html.includes('href="mailto:jeff@portfolio.dev"') &&
+      !html.includes("portfoilo") &&
+      html.includes("<p>I build websites with HTML, CSS and JavaScript.</p>") &&
+      !html.includes("TODO: write something here") &&
+      !/Dark theme/.test(main["styles.css"] ?? "") &&
+      hasCommit(repo, mainTip, "Rewrite the About section") &&
+      hasCommit(repo, mainTip, "Add footer") &&
+      !hasCommit(repo, mainTip, "Start dark theme") &&
+      !hasCommit(repo, mainTip, "Dark theme nav colours") &&
+      Boolean(redesign) &&
+      hasCommit(repo, redesign, "Dark theme nav colours") &&
+      clean(s) &&
+      mainPushed(repo)
+    );
+  },
+  // main has Jeff's commit, your commit and feature/blog with the header resolved, and is pushed;
+  // feature/blog is gone; you are back on a published feature/testimonials with the draft restored.
+  5: (s) => {
+    const { repo, files } = s;
+    const mainTip = repo.branches.main;
+    const main = engine.treeOf(repo, mainTip ?? null);
+    const html = main["index.html"] ?? "";
+    const head = engine.treeOf(repo, engine.headId(repo));
+    const feature = repo.branches["feature/testimonials"];
+    return (
+      mainPushed(repo) &&
+      hasCommit(repo, mainTip, "Rename the header") &&
+      hasCommit(repo, mainTip, "Update the header") &&
+      hasCommit(repo, mainTip, "Add blog page") &&
+      !MARKERS.test(html) &&
+      (html.match(/<h1>/g) ?? []).length === 1 &&
+      squash(html).includes("<h1>Jeff's Portfolio · Full-Stack Developer</h1>") &&
+      "blog.html" in main &&
+      !repo.branches["feature/blog"] &&
+      repo.head === "feature/testimonials" &&
+      !repo.detached &&
+      Boolean(feature) &&
+      repo.remote["feature/testimonials"] === feature &&
+      engine.trk(repo)["feature/testimonials"] === feature &&
+      (files["index.html"] ?? "").includes('<section id="testimonials">') &&
+      !(head["index.html"] ?? "").includes('<section id="testimonials">')
+    );
+  },
 };
 
-export function trialSolved(trial: 1 | 2 | 3, snapshot: TrialSnapshot) {
+export function trialSolved(trial: TrialId, snapshot: TrialSnapshot) {
   return CHECKS[trial](snapshot);
 }

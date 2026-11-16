@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { unlockSkullTitle } from "@/app/practice/skull/actions";
 import { InlineCode } from "@/components/practice/InlineCode";
 import { addLocalTitle } from "@/lib/skull-titles-store";
-import { findTrial, optimalCount, titleText, type SkullTrial } from "@/lib/skull-trials";
+import { findTrial, optimalCount, titleText, trialPrerequisite, type SkullTrial, type TitleId } from "@/lib/skull-trials";
 import { trialSolved } from "./engine/skull-checks";
 import { JEFF_FOLDER } from "./engine/workspaces";
 import { useStudio } from "./WebContainerProvider";
@@ -24,11 +24,22 @@ type Solved = { session: number; used: number };
  * reaches that state, SOLVED with a comparison against the shortest solution. No hints, no
  * command shortcuts (the studio runs with hints off) and no cheatsheet.
  */
-export function SkullTrialGuide({ trialId, owner, signedIn }: { trialId: SkullTrial["id"]; owner: string | null; signedIn: boolean }) {
+export function SkullTrialGuide({
+  trialId,
+  owner,
+  signedIn,
+  knownTitles = [],
+}: {
+  trialId: SkullTrial["id"];
+  owner: string | null;
+  signedIn: boolean;
+  /** Titles already on the profile (a prerequisite earned on another device counts). */
+  knownTitles?: TitleId[];
+}) {
   const trial = findTrial(trialId)!;
   const { repo, repoRoot, files, status, commands, session } = useStudio();
   const [solved, setSolved] = useState<Solved | null>(null);
-  const [saved, setSaved] = useState<"idle" | "saved" | "local">("idle");
+  const [saved, setSaved] = useState<"idle" | "saved" | "local" | "locked">("idle");
   const unlocked = useRef(false);
 
   // Every Git command counts, typed or mistyped; editor saves don't.
@@ -43,10 +54,12 @@ export function SkullTrialGuide({ trialId, owner, signedIn }: { trialId: SkullTr
   useEffect(() => {
     if (!solved || unlocked.current) return;
     unlocked.current = true;
-    addLocalTitle(owner, trial.reward);
+    addLocalTitle(owner, trial.reward, knownTitles);
     if (!signedIn) return;
-    void unlockSkullTitle(trial.reward).then((r) => setSaved(r.ok ? "saved" : "local"));
-  }, [solved, owner, signedIn, trial.reward]);
+    void unlockSkullTitle(trial.reward).then((r) => setSaved(r.ok ? "saved" : r.reason === "locked" ? "locked" : "local"));
+  }, [solved, owner, signedIn, trial.reward, knownTitles]);
+
+  const prerequisite = trialPrerequisite(trial);
 
   const best = optimalCount(trial);
 
@@ -94,7 +107,9 @@ export function SkullTrialGuide({ trialId, owner, signedIn }: { trialId: SkullTr
           </p>
           <p className="text-sm text-(--text-muted)">
             {signedIn
-              ? saved === "local"
+              ? saved === "locked"
+                ? `Saved in this browser only: your account doesn't have ${prerequisite ? `Skull Trial ${prerequisite.trial}'s title` : "the tier before"} yet, so this tier can't be added to it.`
+                : saved === "local"
                 ? "Saved in this browser. We couldn't save it to your account just now: it is added when you save your account settings."
                 : "Equip it on your account page. It shows beside your name on the leaderboard while you are in the top 3."
               : "Saved in this browser. Log in with an account to equip titles on the leaderboard."}

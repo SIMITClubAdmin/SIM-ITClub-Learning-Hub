@@ -14,7 +14,9 @@ export type StudioVariant =
   | "advanced"
   | "skull1"
   | "skull2"
-  | "skull3";
+  | "skull3"
+  | "skull4"
+  | "skull5";
 
 /** What the sandbox holds when a studio starts or resets. Paths are relative to the workspace. */
 export type Workspace = {
@@ -161,7 +163,9 @@ export function buildWorkspace(variant: StudioVariant, now = Date.now()): Worksp
     }
     case "skull1":
     case "skull2":
-    case "skull3": {
+    case "skull3":
+    case "skull4":
+    case "skull5": {
       const repo = SKULL_BUILDERS[variant](start);
       return { startDir: JEFF_FOLDER, allowDev: false, hidden: [], files: inFolder(JEFF_FOLDER, repo.files, repo.state) };
     }
@@ -176,7 +180,19 @@ const JEFF = { name: "Jeff", email: "jeff@portfolio.dev" };
 const JEFF_AUTHOR = `${JEFF.name} <${JEFF.email}>`;
 const STUDENT = { name: "ITCamp Student", email: "student@itclub.dev" };
 
-const jeffPage = ({ title = "Jeff · Portfolio", header, main, script = "script.js" }: { title?: string; header: string; main: string; script?: string }) => `<!DOCTYPE html>
+const jeffPage = ({
+  title = "Jeff · Portfolio",
+  header,
+  main,
+  footer,
+  script = "script.js",
+}: {
+  title?: string;
+  header: string;
+  main: string;
+  footer?: string;
+  script?: string;
+}) => `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -190,7 +206,8 @@ ${header}
   <main>
 ${main}
   </main>
-  <script src="${script}"></script>
+${footer ? `${footer}
+` : ""}  <script src="${script}"></script>
 </body>
 </html>
 `;
@@ -281,7 +298,7 @@ function forStudent(repo: { state: RepoState; files: Files }) {
 /** The hero heading Skull Trial 1 is about. */
 export const HERO_HEADING = "<h1>Hi, I'm Jeff — Full-Stack Developer</h1>";
 
-const SKULL_BUILDERS: Record<"skull1" | "skull2" | "skull3", (start: number) => { state: RepoState; files: Files }> = {
+const SKULL_BUILDERS: Record<"skull1" | "skull2" | "skull3" | "skull4" | "skull5", (start: number) => { state: RepoState; files: Files }> = {
   // Branch Sprawl Rescue: four leftover branches; only feature/hero-banner has the finished hero.
   // The decoys' commits are all in hero-banner's history, so once it is merged into main,
   // `git branch -d` can delete every one of them.
@@ -403,6 +420,99 @@ const SKULL_BUILDERS: Record<"skull1" | "skull2" | "skull3", (start: number) => 
       base.files,
     );
     return forStudent(repo);
+  },
+
+  // Hotfix Cherry-Pick & Safe Rollback: a pushed commit wiped the About text (undo it without
+  // rewriting history), and the footer email fix sits on an unfinished branch (C7) that must
+  // not be merged. Commit ids: C3 projects, C4 the wipe, C5 footer, C6-C8 feature/redesign.
+  skull4(start) {
+    const base = jeffClone(start);
+    const header = `    <h1>Jeff's Portfolio</h1>\n${nav(NAV_LINKS)}`;
+    const projects = `    <section id="projects">\n      <h2>Projects</h2>\n      <p>A weather app and a to-do list.</p>\n    </section>`;
+    const wiped = ABOUT.replace("<p>I build websites with HTML, CSS and JavaScript.</p>", "<p>TODO: write something here</p>");
+    const footer = (email: string) => `  <footer>\n    <a href="mailto:${email}">Email me</a>\n  </footer>`;
+    const dark = `${JEFF_STYLES}\n/* Dark theme (work in progress) */\nbody {\n  background: #0b1120;\n  color: #e5e7eb;\n}\n`;
+    const darker = `${dark}\nnav a {\n  color: #fbbf24;\n}\n`;
+    return forStudent(
+      scripted(
+        [
+          { write: { "index.html": jeffPage({ header, main: `${ABOUT}\n${projects}` }) }, git: ["add", "."] },
+          { git: ["commit", "-m", "Add projects section"] },
+          { git: ["push"] },
+          { write: { "index.html": jeffPage({ header, main: `${wiped}\n${projects}` }) }, git: ["add", "."] },
+          { git: ["commit", "-m", "Rewrite the About section"] },
+          { git: ["push"] },
+          { write: { "index.html": jeffPage({ header, main: `${wiped}\n${projects}`, footer: footer("jeff@portfoilo.dev") }) }, git: ["add", "."] },
+          { git: ["commit", "-m", "Add footer"] },
+          { git: ["push"] },
+          { git: ["switch", "-c", "feature/redesign"] },
+          { write: { "styles.css": dark }, git: ["add", "."] },
+          { git: ["commit", "-m", "Start dark theme"] },
+          { write: { "index.html": jeffPage({ header, main: `${wiped}\n${projects}`, footer: footer("jeff@portfolio.dev") }) }, git: ["add", "."] },
+          { git: ["commit", "-m", "Fix footer email link"] },
+          { write: { "styles.css": darker }, git: ["add", "."] },
+          { git: ["commit", "-m", "Dark theme nav colours"] },
+        ],
+        start,
+        base.state,
+        base.files,
+      ),
+    );
+  },
+
+  // Release Day Meltdown: an uncommitted draft on feature/testimonials, an unpushed commit on main
+  // that clashes with Jeff's pushed header change, and feature/blog ready to ship.
+  skull5(start) {
+    const base = jeffClone(start);
+    const withTestimonials = [...NAV_LINKS, '<a href="#testimonials">Testimonials</a>'];
+    const blog = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Jeff · Blog</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <h1>Jeff's blog</h1>
+  <p>First post: how I learned Git without losing my work.</p>
+</body>
+</html>
+`;
+    const testimonialsNav = jeffPage({ header: `    <h1>Jeff's Portfolio</h1>\n${nav(withTestimonials)}`, main: ABOUT });
+    const draft = jeffPage({
+      header: `    <h1>Jeff's Portfolio</h1>\n${nav(withTestimonials)}`,
+      main: `${ABOUT}\n    <section id="testimonials">\n      <h2>What people say</h2>\n      <p>TODO: add quotes from clients</p>\n    </section>`,
+    });
+    const repo = scripted(
+      [
+        { git: ["switch", "-c", "feature/blog"] },
+        { write: { "blog.html": blog }, git: ["add", "."] },
+        { git: ["commit", "-m", "Add blog page"] },
+        { git: ["switch", "main"] },
+        { git: ["switch", "-c", "feature/testimonials"] },
+        { write: { "index.html": testimonialsNav }, git: ["add", "."] },
+        { git: ["commit", "-m", "Add Testimonials to the nav"] },
+        { git: ["switch", "main"] },
+        // Your own commit, never pushed.
+        { write: { "index.html": jeffPage({ header: `    <h1>Jeff's Portfolio · Web Developer</h1>\n${nav(NAV_LINKS)}`, main: ABOUT }) }, git: ["add", "."] },
+        { git: ["commit", "-m", "Update the header"] },
+        { git: ["switch", "feature/testimonials"] },
+        // The unfinished draft: saved in the editor, never staged or committed.
+        { write: { "index.html": draft } },
+      ],
+      start,
+      base.state,
+      base.files,
+    );
+    // Jeff changed the same header line on GitHub.
+    const remoteTree = engine.treeOf(repo.state, repo.state.remote.main);
+    const pushed = engine.teammateCommit(repo.state, "main", {
+      message: "Rename the header",
+      author: JEFF_AUTHOR,
+      files: { ...remoteTree, "index.html": jeffPage({ header: `    <h1>Jeff · Full-Stack Developer</h1>\n${nav(NAV_LINKS)}`, main: ABOUT }) },
+      time: start + 3600_000,
+    });
+    return forStudent({ state: pushed ?? repo.state, files: repo.files });
   },
 };
 

@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { cleanTagline, TAGLINE_MAX } from "@/lib/leaderboard";
 import { useLocalTitles } from "@/lib/skull-titles-store";
-import { cleanTitleIds, EQUIPPED_KEY, SKULL_TITLES, titleText, TITLES_KEY, type TitleId } from "@/lib/skull-trials";
+import { cleanTitleIds, EQUIPPED_KEY, SKULL_TITLES, skullTitle, titleText, TITLES_KEY, type TitleId } from "@/lib/skull-trials";
 import { createClient } from "@/lib/supabase/client";
 
 type Props = {
@@ -117,7 +117,12 @@ export function AccountForm({ userId, initialName, initialTagline, onLeaderboard
               >
                 <input type="radio" name="skullTitle" value={t.id} checked={title === t.id} disabled={!open} onChange={() => setTitle(t.id)} />
                 <span className={open ? "font-mono text-(--accent-text)" : "font-mono text-dim"}>{titleText(t.id)}</span>
-                {!open && <span className="text-sm text-dim">🔒 Solve Optional Skull Trial {t.trial} to unlock</span>}
+                {!open && (
+                  <span className="text-sm text-dim">
+                    🔒 Solve Optional Skull Trial {t.trial} to unlock
+                    {t.requires && ` (it opens after Skull Trial ${skullTitle(t.requires).trial})`}
+                  </span>
+                )}
               </label>
             );
           })}

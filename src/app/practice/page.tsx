@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { GUEST_COOKIE } from "@/lib/guest";
 import { openForGuests, withProgress } from "@/lib/progress";
 import { loadProgress } from "@/lib/supabase/progress";
+import { cleanTitleIds, TITLES_KEY } from "@/lib/skull-trials";
 import { MODULES } from "@/lib/topics";
 
 export const metadata: Metadata = { title: "Challenge · ITCamp Learning Hub" };
@@ -40,7 +41,7 @@ export default async function PracticePage() {
           inert={!canUse}
           aria-hidden={!canUse || undefined}
         >
-          <PracticeSolarSystem modules={modules} best={progress.best} owner={user?.id ?? null} />
+          <PracticeSolarSystem modules={modules} best={progress.best} owner={user?.id ?? null} serverTitles={cleanTitleIds(user?.user_metadata?.[TITLES_KEY])} />
         </div>
       </div>
 

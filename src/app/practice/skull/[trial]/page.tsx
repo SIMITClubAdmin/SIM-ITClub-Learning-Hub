@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
+import { SkullTrialGate } from "@/components/git-studio/SkullTrialGate";
 import { SkullTrialShell } from "@/components/git-studio/SkullTrialShell";
 import { StudioLoader } from "@/components/git-studio/StudioLoader";
-import { findTrial, titleText } from "@/lib/skull-trials";
+import { cleanTitleIds, findTrial, titleText, TITLES_KEY } from "@/lib/skull-trials";
 import { createClient } from "@/lib/supabase/server";
 
 // Knows who is solving it (for saving the title), so this page renders per request.
@@ -35,6 +36,7 @@ export default async function SkullTrialPage({ params }: Props) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const titles = cleanTitleIds(user?.user_metadata?.[TITLES_KEY]);
 
   return (
     <SkullTrialShell>
@@ -55,7 +57,10 @@ export default async function SkullTrialPage({ params }: Props) {
           <span className="text-(--accent-text)">[{titleText(trial.reward)}]</span> · No hints, no cheatsheet: any valid Git commands work.
         </p>
       </header>
-      <StudioLoader kind={`skull${trial.id}`} owner={user?.id ?? null} signedIn={!!user} />
+      {/* Trials 4 and 5 stay locked until the tier before them is unlocked. */}
+      <SkullTrialGate trialId={trial.id} owner={user?.id ?? null} serverTitles={titles}>
+        <StudioLoader kind={`skull${trial.id}`} owner={user?.id ?? null} signedIn={!!user} knownTitles={titles} />
+      </SkullTrialGate>
     </SkullTrialShell>
   );
 }

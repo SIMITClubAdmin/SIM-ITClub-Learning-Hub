@@ -12,7 +12,7 @@ export const instant = false;
 
 // Made-up names to preview the layout with ?demo, until real scores exist.
 const DEMO: LeaderboardEntry[] = [
-  { name: "Astro Ada", score: 1240, tagline: "Commit early, push often", title: titleText("expert") },
+  { name: "Astro Ada", score: 1240, tagline: "Commit early, push often", title: titleText("intermediate") },
   { name: "Byte Ben", score: 1105, tagline: "Merge conflicts fear me", title: titleText("amateur") },
   { name: "Comet Cass", score: 980, tagline: "git push --to-the-moon", title: titleText("novice") },
   { name: "Dev Dana", score: 760 },

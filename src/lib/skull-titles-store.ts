@@ -34,8 +34,13 @@ export function readLocalTitles(owner: string | null): TitleId[] {
   return ids;
 }
 
-export function addLocalTitle(owner: string | null, id: TitleId) {
-  const next = cleanTitleIds([...readLocalTitles(owner), id]);
+/**
+ * Adds a title in this browser. `known` are titles already on the profile, so a tier earned on
+ * another device still counts as the prerequisite. A tier whose prerequisite is missing is
+ * dropped (cleanTitleIds), so a locked tier can't be stored.
+ */
+export function addLocalTitle(owner: string | null, id: TitleId, known: TitleId[] = []) {
+  const next = cleanTitleIds([...readLocalTitles(owner), ...known, id]);
   try {
     localStorage.setItem(keyFor(owner), JSON.stringify(next));
   } catch {
