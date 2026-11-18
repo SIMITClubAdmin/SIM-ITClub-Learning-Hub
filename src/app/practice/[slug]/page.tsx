@@ -10,6 +10,7 @@ import { InlineCode } from "@/components/practice/InlineCode";
 import { Quiz } from "@/components/practice/Quiz";
 import { formatDateTime } from "@/lib/format";
 import { gitCheatsheetTab } from "@/lib/git-cheatsheet";
+import { isTestGroup } from "@/lib/groups";
 import { GUEST_COOKIE } from "@/lib/guest";
 import { progressOf, withProgress } from "@/lib/progress";
 import { MAX_ATTEMPTS, quizHeading } from "@/lib/quiz-meta";
@@ -147,7 +148,8 @@ export default async function QuizPage(props: PageProps<"/practice/[slug]">) {
           title={quiz.title}
           lesson={quiz.lesson}
           mode="saved"
-          ranked={learner?.account_type === "subcomm"}
+          // Subcomms are ranked, except the testing group.
+          ranked={learner?.account_type === "subcomm" && !isTestGroup(learner.group_number)}
           attemptNo={open?.attempt_no ?? finished.length + 1}
           resuming={!!open && open.quiz_answers.length > 0}
         />

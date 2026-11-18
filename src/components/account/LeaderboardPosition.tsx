@@ -2,21 +2,28 @@ import Link from "next/link";
 import { MEDALS, type boardPosition } from "@/lib/leaderboard";
 import type { AccountType } from "@/lib/supabase/learner";
 
-/** "Leaderboard position: #3 of 48", with a medal in the top 3, or where an EXCO or learner account would stand. */
+/**
+ * "Leaderboard position: #3 of 48", with a medal in the top 3, or where an account kept off the
+ * leaderboard (EXCO, learner or testing group) would stand.
+ */
 export function LeaderboardPosition({
   position,
   onLeaderboard,
   accountType,
+  testing = false,
 }: {
   position: ReturnType<typeof boardPosition> | null;
   onLeaderboard: boolean;
   accountType: AccountType;
+  /** In the testing group (group 8). */
+  testing?: boolean;
 }) {
   if (!position) return <p className="text-sm text-dim">Your leaderboard position can&apos;t be loaded right now.</p>;
   if (!onLeaderboard) {
+    const who = testing ? "Testing group accounts are" : accountType === "exco" ? "EXCO accounts are" : "Learner accounts are";
     return (
       <p className="border-l-2 border-(--border-accent) pl-3 text-sm text-dim">
-        {accountType === "exco" ? "EXCO accounts are" : "Learner accounts are"} kept off the leaderboard. With your score you would be{" "}
+        {who} kept off the leaderboard. With your score you would be{" "}
         <span className="font-mono text-ink">
           #{position.wouldBe} of {position.total + 1}
         </span>

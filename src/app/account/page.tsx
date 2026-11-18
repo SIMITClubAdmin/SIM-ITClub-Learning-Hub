@@ -7,7 +7,8 @@ import { GroupPicker } from "@/components/account/GroupPicker";
 import { LeaderboardPosition } from "@/components/account/LeaderboardPosition";
 import { AppearanceSettings } from "@/components/appearance/AppearanceSettings";
 import { AccountForm } from "@/components/auth/AccountForm";
-import { boardPosition, cleanTagline, type BoardRow } from "@/lib/leaderboard";
+import { groupLabel, isTestGroup } from "@/lib/groups";
+import { boardPosition, cleanTagline, rankedRows, type BoardRow } from "@/lib/leaderboard";
 import { bestScores } from "@/lib/progress";
 import { cleanTitleIds, EQUIPPED_KEY, equippedTitle, TITLES_KEY } from "@/lib/skull-trials";
 import { hasQuiz, MAX_ATTEMPTS, questionsIn, quizLabel } from "@/lib/quiz-meta";
@@ -45,9 +46,10 @@ export default async function AccountPage() {
   const finished = (attempts ?? []).filter((a) => a.finished_at);
   const best = bestScores(finished);
   const points = Object.values(best).reduce<number>((sum, n) => sum + (n ?? 0), 0);
-  // Only subcomms are ranked; learners and EXCO are kept off the leaderboard.
-  const onLeaderboard = accountType === "subcomm";
-  const position = board.error ? null : boardPosition((board.data ?? []) as BoardRow[], learner?.display_name, points);
+  // Only subcomms are ranked; learners, EXCO and the testing group are kept off the leaderboard.
+  const testing = isTestGroup(learner?.group_number);
+  const onLeaderboard = accountType === "subcomm" && !testing;
+  const position = board.error ? null : boardPosition(rankedRows(board.data as BoardRow[] | null), learner?.display_name, points);
 
   const joined = profile ? new Date(profile.created_at).toLocaleDateString("en-SG", { dateStyle: "long" }) : "";
 
@@ -84,7 +86,7 @@ export default async function AccountPage() {
           <dt className="text-sm text-dim">ITCamp group</dt>
           <dd>
             {learner?.group_number
-              ? `Group ${learner.group_number} (member ${learner.group_seat})`
+              ? `${groupLabel(learner.group_number)} (member ${learner.group_seat})`
               : accountType === "learner"
                 ? "None (learner account)"
                 : "Not set yet"}
@@ -115,7 +117,7 @@ export default async function AccountPage() {
         <p className="text-sm text-dim">
           Questions you got right, counting your best attempt of each challenge ({MAX_ATTEMPTS} attempts each).
         </p>
-        <LeaderboardPosition position={position} onLeaderboard={onLeaderboard} accountType={accountType} />
+        <LeaderboardPosition position={position} onLeaderboard={onLeaderboard} accountType={accountType} testing={testing} />
         {LESSON_QUIZZES.map((lesson) => {
           const got = lesson.slugs.reduce((sum, slug) => sum + (best[slug] ?? 0), 0);
           const outOf = lesson.slugs.reduce((sum, slug) => sum + questionsIn(slug), 0);
@@ -153,7 +155,7 @@ export default async function AccountPage() {
         userId={user.id}
         initialName={learner?.display_name ?? ""}
         initialTagline={cleanTagline(user.user_metadata?.hub_tagline)}
-        // Learners and EXCO are kept off the leaderboard.
+        // Learners, EXCO and the testing group are kept off the leaderboard.
         onLeaderboard={onLeaderboard}
         unlockedTitles={cleanTitleIds(user.user_metadata?.[TITLES_KEY])}
         initialTitle={equippedTitle(user.user_metadata?.[EQUIPPED_KEY], user.user_metadata?.[TITLES_KEY])}

@@ -1,5 +1,7 @@
 /** Shared leaderboard rules: ranking, and the tagline the top 3 can show under their name. */
 
+import { isTestGroup } from "./groups";
+
 export const TAGLINE_MAX = 60;
 
 /** A tagline as it may be shown: one line of plain text, at most 60 characters. */
@@ -8,7 +10,12 @@ export function cleanTagline(raw: unknown) {
   return raw.replace(/\s+/g, " ").trim().slice(0, TAGLINE_MAX);
 }
 
-export type BoardRow = { display_name: string; points: number };
+export type BoardRow = { display_name: string; points: number; group_number?: number | null };
+
+/** The rows that are ranked: get_leaderboard() includes the testing group, which the hub leaves out. */
+export function rankedRows<T extends BoardRow>(rows: T[] | null | undefined) {
+  return (rows ?? []).filter((row) => !isTestGroup(row.group_number));
+}
 
 /** Highest score first; equal scores keep the database's order, as the leaderboard page shows them. */
 export function sortBoard<T extends { points: number }>(rows: T[]) {

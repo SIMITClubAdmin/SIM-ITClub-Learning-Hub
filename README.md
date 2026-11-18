@@ -27,7 +27,8 @@ Contact: it@mymail.sim.edu.sg
    project's URL and keys. `SUPABASE_SECRET_KEY` is required: the server grades answers and
    saves them with it, so nobody can write their own scores. It's the club project's admin key,
    so keep it server-side only and guard it like the club website's.
-3. **Groups**: set `GROUP_COUNT` in `src/lib/groups.ts` to the number of ITCamp groups.
+3. **Groups**: 8, set in `src/lib/groups.ts`. Groups 1–7 are the cohort's ITCamp groups; group 8
+   (`TEST_GROUP`) is for testing. Test subcomm accounts pick it, and it's kept off the leaderboard.
 4. **EXCO**: club EXCO and above (offices are managed on the club website). They see every
    topic unlocked, are kept off the leaderboard, and can open `/admin/results`.
 5. **Password reset**: in the club project's Authentication → URL Configuration → Redirect
@@ -44,7 +45,7 @@ The club database calls a club login `member` and a hub-only login `guest`
 | **Visitor** | none (logged out) | — | sees the login card | can't see it |
 | **Guest mode** | none ("Continue as a guest") | not saved | everything open | can't see it |
 | **Learner** | registered on the hub | saved | in order | not ranked |
-| **Subcomm** | ITCamp subcomm's club login | saved | in order | ranked |
+| **Subcomm** | ITCamp subcomm's club login | saved | in order | ranked (not group 8, the testing group) |
 | **EXCO** | club login, EXCO and above | saved | everything open | not ranked |
 
 ## Rules
@@ -52,7 +53,7 @@ The club database calls a club login `member` and a hub-only login `guest`
 - **ITCamp subcomms log in with their club account** (SIM IT Club email and password). On
   their first visit the club database makes their learner row and gives them the ITCamp group
   the club has for them, with a seat number in it (`learners.group_seat`). Anyone the club has
-  no group for picks one once.
+  no group for picks one once; test accounts pick group 8, "Group 8 (testing)".
 - **Anyone else can register** with a display name: a **learner account** that saves their
   challenge scores but has no ITCamp group, no club access and no place on the leaderboard.
 - **Forgot password** (`/forgot-password`) emails a reset link that works for every account.
