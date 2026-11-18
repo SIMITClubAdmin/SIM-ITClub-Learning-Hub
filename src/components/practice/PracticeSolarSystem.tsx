@@ -119,12 +119,15 @@ export function PracticeSolarSystem({
   best = {},
   owner = null,
   serverTitles = [],
+  guest = false,
 }: {
   modules: CourseModule[];
   best?: BestScores;
   owner?: string | null;
   /** Skull titles saved on the profile; the ones unlocked in this browser are added. */
   serverTitles?: TitleId[];
+  /** Guests (guest mode, or a registered guest account) can enter every Skull Trial. */
+  guest?: boolean;
 }) {
   const localTitles = useLocalTitles(owner);
   const solvedTitles = cleanTitleIds([...serverTitles, ...localTitles]);
@@ -367,8 +370,8 @@ export function PracticeSolarSystem({
               <ol className="mt-3 flex flex-col gap-3">
                 {SKULL_TRIALS.map((trial) => {
                   const solved = solvedTitles.includes(trial.reward);
-                  // Advanced and Expert open one tier at a time.
-                  const locked = lockedReason(trial, solvedTitles);
+                  // For members, Advanced and Expert open one tier at a time.
+                  const locked = guest ? null : lockedReason(trial, solvedTitles);
                   return (
                     <li key={trial.id} className={`border p-4 ${locked ? "border-grid bg-bg/60" : "border-[#ff6b6b]/50 bg-[#ff6b6b]/5"}`}>
                       <div className="flex items-center justify-between gap-3">

@@ -6,7 +6,7 @@ import { BigLock } from "@/components/auth/BigLock";
 import { PracticeSolarSystem } from "@/components/practice/PracticeSolarSystem";
 import { createClient } from "@/lib/supabase/server";
 import { GUEST_COOKIE } from "@/lib/guest";
-import { openForGuests, withProgress } from "@/lib/progress";
+import { withProgress } from "@/lib/progress";
 import { loadProgress } from "@/lib/supabase/progress";
 import { cleanTitleIds, TITLES_KEY } from "@/lib/skull-trials";
 import { MODULES } from "@/lib/topics";
@@ -24,10 +24,10 @@ export default async function PracticePage() {
     data: { user },
   } = await supabase.auth.getUser();
   const guest = !user && (await cookies()).get(GUEST_COOKIE)?.value === "1";
-  // Locks open as the member finishes missions; admins see everything unlocked. Guests have
-  // nothing saved, so every Lesson 1 mission is open for them.
-  const progress = user ? await loadProgress(supabase, user.id) : { isAdmin: false, best: {} };
-  const modules = guest ? openForGuests(MODULES) : withProgress(MODULES, progress);
+  // Locks open as a member finishes missions. Admins and guests (guest mode, or a registered
+  // guest account) aren't ranked, so every challenge is open for them.
+  const progress = user ? await loadProgress(supabase, user.id) : { isAdmin: false, isGuest: guest, best: {} };
+  const modules = withProgress(MODULES, progress);
   const canUse = !!user || guest;
 
   return (
@@ -41,7 +41,13 @@ export default async function PracticePage() {
           inert={!canUse}
           aria-hidden={!canUse || undefined}
         >
-          <PracticeSolarSystem modules={modules} best={progress.best} owner={user?.id ?? null} serverTitles={cleanTitleIds(user?.user_metadata?.[TITLES_KEY])} />
+          <PracticeSolarSystem
+            modules={modules}
+            best={progress.best}
+            owner={user?.id ?? null}
+            serverTitles={cleanTitleIds(user?.user_metadata?.[TITLES_KEY])}
+            guest={progress.isGuest}
+          />
         </div>
       </div>
 

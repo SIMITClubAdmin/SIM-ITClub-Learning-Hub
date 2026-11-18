@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { unlockSkullTitle } from "@/app/practice/skull/actions";
 import { InlineCode } from "@/components/practice/InlineCode";
-import { addLocalTitle } from "@/lib/skull-titles-store";
-import { findTrial, optimalCount, titleText, trialPrerequisite, type SkullTrial, type TitleId } from "@/lib/skull-trials";
+import { addLocalTitle, useLocalTitles } from "@/lib/skull-titles-store";
+import { findTrial, isTrialUnlocked, optimalCount, titleText, trialPrerequisite, type SkullTrial, type TitleId } from "@/lib/skull-trials";
 import { trialSolved } from "./engine/skull-checks";
 import { JEFF_FOLDER } from "./engine/workspaces";
 import { useStudio } from "./WebContainerProvider";
@@ -41,6 +41,10 @@ export function SkullTrialGuide({
   const [solved, setSolved] = useState<Solved | null>(null);
   const [saved, setSaved] = useState<"idle" | "saved" | "local" | "locked">("idle");
   const unlocked = useRef(false);
+  // Guests can enter every trial, but titles are still earned in order: solving Trial 4 or 5
+  // without the tier before it doesn't award its title.
+  const localTitles = useLocalTitles(owner);
+  const earnsTitle = isTrialUnlocked(trial, [...knownTitles, ...localTitles]);
 
   // Every Git command counts, typed or mistyped; editor saves don't.
   const used = commands.length;
@@ -52,12 +56,12 @@ export function SkullTrialGuide({
 
   // Unlock the title once: in this browser, and on the profile when logged in.
   useEffect(() => {
-    if (!solved || unlocked.current) return;
+    if (!solved || !earnsTitle || unlocked.current) return;
     unlocked.current = true;
     addLocalTitle(owner, trial.reward, knownTitles);
     if (!signedIn) return;
     void unlockSkullTitle(trial.reward).then((r) => setSaved(r.ok ? "saved" : r.reason === "locked" ? "locked" : "local"));
-  }, [solved, owner, signedIn, trial.reward, knownTitles]);
+  }, [solved, earnsTitle, owner, signedIn, trial.reward, knownTitles]);
 
   const prerequisite = trialPrerequisite(trial);
 
@@ -102,18 +106,30 @@ export function SkullTrialGuide({
 
       {solved && (
         <section aria-label="Trial result" className="gs-card flex flex-col gap-4 border-(--git-local) p-6">
-          <p className="gs-heading text-xl font-semibold">
-            Title unlocked: <span className="text-(--accent-text)">[{titleText(trial.reward)}]</span>
-          </p>
-          <p className="text-sm text-(--text-muted)">
-            {signedIn
-              ? saved === "locked"
-                ? `Saved in this browser only: your account doesn't have ${prerequisite ? `Skull Trial ${prerequisite.trial}'s title` : "the tier before"} yet, so this tier can't be added to it.`
-                : saved === "local"
-                ? "Saved in this browser. We couldn't save it to your account just now: it is added when you save your account settings."
-                : "Equip it on your account page. It shows beside your name on the leaderboard while you are in the top 3."
-              : "Saved in this browser. Log in with an account to equip titles on the leaderboard."}
-          </p>
+          {earnsTitle || !prerequisite ? (
+            <>
+              <p className="gs-heading text-xl font-semibold">
+                Title unlocked: <span className="text-(--accent-text)">[{titleText(trial.reward)}]</span>
+              </p>
+              <p className="text-sm text-(--text-muted)">
+                {signedIn
+                  ? saved === "locked"
+                    ? `Saved in this browser only: your account doesn't have ${prerequisite ? `Skull Trial ${prerequisite.trial}'s title` : "the tier before"} yet, so this tier can't be added to it.`
+                    : saved === "local"
+                    ? "Saved in this browser. We couldn't save it to your account just now: it is added when you save your account settings."
+                    : "Equip it on your account page. It shows beside your name on the leaderboard while you are in the top 3."
+                  : "Saved in this browser. Log in with an account to equip titles on the leaderboard."}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="gs-heading text-xl font-semibold">Trial solved</p>
+              <p className="text-sm text-(--text-muted)">
+                Titles are earned in order, so [{titleText(trial.reward)}] needs [{titleText(prerequisite.id)}] first. Solve
+                Skull Trial {prerequisite.trial}, then this one again, to earn it.
+              </p>
+            </>
+          )}
           {solved.used <= best ? (
             <p className="rounded border border-(--git-local) bg-[color-mix(in_srgb,var(--git-local)_12%,var(--bg-surface))] px-4 py-3">
               ⚡ Flawless Execution! You solved this using the most optimal workflow possible.
