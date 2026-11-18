@@ -25,8 +25,9 @@ export type PublicQuestion = { id: string; scenario?: string; question: string; 
 export type Feedback = { chosen: string; correct: boolean; answer: string; explain: string };
 
 export type Round = {
-  mode: "member" | "guest";
-  /** null for guests: nothing is saved. */
+  /** saved: a logged-in account's attempt. guest: guest mode, nothing saved. */
+  mode: "saved" | "guest";
+  /** null in guest mode: nothing is saved. */
   attemptId: number | null;
   attemptNo: number | null;
   questions: PublicQuestion[];
@@ -63,9 +64,9 @@ async function isGuest() {
 /**
  * Starts (or resumes) a quiz.
  * Signed in: resumes an unfinished attempt, or starts the next one (up to MAX_ATTEMPTS).
- * Members get the questions for their group and seat; registered guests (no ITCamp group)
- * get a random set, saved like a member's. Guest mode (not signed in): a random set that
- * is never saved.
+ * Subcomms (and EXCO with a group) get the questions for their group and seat; learners (no
+ * ITCamp group) get a random set, saved the same way. Guest mode (not signed in): a random
+ * set that is never saved.
  */
 export async function startQuiz(slug: string): Promise<StartResult> {
   const quiz = QUIZZES[slug];
@@ -120,7 +121,7 @@ export async function startQuiz(slug: string): Promise<StartResult> {
   if (!current) {
     if (attempts.length >= MAX_ATTEMPTS) return { ok: false, error: "You have used both attempts for this quiz." };
     const attemptNo = attempts.length + 1;
-    // Teammates get different questions by group and seat; a registered guest has no group.
+    // Teammates get different questions by group and seat; a learner has no group.
     const ids =
       learner.group_number && learner.group_seat
         ? drawForMember(quiz.questions, questionsIn(slug), {
@@ -160,13 +161,13 @@ export async function startQuiz(slug: string): Promise<StartResult> {
   const answered: (Feedback | null)[] = questions.map(() => null);
   for (const row of saved ?? []) answered[row.position - 1] = feedbackFor(quiz, row.question_id, row.chosen);
 
-  return { ok: true, round: { mode: "member", attemptId: current.id, attemptNo: current.attempt_no, questions, answered } };
+  return { ok: true, round: { mode: "saved", attemptId: current.id, attemptNo: current.attempt_no, questions, answered } };
 }
 
 /**
- * Grades one answer: a choice, or a typed command for a short-answer question. Members:
+ * Grades one answer: a choice, or a typed command for a short-answer question. Logged in:
  * saved straight away and can't be changed, so refreshing the page never gives a second
- * try. Guests: graded only.
+ * try. Guest mode: graded only.
  */
 export async function answerQuestion(
   slug: string,

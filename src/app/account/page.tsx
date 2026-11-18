@@ -11,7 +11,7 @@ import { boardPosition, cleanTagline, type BoardRow } from "@/lib/leaderboard";
 import { bestScores } from "@/lib/progress";
 import { cleanTitleIds, EQUIPPED_KEY, equippedTitle, TITLES_KEY } from "@/lib/skull-trials";
 import { hasQuiz, MAX_ATTEMPTS, questionsIn, quizLabel } from "@/lib/quiz-meta";
-import { loadLearner, needsGroup } from "@/lib/supabase/learner";
+import { ACCOUNT_TYPE_LABEL, loadLearner, needsGroup } from "@/lib/supabase/learner";
 import { createClient } from "@/lib/supabase/server";
 import { MODULES } from "@/lib/topics";
 
@@ -40,12 +40,13 @@ export default async function AccountPage() {
     supabase.from("quiz_attempts").select("quiz_slug:topic_slug, score, total, finished_at").eq("user_id", user.id),
     supabase.rpc("get_leaderboard"),
   ]);
-  const isAdmin = !!learner?.is_admin;
-  const isGuestAccount = learner?.account_type === "guest";
+  const accountType = learner?.account_type ?? "learner";
+  const isExco = accountType === "exco";
   const finished = (attempts ?? []).filter((a) => a.finished_at);
   const best = bestScores(finished);
   const points = Object.values(best).reduce<number>((sum, n) => sum + (n ?? 0), 0);
-  const onLeaderboard = !isAdmin && !isGuestAccount;
+  // Only subcomms are ranked; learners and EXCO are kept off the leaderboard.
+  const onLeaderboard = accountType === "subcomm";
   const position = board.error ? null : boardPosition((board.data ?? []) as BoardRow[], learner?.display_name, points);
 
   const joined = profile ? new Date(profile.created_at).toLocaleDateString("en-SG", { dateStyle: "long" }) : "";
@@ -55,17 +56,17 @@ export default async function AccountPage() {
       <PageVeil />
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-4xl font-semibold">Your account</h1>
-        {isAdmin && (
+        {isExco && (
           <span className="border border-(--border-accent) bg-(--accent-soft) px-2 py-0.5 font-mono text-xs tracking-wider text-(--accent-text) uppercase">
-            Admin
+            EXCO
           </span>
         )}
       </div>
-      {isAdmin && (
+      {isExco && (
         <p className="-mt-3 text-sm text-dim">
           Every challenge is unlocked for you, and you are kept off the leaderboard.{" "}
           <Link href="/admin/results" className="text-ink underline underline-offset-4">
-            See every member&apos;s results
+            See everyone&apos;s results
           </Link>
           .
         </p>
@@ -76,12 +77,16 @@ export default async function AccountPage() {
           <dd className="break-words">{user.email}</dd>
         </div>
         <div>
+          <dt className="text-sm text-dim">Account type</dt>
+          <dd>{ACCOUNT_TYPE_LABEL[accountType]}</dd>
+        </div>
+        <div>
           <dt className="text-sm text-dim">ITCamp group</dt>
           <dd>
             {learner?.group_number
               ? `Group ${learner.group_number} (member ${learner.group_seat})`
-              : isGuestAccount
-                ? "Guest account (no ITCamp group)"
+              : accountType === "learner"
+                ? "None (learner account)"
                 : "Not set yet"}
           </dd>
         </div>
@@ -110,7 +115,7 @@ export default async function AccountPage() {
         <p className="text-sm text-dim">
           Questions you got right, counting your best attempt of each challenge ({MAX_ATTEMPTS} attempts each).
         </p>
-        <LeaderboardPosition position={position} onLeaderboard={onLeaderboard} isAdmin={isAdmin} />
+        <LeaderboardPosition position={position} onLeaderboard={onLeaderboard} accountType={accountType} />
         {LESSON_QUIZZES.map((lesson) => {
           const got = lesson.slugs.reduce((sum, slug) => sum + (best[slug] ?? 0), 0);
           const outOf = lesson.slugs.reduce((sum, slug) => sum + questionsIn(slug), 0);
@@ -148,7 +153,7 @@ export default async function AccountPage() {
         userId={user.id}
         initialName={learner?.display_name ?? ""}
         initialTagline={cleanTagline(user.user_metadata?.hub_tagline)}
-        // Guests and admins are kept off the leaderboard.
+        // Learners and EXCO are kept off the leaderboard.
         onLeaderboard={onLeaderboard}
         unlockedTitles={cleanTitleIds(user.user_metadata?.[TITLES_KEY])}
         initialTitle={equippedTitle(user.user_metadata?.[EQUIPPED_KEY], user.user_metadata?.[TITLES_KEY])}

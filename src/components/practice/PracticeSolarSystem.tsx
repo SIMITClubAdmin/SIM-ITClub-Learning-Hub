@@ -126,7 +126,7 @@ export function PracticeSolarSystem({
   owner?: string | null;
   /** Skull titles saved on the profile; the ones unlocked in this browser are added. */
   serverTitles?: TitleId[];
-  /** Guests (guest mode, or a registered guest account) can enter every Skull Trial. */
+  /** Guest mode can enter every Skull Trial. */
   guest?: boolean;
 }) {
   const localTitles = useLocalTitles(owner);
@@ -370,7 +370,7 @@ export function PracticeSolarSystem({
               <ol className="mt-3 flex flex-col gap-3">
                 {SKULL_TRIALS.map((trial) => {
                   const solved = solvedTitles.includes(trial.reward);
-                  // For members, Advanced and Expert open one tier at a time.
+                  // With an account, Advanced and Expert open one tier at a time.
                   const locked = guest ? null : lockedReason(trial, solvedTitles);
                   return (
                     <li key={trial.id} className={`border p-4 ${locked ? "border-grid bg-bg/60" : "border-[#ff6b6b]/50 bg-[#ff6b6b]/5"}`}>

@@ -15,14 +15,17 @@ type Props = {
   slug: string;
   title: string;
   lesson: number;
-  mode: "member" | "guest";
-  /** Members: the attempt this button starts or continues (1 or 2). */
+  /** saved: a logged-in account's attempt, saved as they answer. guest: guest mode, nothing saved. */
+  mode: "saved" | "guest";
+  /** Saved attempts: the attempt this button starts or continues (1 or 2). */
   attemptNo?: number;
-  /** Members: an unfinished attempt exists, so the button continues it. */
+  /** Saved attempts: an unfinished attempt exists, so the button continues it. */
   resuming?: boolean;
+  /** Subcomms: their best attempt counts on the leaderboard. Learners and EXCO aren't ranked. */
+  ranked?: boolean;
 };
 
-export function Quiz({ slug, title, lesson, mode, attemptNo = 1, resuming = false }: Props) {
+export function Quiz({ slug, title, lesson, mode, attemptNo = 1, resuming = false, ranked = false }: Props) {
   const router = useRouter();
   const [round, setRound] = useState<Round | null>(null);
   const [index, setIndex] = useState(0);
@@ -106,10 +109,10 @@ export function Quiz({ slug, title, lesson, mode, attemptNo = 1, resuming = fals
       <section className="border border-violet bg-bg p-6 sm:p-10">
         <p className="font-mono text-sm tracking-wider text-accent uppercase">Lesson {lesson} challenge</p>
         <h1 className="mt-2 text-5xl font-semibold">{info ? quizHeading(slug) : `${title} challenge`}</h1>
-        {mode === "member" ? (
+        {mode === "saved" ? (
           <p className="mt-4 max-w-prose text-lg text-dim">
             Attempt {attemptNo} of {MAX_ATTEMPTS}. Each answer is saved as soon as you pick it and can&apos;t be
-            changed. Your best attempt counts on the leaderboard.
+            changed. {ranked ? "Your best attempt counts on the leaderboard." : "Your best attempt is saved to your account."}
           </p>
         ) : (
           <p className="mt-4 max-w-prose text-lg text-dim">
@@ -124,7 +127,7 @@ export function Quiz({ slug, title, lesson, mode, attemptNo = 1, resuming = fals
           </p>
         )}
         <button type="button" onClick={start} disabled={busy} className="cta cta--lg mt-6 disabled:opacity-60">
-          {busy ? "Loading" : resuming ? `Continue attempt ${attemptNo}` : mode === "member" ? `Start attempt ${attemptNo}` : "Start quiz"}
+          {busy ? "Loading" : resuming ? `Continue attempt ${attemptNo}` : mode === "saved" ? `Start attempt ${attemptNo}` : "Start quiz"}
         </button>
       </section>
     );
@@ -144,7 +147,11 @@ export function Quiz({ slug, title, lesson, mode, attemptNo = 1, resuming = fals
           {score === total ? "A perfect landing!" : score >= total * 0.7 ? "Nice flying." : "Have another go."}
         </p>
         <p className="mt-2 font-mono text-sm text-dim" role="status">
-          {round.mode === "member" ? "Saved. Your best attempt counts on the leaderboard." : "Guest mode: this score isn't saved."}
+          {round.mode === "guest"
+            ? "Guest mode: this score isn't saved."
+            : ranked
+              ? "Saved. Your best attempt counts on the leaderboard."
+              : "Saved to your account."}
         </p>
         <ol className="mt-6 flex flex-col gap-2">
           {round.questions.map((question, i) => {
@@ -172,7 +179,7 @@ export function Quiz({ slug, title, lesson, mode, attemptNo = 1, resuming = fals
           })}
         </ol>
         <div className="mt-6 flex flex-wrap items-center gap-4">
-          {round.mode === "member" ? (
+          {round.mode === "saved" ? (
             // The page shows the saved record and, if there is one left, the extra attempt.
             <button type="button" onClick={() => router.refresh()} className="cta">
               See my record

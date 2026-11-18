@@ -146,7 +146,8 @@ export default async function QuizPage(props: PageProps<"/practice/[slug]">) {
           slug={slug}
           title={quiz.title}
           lesson={quiz.lesson}
-          mode="member"
+          mode="saved"
+          ranked={learner?.account_type === "subcomm"}
           attemptNo={open?.attempt_no ?? finished.length + 1}
           resuming={!!open && open.quiz_answers.length > 0}
         />

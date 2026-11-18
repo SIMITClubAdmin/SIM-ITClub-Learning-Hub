@@ -82,7 +82,7 @@ export function AccountForm({ userId, initialName, initialTagline, onLeaderboard
           className="w-full border border-violet bg-bg/85 px-3.5 py-3 text-ink"
         />
         <span className="text-sm text-dim">
-          {onLeaderboard ? "Shown on the leaderboard, which members can see." : "Shown in the header and on your account."}
+          {onLeaderboard ? "Shown on the leaderboard, which anyone logged in can see." : "Shown in the header and on your account."}
         </span>
       </label>
       <label htmlFor="tagline" className="flex flex-col gap-2">

@@ -1,6 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { PASSWORD_RESET_COOKIE } from "@/lib/password-reset";
 import { createClient } from "@/lib/supabase/server";
 import { isTemporaryPassword, PASSWORD_CHANGE_COOKIE } from "@/lib/temporary-password";
 
@@ -10,9 +11,10 @@ const MAX_LENGTH = 72;
 
 /**
  * Sets a new password. Normally the current password is checked first, so someone at an
- * unlocked device can't lock the owner out. A subcomm forced here after logging in with
- * the shared temporary password skips that: the server only sets the cookie once it has
- * seen that password, and everyone knows it anyway.
+ * unlocked device can't lock the owner out. Two cases skip that: a subcomm forced here after
+ * logging in with the shared temporary password (the server only sets that cookie once it has
+ * seen the password, and everyone knows it anyway), and someone who just opened a password
+ * reset link from their email (only /auth/reset sets that cookie, after the link checks out).
  * Returns a message to show, or null once the password is changed.
  */
 export async function changePassword(
@@ -21,13 +23,13 @@ export async function changePassword(
   confirmPassword: string,
 ): Promise<string | null> {
   const cookieStore = await cookies();
-  const forced = cookieStore.has(PASSWORD_CHANGE_COOKIE);
+  const skipCurrent = cookieStore.has(PASSWORD_CHANGE_COOKIE) || cookieStore.has(PASSWORD_RESET_COOKIE);
 
-  if (!forced && !currentPassword) return "Enter your current password.";
+  if (!skipCurrent && !currentPassword) return "Enter your current password.";
   if (newPassword.length < MIN_LENGTH) return `Use at least ${MIN_LENGTH} characters.`;
   if (newPassword.length > MAX_LENGTH) return `Use ${MAX_LENGTH} characters or fewer.`;
   if (newPassword !== confirmPassword) return "The two new passwords do not match.";
-  if (!forced && newPassword === currentPassword) {
+  if (!skipCurrent && newPassword === currentPassword) {
     return "Choose a password that is different from your current one.";
   }
   if (isTemporaryPassword(newPassword)) return "Choose your own password, not the temporary one.";
@@ -38,7 +40,7 @@ export async function changePassword(
   } = await supabase.auth.getUser();
   if (!user?.email) return "Log in again, then change your password.";
 
-  if (!forced) {
+  if (!skipCurrent) {
     const check = await supabase.auth.signInWithPassword({ email: user.email, password: currentPassword });
     if (check.error) return "Your current password is not right.";
   }
@@ -46,7 +48,8 @@ export async function changePassword(
   const { error } = await supabase.auth.updateUser({ password: newPassword });
   if (error) return `We could not change your password: ${error.message}`;
 
-  // They have their own password now, so the rest of the hub opens again.
+  // They have their own password now, so the rest of the hub opens again, and the reset link is used up.
   cookieStore.delete(PASSWORD_CHANGE_COOKIE);
+  cookieStore.delete(PASSWORD_RESET_COOKIE);
   return null;
 }

@@ -7,7 +7,7 @@ export type BestScores = Partial<Record<string, number>>;
 
 export type Progress = {
   isAdmin: boolean;
-  /** Guest mode, or a registered guest account: not ranked, so nothing is locked. */
+  /** Guest mode (no account): nothing is saved, so nothing is locked. */
   isGuest: boolean;
   best: BestScores;
 };
@@ -32,12 +32,15 @@ export function bestScores(attempts: { quiz_slug: string; score: number; total?:
   return best;
 }
 
-/** A signed-in learner's progress from their finished attempts. */
+/**
+ * A signed-in account's progress from their finished attempts. Subcomms and learners unlock
+ * challenges in order; EXCO have everything open.
+ */
 export function progressOf(
-  learner: Pick<Learner, "is_admin" | "account_type"> | null,
+  learner: Pick<Learner, "is_admin"> | null,
   attempts: { quiz_slug: string; score: number; total?: number }[],
 ): Progress {
-  return { isAdmin: !!learner?.is_admin, isGuest: learner?.account_type === "guest", best: bestScores(attempts) };
+  return { isAdmin: !!learner?.is_admin, isGuest: false, best: bestScores(attempts) };
 }
 
 /** Whether every topic in a lesson has a finished attempt. */
@@ -49,7 +52,7 @@ function cleared(module: CourseModule | undefined, best: BestScores) {
  * Applies the member's progress to the locks in topics.ts. A lesson marked opensAfterPrevious
  * opens once every topic in the lesson before it is finished; other locked lessons stay locked,
  * since their content does not exist yet. Inside an open lesson, a topic with a lock opens once
- * the topic before it is finished. Admins and guests see everything unlocked.
+ * the topic before it is finished. EXCO and guest mode see everything unlocked.
  */
 export function withProgress(modules: CourseModule[], { isAdmin, isGuest, best }: Progress): CourseModule[] {
   const allOpen = isAdmin || isGuest;
