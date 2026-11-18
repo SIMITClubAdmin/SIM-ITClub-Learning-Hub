@@ -53,9 +53,6 @@ export function ForgotPasswordForm({ initialError }: { initialError?: string }) 
         Email
         <input id="email" name="email" type="email" required autoComplete="email" className={FIELD} />
       </label>
-      <p className="text-sm text-dim">
-        ITCamp subcomms: this is your SIM IT Club login, so the new password works on the club website too.
-      </p>
       {error && (
         <p role="alert" className="border border-accent bg-bg/85 px-3.5 py-3">
           {error}
