@@ -24,8 +24,8 @@ export default async function PracticePage() {
     data: { user },
   } = await supabase.auth.getUser();
   const guest = !user && (await cookies()).get(GUEST_COOKIE)?.value === "1";
-  // Locks open as a member finishes missions. Admins and guests (guest mode, or a registered
-  // guest account) aren't ranked, so every challenge is open for them.
+  // Subcomms and learners open each challenge by finishing the one before. EXCO and guest
+  // mode (nothing saved) have every challenge open.
   const progress = user ? await loadProgress(supabase, user.id) : { isAdmin: false, isGuest: guest, best: {} };
   const modules = withProgress(MODULES, progress);
   const canUse = !!user || guest;

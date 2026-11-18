@@ -6,9 +6,9 @@ import { useLocalTitles } from "@/lib/skull-titles-store";
 import { cleanTitleIds, findTrial, lockedReason, trialHref, trialPrerequisite, type SkullTrial, type TitleId } from "@/lib/skull-trials";
 
 /**
- * Keeps Skull Trials 4 and 5 shut for members until the tier before them is unlocked, on the
- * profile or in this browser. While locked, the studio never starts, so the trial can't be
- * solved early. Guests can enter every trial.
+ * Keeps Skull Trials 4 and 5 shut for logged-in accounts until the tier before them is
+ * unlocked, on the profile or in this browser. While locked, the studio never starts, so the
+ * trial can't be solved early. Guest mode can enter every trial.
  */
 export function SkullTrialGate({
   trialId,
@@ -20,7 +20,7 @@ export function SkullTrialGate({
   trialId: SkullTrial["id"];
   owner: string | null;
   serverTitles: TitleId[];
-  /** Guest mode, or a registered guest account. */
+  /** Guest mode (no account). */
   guest?: boolean;
   children: ReactNode;
 }) {

@@ -8,7 +8,7 @@
  * questions the group has seen least so far, prefers different topics, and is re-drawn if
  * it matches an earlier set exactly.
  *
- * Guests: a fresh random set each time.
+ * Learners (no ITCamp group) and guest mode: a fresh random set each time.
  */
 import { MAX_ATTEMPTS } from "@/lib/quiz-meta";
 
@@ -142,7 +142,7 @@ export function drawForMember(
   return ids;
 }
 
-/** A random set for a guest. */
+/** A random set, for a learner or guest mode. */
 export function drawForGuest(bank: readonly Drawable[], count: number): string[] {
   return pick(bank, Math.min(count, bank.length), new Map(), Math.random).map((q) => q.id);
 }

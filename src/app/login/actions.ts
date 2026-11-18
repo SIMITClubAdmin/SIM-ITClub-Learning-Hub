@@ -51,7 +51,7 @@ export async function checkPasswordChange(password: string): Promise<string | nu
   return null;
 }
 
-/** Guest mode: read the notes and try quizzes without an account. Nothing is saved. */
+/** Guest mode: read the lessons and try quizzes without an account. Nothing is saved. */
 export async function continueAsGuest(next: string) {
   const cookieStore = await cookies();
   cookieStore.set(GUEST_COOKIE, "1", {
