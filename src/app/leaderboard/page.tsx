@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { AuthForm } from "@/components/auth/AuthForm";
 import { BigLock } from "@/components/auth/BigLock";
 import { LeaderboardPlanet, type LeaderboardEntry } from "@/components/leaderboard/LeaderboardPlanet";
-import { cleanTagline, sortBoard, type BoardRow } from "@/lib/leaderboard";
+import { cleanTagline, rankedRows, sortBoard, type BoardRow } from "@/lib/leaderboard";
 import { EQUIPPED_KEY, equippedTitle, titleText, TITLES_KEY } from "@/lib/skull-trials";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -51,7 +51,8 @@ export default async function LeaderboardPage({ searchParams }: PageProps<"/lead
     demo !== undefined ? { data: null } : await supabase.rpc("get_leaderboard");
   let entries: LeaderboardEntry[] = DEMO;
   if (demo === undefined) {
-    const rows = sortBoard((data ?? []) as BoardRow[]);
+    // The testing group (group 8) is left out.
+    const rows = sortBoard(rankedRows(data as BoardRow[] | null));
     // Only the top 3 show a tagline and a Skull title: an incentive to climb.
     const extras = await topExtras(rows.slice(0, 3).map((r) => r.display_name));
     entries = rows.map((row, i) => ({

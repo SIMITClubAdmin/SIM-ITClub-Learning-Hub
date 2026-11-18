@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { formatDateTime } from "@/lib/format";
+import { isTestGroup } from "@/lib/groups";
 import { QUIZ_INFO, quizLabel } from "@/lib/quiz-meta";
 import { ACCOUNT_TYPE_LABEL, accountTypeFrom, type AccountType } from "@/lib/supabase/learner";
 import { createClient } from "@/lib/supabase/server";
@@ -81,7 +82,7 @@ export default async function ResultsPage() {
       <h1 className="text-4xl font-semibold">Results</h1>
       <p className="mt-2 text-dim">
         Correct answers in each person&apos;s best attempt per quiz (attempts used in brackets). Anyone who hasn&apos;t started a quiz
-        doesn&apos;t appear yet. Club logins (subcomms and EXCO) show as Subcomm.
+        doesn&apos;t appear yet. Club logins (subcomms and EXCO) show as Subcomm. Group 8 is the testing group.
       </p>
       <div className="mt-6 overflow-x-auto border border-violet bg-bg/90">
         <table className="w-full text-left text-sm">
@@ -108,7 +109,10 @@ export default async function ResultsPage() {
                 .at(-1);
               return (
                 <tr key={`${m.group}:${m.seat}:${m.name}`} className="border-b border-grid">
-                  <td className="p-3 font-mono">{m.group ? `${m.group}.${m.seat}` : "-"}</td>
+                  <td className="p-3 font-mono">
+                    {m.group ? `${m.group}.${m.seat}` : "-"}
+                    {isTestGroup(m.group) && <span className="ml-1.5 text-xs text-dim">(testing)</span>}
+                  </td>
                   <td className="p-3">{m.name}</td>
                   <td className="p-3 text-dim">{ACCOUNT_TYPE_LABEL[m.type]}</td>
                   {quizzes.map(([slug]) => {
