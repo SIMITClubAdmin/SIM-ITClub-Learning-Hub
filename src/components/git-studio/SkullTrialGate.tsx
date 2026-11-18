@@ -6,23 +6,27 @@ import { useLocalTitles } from "@/lib/skull-titles-store";
 import { cleanTitleIds, findTrial, lockedReason, trialHref, trialPrerequisite, type SkullTrial, type TitleId } from "@/lib/skull-trials";
 
 /**
- * Keeps Skull Trials 4 and 5 shut until the tier before them is unlocked, on the profile or in
- * this browser. While locked, the studio never starts, so the trial can't be solved early.
+ * Keeps Skull Trials 4 and 5 shut for members until the tier before them is unlocked, on the
+ * profile or in this browser. While locked, the studio never starts, so the trial can't be
+ * solved early. Guests can enter every trial.
  */
 export function SkullTrialGate({
   trialId,
   owner,
   serverTitles,
+  guest = false,
   children,
 }: {
   trialId: SkullTrial["id"];
   owner: string | null;
   serverTitles: TitleId[];
+  /** Guest mode, or a registered guest account. */
+  guest?: boolean;
   children: ReactNode;
 }) {
   const trial = findTrial(trialId)!;
   const local = useLocalTitles(owner);
-  const reason = lockedReason(trial, cleanTitleIds([...serverTitles, ...local]));
+  const reason = guest ? null : lockedReason(trial, cleanTitleIds([...serverTitles, ...local]));
   if (!reason) return <>{children}</>;
   const needs = trialPrerequisite(trial)!;
   return (

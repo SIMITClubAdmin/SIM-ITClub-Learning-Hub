@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { SkullTrialGate } from "@/components/git-studio/SkullTrialGate";
 import { SkullTrialShell } from "@/components/git-studio/SkullTrialShell";
 import { StudioLoader } from "@/components/git-studio/StudioLoader";
+import { GUEST_COOKIE } from "@/lib/guest";
 import { cleanTitleIds, findTrial, titleText, TITLES_KEY } from "@/lib/skull-trials";
+import { loadLearner } from "@/lib/supabase/learner";
 import { createClient } from "@/lib/supabase/server";
 
 // Knows who is solving it (for saving the title), so this page renders per request.
@@ -37,6 +40,10 @@ export default async function SkullTrialPage({ params }: Props) {
     data: { user },
   } = await supabase.auth.getUser();
   const titles = cleanTitleIds(user?.user_metadata?.[TITLES_KEY]);
+  // Guests (guest mode, or a registered guest account) can enter every trial.
+  const guest = user
+    ? (await loadLearner(supabase))?.account_type === "guest"
+    : (await cookies()).get(GUEST_COOKIE)?.value === "1";
 
   return (
     <SkullTrialShell>
@@ -57,8 +64,8 @@ export default async function SkullTrialPage({ params }: Props) {
           <span className="text-(--accent-text)">[{titleText(trial.reward)}]</span> · No hints, no cheatsheet: any valid Git commands work.
         </p>
       </header>
-      {/* Trials 4 and 5 stay locked until the tier before them is unlocked. */}
-      <SkullTrialGate trialId={trial.id} owner={user?.id ?? null} serverTitles={titles}>
+      {/* For members, Trials 4 and 5 stay locked until the tier before them is unlocked. */}
+      <SkullTrialGate trialId={trial.id} owner={user?.id ?? null} serverTitles={titles} guest={guest}>
         <StudioLoader kind={`skull${trial.id}`} owner={user?.id ?? null} signedIn={!!user} knownTitles={titles} />
       </SkullTrialGate>
     </SkullTrialShell>

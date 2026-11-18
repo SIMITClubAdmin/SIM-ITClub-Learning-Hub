@@ -1,7 +1,7 @@
-import { bestScores, type Progress } from "@/lib/progress";
+import { progressOf, type Progress } from "@/lib/progress";
 import { loadLearner, type HubClient } from "@/lib/supabase/learner";
 
-/** The learner's admin flag and best finished score per quiz. Works with the server or browser client. */
+/** The learner's admin and guest flags and best finished score per quiz. Works with the server or browser client. */
 export async function loadProgress(supabase: HubClient, userId: string): Promise<Progress> {
   const [learner, { data: attempts }] = await Promise.all([
     loadLearner(supabase),
@@ -11,5 +11,5 @@ export async function loadProgress(supabase: HubClient, userId: string): Promise
       .eq("user_id", userId)
       .not("finished_at", "is", null),
   ]);
-  return { isAdmin: !!learner?.is_admin, best: bestScores(attempts ?? []) };
+  return progressOf(learner, attempts ?? []);
 }

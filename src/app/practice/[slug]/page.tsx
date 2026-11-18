@@ -11,7 +11,7 @@ import { Quiz } from "@/components/practice/Quiz";
 import { formatDateTime } from "@/lib/format";
 import { gitCheatsheetTab } from "@/lib/git-cheatsheet";
 import { GUEST_COOKIE } from "@/lib/guest";
-import { bestScores, withProgress } from "@/lib/progress";
+import { progressOf, withProgress } from "@/lib/progress";
 import { MAX_ATTEMPTS, quizHeading } from "@/lib/quiz-meta";
 import { answerFor, findQuestion, QUIZZES } from "@/lib/quizzes";
 import { loadLearner, needsGroup } from "@/lib/supabase/learner";
@@ -103,7 +103,7 @@ export default async function QuizPage(props: PageProps<"/practice/[slug]">) {
       .order("attempt_no"),
     supabase.from("quiz_attempts").select("quiz_slug:topic_slug, score, total").eq("user_id", user.id).not("finished_at", "is", null),
   ]);
-  const progress = { isAdmin: !!learner?.is_admin, best: bestScores(allAttempts ?? []) };
+  const progress = progressOf(learner, allAttempts ?? []);
   const lockedReason = withProgress(MODULES, progress)
     .flatMap((m) => m.topics)
     .find((t) => t.slug === slug)?.lockedReason;
