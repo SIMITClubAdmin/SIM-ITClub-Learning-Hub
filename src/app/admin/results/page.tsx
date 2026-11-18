@@ -82,7 +82,11 @@ export default async function ResultsPage() {
       <h1 className="text-4xl font-semibold">Results</h1>
       <p className="mt-2 text-dim">
         Correct answers in each person&apos;s best attempt per quiz (attempts used in brackets). Anyone who hasn&apos;t started a quiz
-        doesn&apos;t appear yet. Club logins (subcomms and EXCO) show as Subcomm. Group 8 is the testing group.
+        doesn&apos;t appear yet. Club logins (subcomms and EXCO) show as Subcomm. Group 8 is the testing group.{" "}
+        <Link href="/admin/progress" className="text-ink underline underline-offset-4">
+          Open the progress dashboard
+        </Link>
+        .
       </p>
       <div className="mt-6 overflow-x-auto border border-violet bg-bg/90">
         <table className="w-full text-left text-sm">

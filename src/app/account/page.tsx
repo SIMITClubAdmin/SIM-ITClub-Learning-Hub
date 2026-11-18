@@ -7,6 +7,7 @@ import { GroupPicker } from "@/components/account/GroupPicker";
 import { LeaderboardPosition } from "@/components/account/LeaderboardPosition";
 import { AppearanceSettings } from "@/components/appearance/AppearanceSettings";
 import { AccountForm } from "@/components/auth/AccountForm";
+import { ACTIVITIES } from "@/lib/activities";
 import { groupLabel, isTestGroup } from "@/lib/groups";
 import { boardPosition, cleanTagline, rankedRows, type BoardRow } from "@/lib/leaderboard";
 import { bestScores } from "@/lib/progress";
@@ -36,11 +37,14 @@ export default async function AccountPage() {
 
   // The learner row is made on their first visit, so load it before reading when they joined.
   const learner = await loadLearner(supabase);
-  const [{ data: profile }, { data: attempts }, board] = await Promise.all([
+  const [{ data: profile }, { data: attempts }, board, activitySteps] = await Promise.all([
     supabase.from("learners").select("created_at").eq("user_id", user.id).maybeSingle(),
     supabase.from("quiz_attempts").select("quiz_slug:topic_slug, score, total, finished_at").eq("user_id", user.id),
     supabase.rpc("get_leaderboard"),
+    supabase.from("activity_steps").select("activity, step").eq("user_id", user.id),
   ]);
+  // Null until the club database has activity_steps: the section then stays hidden.
+  const stepsDone = activitySteps.error ? null : (activitySteps.data ?? []);
   const accountType = learner?.account_type ?? "learner";
   const isExco = accountType === "exco";
   const finished = (attempts ?? []).filter((a) => a.finished_at);
@@ -67,8 +71,8 @@ export default async function AccountPage() {
       {isExco && (
         <p className="-mt-3 text-sm text-dim">
           Every challenge is unlocked for you, and you are kept off the leaderboard.{" "}
-          <Link href="/admin/results" className="text-ink underline underline-offset-4">
-            See everyone&apos;s results
+          <Link href="/admin/progress" className="text-ink underline underline-offset-4">
+            Open the progress dashboard
           </Link>
           .
         </p>
@@ -150,6 +154,42 @@ export default async function AccountPage() {
           );
         })}
       </section>
+
+      {stepsDone && (
+        <section aria-labelledby="activities-heading" className="flex flex-col gap-3 border border-violet bg-bg/85 p-5">
+          <h2 id="activities-heading" className="text-xl font-semibold">
+            Git activities
+          </h2>
+          <p className="text-sm text-dim">Steps you&apos;ve finished in the Git Studio, saved as you go.</p>
+          <ul className="flex flex-col gap-3">
+            {ACTIVITIES.map((activity) => {
+              const done = stepsDone.filter((s) => s.activity === activity.id).length;
+              return (
+                <li key={activity.id} className="flex flex-col gap-1.5">
+                  <div className="flex justify-between gap-3">
+                    <Link href={activity.href} className="underline underline-offset-4">
+                      {activity.title} · {activity.name}
+                    </Link>
+                    <span className="shrink-0 font-mono text-sm text-dim">
+                      {done === activity.steps ? "done" : `${done} / ${activity.steps} ${activity.unit}`}
+                    </span>
+                  </div>
+                  <div
+                    role="progressbar"
+                    aria-label={`${activity.title} progress`}
+                    aria-valuemin={0}
+                    aria-valuemax={activity.steps}
+                    aria-valuenow={done}
+                    className="h-1.5 overflow-hidden rounded-full bg-grid"
+                  >
+                    <div className="h-full rounded-full bg-(--accent-primary)" style={{ width: `${(done / activity.steps) * 100}%` }} />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       <AccountForm
         userId={user.id}

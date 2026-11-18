@@ -4,6 +4,7 @@ import { Check, ChevronDown, Lock, RotateCcw } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { buildGate, GateContext, GatedCmd, normCmd, type StepCmd } from "./activity-gate";
 import { activity1Intro, hasJeffPush, JEFF_FOLDER, JEFF_REPO_URL, rememberActivity1Intro, withJeffPush } from "./engine/workspaces";
+import { useRecordSteps } from "./useRecordSteps";
 import { gitEngine, useStudio, type CommandEvent } from "./WebContainerProvider";
 
 type Step = { label: ReactNode; hint?: ReactNode; cmds?: StepCmd[]; done: boolean };
@@ -261,6 +262,8 @@ export function Activity1Guide({ children }: { children: ReactNode }) {
     { label: <>Save your changes with <code className="gs-pill">git commit -m &quot;Initial commit&quot;</code></>, cmds: ['git commit -m "Initial commit"'], done: committed },
     { label: <>View the commit history using <code className="gs-pill">git log</code></>, cmds: ["git log"], done: ran(commands, "log", (c) => c.root === "my-project" && c.at > commitAt) },
   ];
+  // Saved to the account, so mentors see progress and it outlasts a reload.
+  useRecordSteps("git-activity-1", steps.map((s) => s.done));
   return (
     <GateContext.Provider value={buildGate(steps)}>
       <ProgressiveChecklist
@@ -318,6 +321,7 @@ export function Activity2Guide({ children }: { children: ReactNode }) {
     },
     { label: <>Check branches again using <code className="gs-pill">git branch</code> to confirm you are now on main.</>, cmds: ["git branch"], done: listedSince(returnedAt) },
   ];
+  useRecordSteps("git-activity-2", steps.map((s) => s.done));
   return (
     <GateContext.Provider value={buildGate(steps)}>
       <ProgressiveChecklist
@@ -466,6 +470,8 @@ export function GameGuide({ level, setLevel }: { level: number; setLevel: (n: nu
   const info = GAME_LEVELS[level - 1];
   const done = gameLevelDone(level, studio);
   const jeffPushed = useJeffPush(level === 4);
+  // Each level is a step of Activity 3.
+  useRecordSteps("git-activity-3", GAME_LEVELS.map((_, i) => done && i === level - 1));
   return (
     <section aria-label="Branching game" className="gs-card mb-5 p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">

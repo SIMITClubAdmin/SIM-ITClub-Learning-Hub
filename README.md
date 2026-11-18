@@ -30,7 +30,11 @@ Contact: it@mymail.sim.edu.sg
 3. **Groups**: 8, set in `src/lib/groups.ts`. Groups 1–7 are the cohort's ITCamp groups; group 8
    (`TEST_GROUP`) is for testing. Test subcomm accounts pick it, and it's kept off the leaderboard.
 4. **EXCO**: club EXCO and above (offices are managed on the club website). They see every
-   topic unlocked, are kept off the leaderboard, and can open `/admin/results`.
+   topic unlocked, are kept off the leaderboard, and can open the progress dashboard
+   (`/admin/progress`) and the per-challenge results (`/admin/results`). The dashboard needs the
+   club migration `20261119000000_learning_hub_activities_and_mentors` applied first
+   (`npm run db:push` in the club website's repo). Preview it with made-up members at
+   `/admin/progress?demo` in development.
 5. **Password reset**: in the club project's Authentication → URL Configuration → Redirect
    URLs, allow `https://<hub domain>/auth/reset` (and `http://localhost:3000/auth/reset` for
    local development). Without it, reset links go to the Site URL (the club website).
@@ -65,5 +69,18 @@ The club database calls a club login `member` and a hub-only login `guest`
 - **2 attempts per quiz** (1 + 1 extra). Each answer is saved the moment it's picked and can't
   be changed. The best finished attempt is their score; points = correct answers in each
   quiz's best attempt, added up over every quiz. The quiz page shows every answer with its time.
+- **Git activities are saved as you go.** Each step of Activities 1 and 2 and each level of
+  Activity 3 (`src/lib/activities.ts`) is saved to the account the first time it's done
+  (`learning_hub.activity_steps`), and the account page shows them. Guest mode saves nothing.
+- **Progress dashboard** (`/admin/progress`, EXCO only):
+  - **My groups**: the groups they mentor.
+  - **All subcomms**: everyone, except the testing group (8).
+  - It shows donut rings for the headline numbers, a donut wheel per group (finished, in
+    progress, not started), daily progress over 30 days, where members stop in each activity, a
+    challenge heatmap, and a sortable members table whose rows open to every challenge and step.
+  - Every chart has a "Show as table" view.
+  - **Change group** lets an EXCO member choose the group they mentor. It's saved in the club's
+    mentorship records, audited, and shows on the club website's Roles & access page. They're
+    lead if the group has none, otherwise co-mentor.
 - **Guest mode** ("Continue as a guest" on the login page) needs no account: read the lessons and
   try any quiz, but nothing is saved. The lessons (`/learn`) and quizzes need a login or guest mode.
