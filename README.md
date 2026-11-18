@@ -64,5 +64,5 @@ The club database calls a club login `member` and a hub-only login `guest`
 - **2 attempts per quiz** (1 + 1 extra). Each answer is saved the moment it's picked and can't
   be changed. The best finished attempt is their score; points = correct answers in each
   quiz's best attempt, added up over every quiz. The quiz page shows every answer with its time.
-- **Guest mode** ("Continue as a guest" on the login page) needs no account: read the notes and
-  try any quiz, but nothing is saved. The notes (`/learn`) and quizzes need a login or guest mode.
+- **Guest mode** ("Continue as a guest" on the login page) needs no account: read the lessons and
+  try any quiz, but nothing is saved. The lessons (`/learn`) and quizzes need a login or guest mode.

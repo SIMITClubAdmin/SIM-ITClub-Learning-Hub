@@ -4,7 +4,7 @@ import { GUEST_COOKIE } from "@/lib/guest";
 import { PASSWORD_CHANGE_COOKIE, PASSWORD_CHANGE_PATH } from "@/lib/temporary-password";
 
 /**
- * Pages that need a login or guest mode: the notes (Learn) and the quizzes. /practice
+ * Pages that need a login or guest mode: the lessons (Learn) and the quizzes. /practice
  * itself shows its own locked login card, so only the quiz pages under it redirect.
  */
 function needsSignIn(pathname: string) {

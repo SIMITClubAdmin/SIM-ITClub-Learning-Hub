@@ -37,7 +37,7 @@ export function AuthForm({ mode, initialError, next = "/", allowGuest = false }:
     setBusy(true);
     const supabase = createClient();
 
-    // Registering makes a learner account: the hub's notes and challenges, nothing on the club
+    // Registering makes a learner account: the hub's lessons and challenges, nothing on the club
     // site. ITCamp subcomms already have a club login and log in with it instead.
     if (isRegister) {
       // Display names are unique (ignoring case), so check before creating the account.
@@ -103,7 +103,7 @@ export function AuthForm({ mode, initialError, next = "/", allowGuest = false }:
       <h1 className="text-4xl font-semibold">{isRegister ? "Create your account" : "Log in"}</h1>
       {isRegister && (
         <p className="-mt-2 text-dim">
-          A free learner account to read the notes and save your challenge scores. ITCamp subcomms: you already have one, so{" "}
+          A free learner account to read the lessons and save your challenge scores. ITCamp subcomms: you already have one, so{" "}
           <Link href="/login" className="text-ink underline underline-offset-4">
             log in with your club account
           </Link>{" "}
@@ -167,9 +167,9 @@ export function AuthForm({ mode, initialError, next = "/", allowGuest = false }:
       </p>
     </form>
     {allowGuest && !isRegister && (
-      // Not a subcomm? Guests can read the notes and try quizzes; nothing is saved.
+      // Not a subcomm? Guests can read the lessons and try quizzes; nothing is saved.
       <form action={continueAsGuest.bind(null, next)} className="mt-8 flex flex-col gap-3 border-t border-violet/50 pt-6">
-        <p className="text-dim">Not an ITCamp subcomm? Read the notes and try the quizzes as a guest. Nothing is saved.</p>
+        <p className="text-dim">Not an ITCamp subcomm? Read the lessons and try the quizzes as a guest. Nothing is saved.</p>
         <button type="submit" className="cta self-start">
           Continue as a guest
         </button>
