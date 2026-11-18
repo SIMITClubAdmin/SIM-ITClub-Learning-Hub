@@ -30,11 +30,14 @@ Contact: it@mymail.sim.edu.sg
 3. **Groups**: 8, set in `src/lib/groups.ts`. Groups 1–7 are the cohort's ITCamp groups; group 8
    (`TEST_GROUP`) is for testing. Test subcomm accounts pick it, and it's kept off the leaderboard.
 4. **EXCO**: club EXCO and above (offices are managed on the club website). They see every
-   topic unlocked, are kept off the leaderboard, and can open the progress dashboard
-   (`/admin/progress`) and the per-challenge results (`/admin/results`). The dashboard needs the
-   club migration `20261119000000_learning_hub_activities_and_mentors` applied first
-   (`npm run db:push` in the club website's repo). Preview it with made-up members at
-   `/admin/progress?demo` in development.
+   topic unlocked, are kept off the leaderboard, and get a **Dashboard** tab in the navbar
+   (`/admin/progress`, also at `/dashboard`) plus the per-challenge results (`/admin/results`).
+   EXCO mentor a group rather than belong to one: their ITCamp group on the hub is the group
+   they mentor (the club database moves them whenever it changes), and they're never asked to
+   pick one. This needs the club migrations `20261119000000_learning_hub_activities_and_mentors`
+   and `20261119010000_learning_hub_exco_group_follows_mentorship` (`npm run db:push` in the club
+   website's repo). Preview the dashboard with made-up members at `/admin/progress?demo` in
+   development.
 5. **Password reset**: in the club project's Authentication → URL Configuration → Redirect
    URLs, allow `https://<hub domain>/auth/reset` (and `http://localhost:3000/auth/reset` for
    local development). Without it, reset links go to the Site URL (the club website).

@@ -10,6 +10,7 @@ import { AccountForm } from "@/components/auth/AccountForm";
 import { ACTIVITIES } from "@/lib/activities";
 import { groupLabel, isTestGroup } from "@/lib/groups";
 import { boardPosition, cleanTagline, rankedRows, type BoardRow } from "@/lib/leaderboard";
+import type { MentorGroup } from "@/lib/progress-dashboard";
 import { bestScores } from "@/lib/progress";
 import { cleanTitleIds, EQUIPPED_KEY, equippedTitle, TITLES_KEY } from "@/lib/skull-trials";
 import { hasQuiz, MAX_ATTEMPTS, questionsIn, quizLabel } from "@/lib/quiz-meta";
@@ -37,16 +38,19 @@ export default async function AccountPage() {
 
   // The learner row is made on their first visit, so load it before reading when they joined.
   const learner = await loadLearner(supabase);
-  const [{ data: profile }, { data: attempts }, board, activitySteps] = await Promise.all([
+  const accountType = learner?.account_type ?? "learner";
+  const isExco = accountType === "exco";
+  const [{ data: profile }, { data: attempts }, board, activitySteps, mentorGroups] = await Promise.all([
     supabase.from("learners").select("created_at").eq("user_id", user.id).maybeSingle(),
     supabase.from("quiz_attempts").select("quiz_slug:topic_slug, score, total, finished_at").eq("user_id", user.id),
     supabase.rpc("get_leaderboard"),
     supabase.from("activity_steps").select("activity, step").eq("user_id", user.id),
+    // EXCO: the groups they mentor (get_mentor_groups refuses everyone else).
+    isExco ? supabase.rpc("get_mentor_groups") : Promise.resolve({ data: [] }),
   ]);
   // Null until the club database has activity_steps: the section then stays hidden.
   const stepsDone = activitySteps.error ? null : (activitySteps.data ?? []);
-  const accountType = learner?.account_type ?? "learner";
-  const isExco = accountType === "exco";
+  const mentoring = ((mentorGroups.data ?? []) as MentorGroup[]).filter((g) => g.mine);
   const finished = (attempts ?? []).filter((a) => a.finished_at);
   const best = bestScores(finished);
   const points = Object.values(best).reduce<number>((sum, n) => sum + (n ?? 0), 0);
@@ -88,13 +92,26 @@ export default async function AccountPage() {
         </div>
         <div>
           <dt className="text-sm text-dim">ITCamp group</dt>
-          <dd>
-            {learner?.group_number
-              ? `${groupLabel(learner.group_number)} (member ${learner.group_seat})`
-              : accountType === "learner"
-                ? "None (learner account)"
-                : "Not set yet"}
-          </dd>
+          {isExco ? (
+            // EXCO mentor a group rather than belong to one; the hub puts them in it.
+            <dd>
+              {mentoring.length
+                ? mentoring.map((g) => `${groupLabel(g.group_number)} (${g.i_am_lead ? "lead mentor" : "co-mentor"})`).join(", ")
+                : "Not mentoring a group yet"}{" "}
+              ·{" "}
+              <Link href="/admin/progress" className="text-ink underline underline-offset-4">
+                {mentoring.length ? "Change" : "Choose one"}
+              </Link>
+            </dd>
+          ) : (
+            <dd>
+              {learner?.group_number
+                ? `${groupLabel(learner.group_number)} (member ${learner.group_seat})`
+                : accountType === "learner"
+                  ? "None (learner account)"
+                  : "Not set yet"}
+            </dd>
+          )}
         </div>
         <div>
           <dt className="text-sm text-dim">Joined</dt>
