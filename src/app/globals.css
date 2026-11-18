@@ -946,3 +946,42 @@ html.cc-caret .cc-frame i {
     display: none;
   }
 }
+
+/* ---------- EXCO progress dashboard (/admin/progress) ----------
+   Magnitude uses one hue: the palette's accent, stepped from the card surface (seq-1, faint)
+   to the full accent (seq-5). "Not started" is a neutral with a hatch, never colour alone.
+   The time graph's two series are fixed hues checked with the dataviz validator against
+   every palette's surface: the dark steps for the dark palettes, the light steps for
+   Purple & White. Text never wears these colours; it stays in the text tokens. */
+.pd-root {
+  --pd-seq-1: color-mix(in srgb, var(--accent-primary) 22%, var(--bg-surface));
+  --pd-seq-2: color-mix(in srgb, var(--accent-primary) 40%, var(--bg-surface));
+  --pd-seq-3: color-mix(in srgb, var(--accent-primary) 58%, var(--bg-surface));
+  --pd-seq-4: color-mix(in srgb, var(--accent-primary) 78%, var(--bg-surface));
+  --pd-seq-5: var(--accent-primary);
+  --pd-track: color-mix(in srgb, var(--text-muted) 16%, var(--bg-surface));
+  --pd-none: color-mix(in srgb, var(--text-muted) 30%, var(--bg-surface));
+  --pd-hatch: color-mix(in srgb, var(--text-muted) 55%, transparent);
+  --pd-grid: color-mix(in srgb, var(--text-muted) 18%, transparent);
+  --pd-series-1: #3987e5;
+  --pd-series-2: #d95926;
+  --pd-surface: var(--bg-surface);
+}
+html[data-palette="purple-light"] .pd-root {
+  --pd-series-1: #2a78d6;
+  --pd-series-2: #eb6834;
+}
+.pd-hatch {
+  background-image: repeating-linear-gradient(135deg, var(--pd-hatch) 0 1.5px, transparent 1.5px 5px);
+  background-color: var(--pd-none);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pd-anim {
+    transition:
+      stroke-dasharray 500ms ease,
+      width 400ms ease,
+      height 400ms ease,
+      y 400ms ease,
+      opacity 200ms ease;
+  }
+}

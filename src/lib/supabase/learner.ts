@@ -52,7 +52,11 @@ export async function loadLearner(supabase: HubClient): Promise<Learner | null> 
   return row ? { ...row, account_type: accountTypeFrom(row.account_type, row.is_admin) } : null;
 }
 
-/** Learners have no ITCamp group; club accounts (subcomms and EXCO) need one before their questions can be drawn. */
+/**
+ * Subcomms need an ITCamp group before their questions can be drawn. Learners have none, and
+ * EXCO sit in the group they mentor (the club database moves them there), so neither is asked
+ * to pick one; without a group their questions are drawn like a learner's.
+ */
 export function needsGroup(learner: Learner | null) {
-  return !!learner && learner.account_type !== "learner" && !learner.group_number;
+  return !!learner && learner.account_type === "subcomm" && !learner.group_number;
 }

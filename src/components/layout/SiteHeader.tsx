@@ -9,8 +9,9 @@ import { UserMenu } from "./UserMenu";
 
 export function SiteHeader() {
   const pathname = usePathname();
-  // The leaderboard is for registered members only, so guests don't get the link.
-  const { loggedIn } = useSession();
+  // The leaderboard is for registered members only, so guests don't get the link; the
+  // progress dashboard is for EXCO only.
+  const { loggedIn, exco } = useSession();
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   // Plain links: each one goes straight to its page.
@@ -18,6 +19,7 @@ export function SiteHeader() {
     { href: "/learn", label: "Learn", show: true },
     { href: "/practice", label: "Challenge", show: true },
     { href: "/leaderboard", label: "Leaderboard", show: loggedIn },
+    { href: "/admin/progress", label: "Dashboard", show: exco },
   ];
 
   return (
