@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { setMyGroup } from "@/app/practice/actions";
-import { GROUP_NUMBERS } from "@/lib/groups";
+import { GROUP_NUMBERS, groupLabel } from "@/lib/groups";
 
 /** For members who registered before groups existed. The group can only be set once. */
 export function GroupPicker() {
@@ -33,7 +33,7 @@ export function GroupPicker() {
           </option>
           {GROUP_NUMBERS.map((n) => (
             <option key={n} value={n}>
-              Group {n}
+              {groupLabel(n)}
             </option>
           ))}
         </select>
